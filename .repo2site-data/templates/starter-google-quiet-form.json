@@ -1,0 +1,342 @@
+{
+  "id": "system-google-quiet-form",
+  "slug": "starter-google-quiet-form",
+  "schemaVersion": 1,
+  "status": "published",
+  "isSystem": true,
+  "isRecommended": true,
+  "title": "Quiet Form",
+  "description": "A restrained structured starter generated from broad public engineering repositories, ideal for minimal and text-first developer portfolios.",
+  "category": "minimal-developer",
+  "tags": [
+    "starter",
+    "minimal",
+    "structured",
+    "developer"
+  ],
+  "previewImageUrl": "https://google.github.io/zx/img/logo.svg",
+  "sourceLabel": "Inspired by real-world repositories from Google’s open-source ecosystem",
+  "author": {
+    "provider": "anonymous",
+    "id": "repo2site-system",
+    "displayName": "Repo2Site Starter Templates",
+    "username": "",
+    "profileUrl": "",
+    "avatarUrl": ""
+  },
+  "preset": {
+    "appearance": {
+      "themeId": "signal-violet",
+      "colorMode": "light",
+      "density": "spacious",
+      "sectionLayout": "split",
+      "cardStyle": "elevated"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "about",
+        "projects",
+        "professional",
+        "contact",
+        "links"
+      ],
+      "hiddenSections": []
+    }
+  },
+  "previewSnapshot": {
+    "theme": {
+      "id": "signal-violet",
+      "name": "Signal Violet",
+      "reason": "High-contrast and expressive for community-forward personal brands.",
+      "palette": {
+        "page": "#f7f5ff",
+        "pageAccent": "rgba(139, 92, 246, 0.16)",
+        "surface": "rgba(255,255,255,0.9)",
+        "surfaceStrong": "#ffffff",
+        "border": "rgba(196, 181, 253, 0.35)",
+        "text": "#1f1637",
+        "muted": "#5b4b7a",
+        "accent": "#7c3aed",
+        "accentSoft": "rgba(124, 58, 237, 0.1)",
+        "chip": "#ece6ff"
+      }
+    },
+    "appearance": {
+      "themeId": "signal-violet",
+      "colorMode": "light",
+      "density": "spacious",
+      "sectionLayout": "split",
+      "cardStyle": "elevated"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "about",
+        "projects",
+        "professional",
+        "contact",
+        "links"
+      ],
+      "hiddenSections": []
+    },
+    "profile": {
+      "username": "google",
+      "url": "https://github.com/google",
+      "name": "Google",
+      "bio": "Google ❤️ Open Source",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/1342004?v=4",
+      "location": "United States of America",
+      "company": "",
+      "blog": "https://opensource.google/",
+      "followers": 70083,
+      "following": 0,
+      "publicRepos": 2849
+    },
+    "summary": "Google ❤️ Open Source The portfolio draft reflects focused most often on C++, Python, Java, and Go and based in United States of America, with selected work such as gemma.cpp, langextract, and latexify_py.",
+    "hero": {
+      "name": "Google",
+      "imageUrl": "https://avatars.githubusercontent.com/u/1342004?v=4",
+      "headline": {
+        "value": "Google ❤️ Open Source",
+        "source": "github"
+      },
+      "subheadline": {
+        "value": "Built from 6 featured repositories drawn from recent public GitHub work with a focus on C++, Python, and Java. This draft starts from real code, repository context, and README signals instead of placeholder portfolio copy.",
+        "source": "github"
+      },
+      "ctaLabel": "View GitHub Profile",
+      "profileLink": "https://github.com/google"
+    },
+    "about": {
+      "title": {
+        "value": "About Me",
+        "source": "github"
+      },
+      "description": {
+        "value": "Google ❤️ Open Source Based in United States of America. Selected repositories and README content are being used to shape the project story and technical focus.",
+        "source": "github"
+      }
+    },
+    "contact": {
+      "title": {
+        "value": "Contact",
+        "source": "github"
+      },
+      "description": {
+        "value": "Share the clearest way to connect for roles, freelance work, collaborations, or portfolio conversations.",
+        "source": "github"
+      },
+      "customText": "",
+      "email": "",
+      "emailHref": "",
+      "phone": "",
+      "phoneHref": ""
+    },
+    "professional": {
+      "title": "Career / Professional Info",
+      "summary": "",
+      "company": "",
+      "location": "",
+      "availability": "",
+      "actions": [
+        {
+          "id": "github",
+          "label": "View GitHub Profile",
+          "href": "https://github.com/google",
+          "source": "github"
+        }
+      ]
+    },
+    "linksSection": {
+      "title": {
+        "value": "Links",
+        "source": "github"
+      },
+      "description": {
+        "value": "Add the professional destinations you want visitors to open next, including your resume, cover letter, LinkedIn, Handshake, and portfolio links.",
+        "source": "github"
+      },
+      "links": [
+        {
+          "label": "GitHub",
+          "href": "https://github.com/google",
+          "source": "github"
+        },
+        {
+          "label": "Website",
+          "href": "https://opensource.google/",
+          "source": "github"
+        }
+      ]
+    },
+    "repositories": [
+      {
+        "name": "google/material-design-icons",
+        "description": "Material Design icons by Google (Material Symbols)",
+        "language": "Not specified",
+        "href": "https://github.com/google/material-design-icons",
+        "stars": 53049,
+        "image": null,
+        "readmeImages": [],
+        "readmeExcerpt": "These are two different official icon sets from Google, using the same underlying designs. Material Symbols is the current set, introduced in April 2022, built on variable font technology. Material Icons is the classic set, but no longer updated. More details below.",
+        "descriptionSource": "github",
+        "resolvedImage": null
+      },
+      {
+        "name": "google/guava",
+        "description": "Google core libraries for Java",
+        "language": "Java",
+        "href": "https://github.com/google/guava",
+        "stars": 51517,
+        "image": null,
+        "readmeImages": [],
+        "readmeExcerpt": "Guava is a set of core Java libraries from Google that includes new collection types (such as multimap and multiset), immutable collections, a graph library, and utilities for concurrency, I/O, hashing, primitives, strings, and more! It is widely used on most Java projects within Google, and widely used by many other companies as well.",
+        "descriptionSource": "github",
+        "resolvedImage": null
+      },
+      {
+        "name": "google/zx",
+        "description": "A tool for writing better scripts",
+        "language": "JavaScript",
+        "href": "https://github.com/google/zx",
+        "stars": 45325,
+        "image": {
+          "url": "https://google.github.io/zx/img/logo.svg",
+          "alt": "zx README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://google.github.io/zx/img/logo.svg"
+        ],
+        "readmeExcerpt": "Bash is great, but when it comes to writing more complex scripts, many people prefer a more convenient programming language. JavaScript is a perfect choice, but the Node.js standard library requires additional hassle before using. No compromise, take the best of both. The zx package provides useful cross-platform wrappers around child_process, escapes arguments and gives sensible defaults.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://google.github.io/zx/img/logo.svg",
+          "alt": "zx README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "google/styleguide",
+        "description": "Style guides for Google-originated open-source projects",
+        "language": "HTML",
+        "href": "https://github.com/google/styleguide",
+        "stars": 39157,
+        "image": {
+          "url": "https://i.creativecommons.org/l/by/3.0/88x31.png",
+          "alt": "styleguide README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://i.creativecommons.org/l/by/3.0/88x31.png"
+        ],
+        "readmeExcerpt": "Every major open-source project has its own style guide: a set of conventions (sometimes arbitrary) about how to write code for that project. It is much easier to understand a large codebase when all the code in it is in a consistent style.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://i.creativecommons.org/l/by/3.0/88x31.png",
+          "alt": "styleguide README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "google/googletest",
+        "description": "GoogleTest - Google Testing and Mocking Framework",
+        "language": "C++",
+        "href": "https://github.com/google/googletest",
+        "stars": 38435,
+        "image": null,
+        "readmeImages": [],
+        "readmeExcerpt": "Our documentation is now live on GitHub Pages at https://google.github.io/googletest/. We recommend browsing the documentation on GitHub Pages rather than directly in the repository.",
+        "descriptionSource": "github",
+        "resolvedImage": null
+      },
+      {
+        "name": "google/leveldb",
+        "description": "LevelDB is a fast key-value storage library written at Google that provides an ordered mapping from string keys to string values.",
+        "language": "C++",
+        "href": "https://github.com/google/leveldb",
+        "stars": 38942,
+        "image": null,
+        "readmeImages": [],
+        "readmeExcerpt": "LevelDB is a fast key-value storage library written at Google that provides an ordered mapping from string keys to string values.",
+        "descriptionSource": "github",
+        "resolvedImage": null
+      }
+    ],
+    "techStack": [
+      "C++",
+      "Python",
+      "Java",
+      "Go",
+      "HTML",
+      "JavaScript"
+    ],
+    "hasBio": true
+  },
+  "exampleContent": {
+    "hero": {
+      "headline": "Google ❤️ Open Source",
+      "subheadline": "Built from 6 featured repositories drawn from recent public GitHub work with a focus on C++, Python, and Java. This draft starts from real code, repository context, and README signals instead of placeholder portfolio copy."
+    },
+    "about": {
+      "title": "About this minimal template",
+      "description": "Google ❤️ Open Source Based in United States of America. Selected repositories and README content are being used to shape the project story and technical focus. Featured work is drawn from repositories like google/material-design-icons, google/guava, and google/zx."
+    },
+    "professional": {
+      "title": "Developer Snapshot",
+      "summary": "Google ❤️ Open Source The portfolio draft reflects focused most often on C++, Python, Java, and Go and based in United States of America, with selected work such as gemma.cpp, langextract, and latexify_py. Common stack highlights include C++, Python, Java, and Go.",
+      "availability": "A clean starting point for concise developer portfolios and early-career personal sites."
+    },
+    "contact": {
+      "title": "Keep it easy to connect",
+      "description": "Use a short invitation here so recruiters and collaborators know how to follow up without distracting from the work.",
+      "customText": "Add your preferred contact channel or a brief note about what you are open to."
+    },
+    "linksSection": {
+      "title": "Resume + profile links",
+      "description": "This section works best for a focused set of links: resume, LinkedIn, portfolio, and one or two supporting resources."
+    }
+  },
+  "exampleProjects": [
+    {
+      "name": "google/material-design-icons",
+      "description": "Material Design icons by Google (Material Symbols)",
+      "tech": [
+        "Not specified",
+        "C++",
+        "Python"
+      ]
+    },
+    {
+      "name": "google/guava",
+      "description": "Google core libraries for Java",
+      "tech": [
+        "Java",
+        "C++",
+        "Python"
+      ]
+    },
+    {
+      "name": "google/zx",
+      "description": "A tool for writing better scripts",
+      "tech": [
+        "JavaScript",
+        "C++",
+        "Python"
+      ]
+    }
+  ],
+  "likes": 0,
+  "remixes": 3,
+  "ratingAverage": 0,
+  "ratingsCount": 0,
+  "createdAt": "2026-03-22T08:38:32.978Z",
+  "updatedAt": "2026-04-03T09:27:41.866Z",
+  "publishedAt": "2026-03-22T08:38:32.978Z",
+  "likedActorIds": [],
+  "ratingsByActor": {},
+  "reactionsByActor": {},
+  "dislikes": 0,
+  "viewerReaction": null
+}

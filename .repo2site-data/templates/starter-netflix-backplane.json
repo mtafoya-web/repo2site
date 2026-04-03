@@ -1,0 +1,376 @@
+{
+  "id": "system-netflix-backplane",
+  "slug": "starter-netflix-backplane",
+  "schemaVersion": 1,
+  "status": "published",
+  "isSystem": true,
+  "isRecommended": false,
+  "title": "Service Backplane",
+  "description": "A backend-first starter generated from public service and resilience repositories, designed for operational and platform engineering portfolios.",
+  "category": "backend-systems",
+  "tags": [
+    "starter",
+    "backend",
+    "resilience",
+    "distributed-systems"
+  ],
+  "previewImageUrl": "https://netflix.github.io/Hystrix/images/hystrix-logo-tagline-850.png",
+  "sourceLabel": "Inspired by real-world repositories from the Netflix engineering ecosystem",
+  "author": {
+    "provider": "anonymous",
+    "id": "repo2site-system",
+    "displayName": "Repo2Site Starter Templates",
+    "username": "",
+    "profileUrl": "",
+    "avatarUrl": ""
+  },
+  "preset": {
+    "appearance": {
+      "themeId": "slate-mono",
+      "colorMode": "dark",
+      "density": "compact",
+      "sectionLayout": "stacked",
+      "cardStyle": "outlined"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "projects",
+        "professional",
+        "about",
+        "links",
+        "contact"
+      ],
+      "hiddenSections": [
+        "links"
+      ]
+    }
+  },
+  "previewSnapshot": {
+    "theme": {
+      "id": "slate-mono",
+      "name": "Slate Mono",
+      "reason": "Quiet monochrome framing for text-first portfolios and resumes.",
+      "palette": {
+        "page": "#f7f7f5",
+        "pageAccent": "rgba(113, 113, 122, 0.14)",
+        "surface": "rgba(255,255,255,0.92)",
+        "surfaceStrong": "#ffffff",
+        "border": "rgba(161, 161, 170, 0.26)",
+        "text": "#18181b",
+        "muted": "#52525b",
+        "accent": "#27272a",
+        "accentSoft": "rgba(39, 39, 42, 0.08)",
+        "chip": "#ececf0"
+      }
+    },
+    "appearance": {
+      "themeId": "slate-mono",
+      "colorMode": "dark",
+      "density": "compact",
+      "sectionLayout": "stacked",
+      "cardStyle": "outlined"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "projects",
+        "professional",
+        "about",
+        "links",
+        "contact"
+      ],
+      "hiddenSections": [
+        "links"
+      ]
+    },
+    "profile": {
+      "username": "Netflix",
+      "url": "https://github.com/Netflix",
+      "name": "Netflix, Inc.",
+      "bio": "Netflix Open Source Platform",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/913567?v=4",
+      "location": "Los Gatos, California",
+      "company": "",
+      "blog": "http://netflix.github.io/",
+      "followers": 9531,
+      "following": 0,
+      "publicRepos": 235
+    },
+    "summary": "Netflix Open Source Platform The portfolio draft reflects focused most often on Java, Python, JavaScript, and Go and based in Los Gatos, California, with selected work such as void-model, metaflow, and zuul.",
+    "hero": {
+      "name": "Netflix, Inc.",
+      "imageUrl": "https://avatars.githubusercontent.com/u/913567?v=4",
+      "headline": {
+        "value": "Netflix Open Source Platform",
+        "source": "github"
+      },
+      "subheadline": {
+        "value": "Built from 6 featured repositories drawn from recent public GitHub work with a focus on Java, Python, and JavaScript. This draft starts from real code, repository context, and README signals instead of placeholder portfolio copy.",
+        "source": "github"
+      },
+      "ctaLabel": "View GitHub Profile",
+      "profileLink": "https://github.com/Netflix"
+    },
+    "about": {
+      "title": {
+        "value": "About Me",
+        "source": "github"
+      },
+      "description": {
+        "value": "Netflix Open Source Platform Based in Los Gatos, California. Selected repositories and README content are being used to shape the project story and technical focus.",
+        "source": "github"
+      }
+    },
+    "contact": {
+      "title": {
+        "value": "Contact",
+        "source": "github"
+      },
+      "description": {
+        "value": "Share the clearest way to connect for roles, freelance work, collaborations, or portfolio conversations.",
+        "source": "github"
+      },
+      "customText": "",
+      "email": "",
+      "emailHref": "",
+      "phone": "",
+      "phoneHref": ""
+    },
+    "professional": {
+      "title": "Career / Professional Info",
+      "summary": "",
+      "company": "",
+      "location": "",
+      "availability": "",
+      "actions": [
+        {
+          "id": "github",
+          "label": "View GitHub Profile",
+          "href": "https://github.com/Netflix",
+          "source": "github"
+        }
+      ]
+    },
+    "linksSection": {
+      "title": {
+        "value": "Links",
+        "source": "github"
+      },
+      "description": {
+        "value": "Add the professional destinations you want visitors to open next, including your resume, cover letter, LinkedIn, Handshake, and portfolio links.",
+        "source": "github"
+      },
+      "links": [
+        {
+          "label": "GitHub",
+          "href": "https://github.com/Netflix",
+          "source": "github"
+        },
+        {
+          "label": "Website",
+          "href": "http://netflix.github.io/",
+          "source": "github"
+        }
+      ]
+    },
+    "repositories": [
+      {
+        "name": "Netflix/Hystrix",
+        "description": "Hystrix is a latency and fault tolerance library designed to isolate points of access to remote systems, services and 3rd party libraries, stop cascading failure and enable resilience in complex distributed systems where failure is inevitable.",
+        "language": "Java",
+        "href": "https://github.com/Netflix/Hystrix",
+        "stars": 24460,
+        "image": {
+          "url": "https://netflix.github.io/Hystrix/images/hystrix-logo-tagline-850.png",
+          "alt": "Hystrix README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://netflix.github.io/Hystrix/images/hystrix-logo-tagline-850.png"
+        ],
+        "readmeExcerpt": "Hystrix: Latency and Fault Tolerance for Distributed Systems",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://netflix.github.io/Hystrix/images/hystrix-logo-tagline-850.png",
+          "alt": "Hystrix README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "Netflix/chaosmonkey",
+        "description": "Chaos Monkey is a resiliency tool that helps applications tolerate random instance failures.",
+        "language": "Go",
+        "href": "https://github.com/Netflix/chaosmonkey",
+        "stars": 16728,
+        "image": {
+          "url": "https://raw.githubusercontent.com/Netflix/chaosmonkey/master/docs/logo.png",
+          "alt": "chaosmonkey README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://raw.githubusercontent.com/Netflix/chaosmonkey/master/docs/logo.png"
+        ],
+        "readmeExcerpt": "[![Build Status][travis-badge]][travis] [![GoDoc][godoc-badge]][godoc] [![GoReportCard][report-badge]][report]",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://raw.githubusercontent.com/Netflix/chaosmonkey/master/docs/logo.png",
+          "alt": "chaosmonkey README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "Netflix/zuul",
+        "description": "Zuul is a gateway service that provides dynamic routing, monitoring, resiliency, security, and more.",
+        "language": "Java",
+        "href": "https://github.com/Netflix/zuul",
+        "stars": 14003,
+        "image": {
+          "url": "https://i.imgur.com/mRSosEp.png",
+          "alt": "zuul README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://i.imgur.com/mRSosEp.png"
+        ],
+        "readmeExcerpt": "Zuul is an L7 application gateway that provides capabilities for dynamic routing, monitoring, resiliency, security, and more. Please view the wiki for usage, information, HOWTO, etc https://github.com/Netflix/zuul/wiki",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://i.imgur.com/mRSosEp.png",
+          "alt": "zuul README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "Netflix/eureka",
+        "description": "AWS Service registry for resilient mid-tier load balancing and failover.",
+        "language": "Java",
+        "href": "https://github.com/Netflix/eureka",
+        "stars": 12700,
+        "image": null,
+        "readmeImages": [],
+        "readmeExcerpt": "Eureka is a RESTful (Representational State Transfer) service that is primarily used in the AWS cloud for the purpose of discovery, load balancing and failover of middle-tier servers. It plays a critical role in Netflix mid-tier infra.",
+        "descriptionSource": "github",
+        "resolvedImage": null
+      },
+      {
+        "name": "Netflix/falcor",
+        "description": "A JavaScript library for efficient data fetching",
+        "language": "JavaScript",
+        "href": "https://github.com/Netflix/falcor",
+        "stars": 10573,
+        "image": {
+          "url": "https://travis-ci.org/Netflix/falcor.svg",
+          "alt": "falcor README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://travis-ci.org/Netflix/falcor.svg",
+          "https://cloud.githubusercontent.com/assets/1016365/8711049/66438ebc-2b03-11e5-8a8a-75934f7ca7ec.png"
+        ],
+        "readmeExcerpt": "**2.0** is the current stable Falcor release. **0.x** and **1.x** users are welcome to upgrade.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://travis-ci.org/Netflix/falcor.svg",
+          "alt": "falcor README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "Netflix/metaflow",
+        "description": "Build, Manage and Deploy AI/ML Systems",
+        "language": "Python",
+        "href": "https://github.com/Netflix/metaflow",
+        "stars": 10006,
+        "image": {
+          "url": "https://user-images.githubusercontent.com/763451/89453116-96a57e00-d713-11ea-9fa6-82b29d4d6eff.png",
+          "alt": "metaflow README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://user-images.githubusercontent.com/763451/89453116-96a57e00-d713-11ea-9fa6-82b29d4d6eff.png",
+          "https://raw.githubusercontent.com/Netflix/metaflow/master/docs/prototype-to-prod.png",
+          "https://raw.githubusercontent.com/Netflix/metaflow/master/docs/multicloud.png"
+        ],
+        "readmeExcerpt": "Metaflow is a human-centric framework designed to help scientists and engineers **build and manage real-life AI and ML systems**. Serving teams of all sizes and scale, Metaflow streamlines the entire development lifecycle—from rapid prototyping in notebooks to reliable, maintainable production deployments—enabling teams to iterate quickly and deliver robust systems efficiently.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://user-images.githubusercontent.com/763451/89453116-96a57e00-d713-11ea-9fa6-82b29d4d6eff.png",
+          "alt": "metaflow README preview",
+          "source": "readme"
+        }
+      }
+    ],
+    "techStack": [
+      "Java",
+      "Python",
+      "JavaScript",
+      "Go",
+      "C",
+      "Ruby"
+    ],
+    "hasBio": true
+  },
+  "exampleContent": {
+    "hero": {
+      "headline": "Netflix Open Source Platform",
+      "subheadline": "Built from 6 featured repositories drawn from recent public GitHub work with a focus on Java, Python, and JavaScript. This draft starts from real code, repository context, and README signals instead of placeholder portfolio copy."
+    },
+    "about": {
+      "title": "About this backend starter",
+      "description": "Netflix Open Source Platform Based in Los Gatos, California. Selected repositories and README content are being used to shape the project story and technical focus. Featured work is drawn from repositories like Netflix/Hystrix, Netflix/chaosmonkey, and Netflix/zuul."
+    },
+    "professional": {
+      "title": "Backend + Reliability Profile",
+      "summary": "Netflix Open Source Platform The portfolio draft reflects focused most often on Java, Python, JavaScript, and Go and based in Los Gatos, California, with selected work such as void-model, metaflow, and zuul. Common stack highlights include Java, Python, JavaScript, and Go.",
+      "availability": "Designed for portfolios centered on service architecture, reliability, and platform ownership."
+    },
+    "contact": {
+      "title": "Talk through platform work",
+      "description": "Use this contact section to support conversations around backend ownership, resilience, and engineering leadership.",
+      "customText": "Mention how you prefer to hear about backend, platform, or reliability opportunities."
+    },
+    "linksSection": {
+      "title": "Support materials",
+      "description": "Add the documents and links that help reviewers understand your architecture work quickly."
+    }
+  },
+  "exampleProjects": [
+    {
+      "name": "Netflix/Hystrix",
+      "description": "Hystrix is a latency and fault tolerance library designed to isolate points of access to remote systems, services and 3rd party libraries, stop cascading failure and enable resilience in complex distributed systems where failure is inevitable.",
+      "tech": [
+        "Java",
+        "Python",
+        "JavaScript"
+      ]
+    },
+    {
+      "name": "Netflix/chaosmonkey",
+      "description": "Chaos Monkey is a resiliency tool that helps applications tolerate random instance failures.",
+      "tech": [
+        "Go",
+        "Java",
+        "Python"
+      ]
+    },
+    {
+      "name": "Netflix/zuul",
+      "description": "Zuul is a gateway service that provides dynamic routing, monitoring, resiliency, security, and more.",
+      "tech": [
+        "Java",
+        "Python",
+        "JavaScript"
+      ]
+    }
+  ],
+  "likes": 0,
+  "remixes": 0,
+  "ratingAverage": 0,
+  "ratingsCount": 0,
+  "createdAt": "2026-03-22T08:38:30.739Z",
+  "updatedAt": "2026-04-01T08:38:30.739Z",
+  "publishedAt": "2026-03-22T08:38:30.739Z",
+  "likedActorIds": [],
+  "ratingsByActor": {}
+}

@@ -1,0 +1,88 @@
+{
+  "id": "system-meta-infra",
+  "slug": "starter-meta-infra",
+  "schemaVersion": 1,
+  "status": "published",
+  "isSystem": true,
+  "isRecommended": false,
+  "title": "Scale Grid",
+  "description": "A systems-heavy starter generated from large-scale engineering repositories, with stronger emphasis on technical depth and infrastructure posture.",
+  "category": "backend-systems",
+  "tags": [
+    "starter",
+    "systems",
+    "infrastructure",
+    "engineering"
+  ],
+  "previewImageUrl": "https://create-react-app.dev/img/logo.svg",
+  "sourceLabel": "Inspired by real-world repositories from the Meta open-source ecosystem",
+  "author": {
+    "provider": "anonymous",
+    "id": "repo2site-system",
+    "displayName": "Repo2Site Starter Templates",
+    "username": "",
+    "profileUrl": "",
+    "avatarUrl": ""
+  },
+  "preset": {
+    "appearance": {
+      "themeId": "systems-green",
+      "colorMode": "dark",
+      "density": "spacious",
+      "sectionLayout": "split",
+      "cardStyle": "soft"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "professional",
+        "about",
+        "projects",
+        "contact",
+        "links"
+      ],
+      "hiddenSections": []
+    }
+  },
+  "exampleProjects": [
+    {
+      "name": "facebook/react",
+      "description": "**Declarative:** React makes it painless to create interactive UIs. Design simple views for each state in your application, and React will efficiently update and render just the right components when your data changes. Declarative views make your code more predictable, simpler to understand, and easier to debug. **Component-Based:** Build encapsulated components that manage their own state, then compose them to make",
+      "tech": [
+        "JavaScript",
+        "C++",
+        "TypeScript"
+      ]
+    },
+    {
+      "name": "facebook/react-native",
+      "description": "Getting Started · Learn the Basics · Showcase · Contribute · Community · Support",
+      "tech": [
+        "C++",
+        "JavaScript",
+        "TypeScript"
+      ]
+    },
+    {
+      "name": "facebook/create-react-app",
+      "description": "[!CAUTION] ## Deprecated Create React App was one of the key tools for getting a React project up-and-running in 2017-2021, it is now in long-term stasis and we recommend that you migrate to one of React frameworks documented on Start a New React Project. If you are following a tutorial to learn React, there is still value in continuing your tutorial, but we do not recommend starting production apps based on Create R",
+      "tech": [
+        "JavaScript",
+        "C++",
+        "TypeScript"
+      ]
+    }
+  ],
+  "likes": 0,
+  "remixes": 5,
+  "ratingAverage": 0,
+  "ratingsCount": 0,
+  "createdAt": "2026-03-22T08:20:43.765Z",
+  "updatedAt": "2026-04-03T09:03:13.210Z",
+  "publishedAt": "2026-03-22T08:20:43.765Z",
+  "likedActorIds": [],
+  "ratingsByActor": {},
+  "reactionsByActor": {},
+  "dislikes": 0,
+  "viewerReaction": null
+}

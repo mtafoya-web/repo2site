@@ -1,0 +1,275 @@
+{
+  "slug": "vercel",
+  "ownerKey": "vercel",
+  "portfolio": {
+    "theme": {
+      "id": "editorial-amber",
+      "name": "Editorial Amber",
+      "reason": "Warm and minimal for design-forward and content-heavy portfolios.",
+      "palette": {
+        "page": "#fffaf2",
+        "pageAccent": "rgba(245, 158, 11, 0.16)",
+        "surface": "rgba(255,255,255,0.9)",
+        "surfaceStrong": "#fffdf8",
+        "border": "rgba(251, 191, 36, 0.3)",
+        "text": "#2a1d0b",
+        "muted": "#6b5a39",
+        "accent": "#c2410c",
+        "accentSoft": "rgba(194, 65, 12, 0.1)",
+        "chip": "#fff0d2"
+      }
+    },
+    "appearance": {
+      "themeId": "",
+      "colorMode": "light",
+      "density": "compact",
+      "sectionLayout": "split",
+      "cardStyle": "soft"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "about",
+        "professional",
+        "projects",
+        "links",
+        "contact"
+      ],
+      "hiddenSections": []
+    },
+    "profile": {
+      "username": "vercel",
+      "url": "https://github.com/vercel",
+      "name": "Vercel",
+      "bio": "Develop. Preview. Ship. Creators of Next.js.",
+      "avatarUrl": "https://avatars.githubusercontent.com/u/14985020?v=4",
+      "location": "United States of America",
+      "company": "",
+      "blog": "https://vercel.com"
+    },
+    "summary": "Develop. Preview. Ship. Creators of Next.js. The portfolio draft reflects focused most often on TypeScript, JavaScript, Rust, and HTML and based in United States of America, with selected work such as turborepo, ai, and hyper.",
+    "hero": {
+      "name": "Vercel",
+      "imageUrl": "https://avatars.githubusercontent.com/u/14985020?v=4",
+      "headline": {
+        "value": "Develop. Preview. Ship. Creators of Next.js.",
+        "source": "github"
+      },
+      "subheadline": {
+        "value": "Built from 6 featured repositories drawn from recent public GitHub work with a focus on TypeScript, JavaScript, and Rust. This draft starts from real code, repository context, and README signals instead of placeholder portfolio copy.",
+        "source": "github"
+      },
+      "ctaLabel": "View GitHub Profile",
+      "profileLink": "https://github.com/vercel"
+    },
+    "about": {
+      "title": {
+        "value": "About Me",
+        "source": "github"
+      },
+      "description": {
+        "value": "Develop. Preview. Ship. Creators of Next.js. Based in United States of America. Selected repositories and README content are being used to shape the project story and technical focus.",
+        "source": "github"
+      }
+    },
+    "contact": {
+      "title": {
+        "value": "Contact",
+        "source": "github"
+      },
+      "description": {
+        "value": "Share the clearest way to connect for roles, freelance work, collaborations, or portfolio conversations.",
+        "source": "github"
+      },
+      "customText": "",
+      "email": "",
+      "emailHref": "",
+      "phone": "",
+      "phoneHref": ""
+    },
+    "professional": {
+      "title": "Career / Professional Info",
+      "summary": "",
+      "company": "",
+      "location": "",
+      "availability": "",
+      "actions": [
+        {
+          "id": "github",
+          "label": "View GitHub Profile",
+          "href": "https://github.com/vercel",
+          "source": "github"
+        }
+      ]
+    },
+    "linksSection": {
+      "title": {
+        "value": "Links",
+        "source": "github"
+      },
+      "description": {
+        "value": "Add the professional destinations you want visitors to open next, including your resume, cover letter, LinkedIn, Handshake, and portfolio links.",
+        "source": "github"
+      },
+      "links": [
+        {
+          "label": "GitHub",
+          "href": "https://github.com/vercel",
+          "source": "github"
+        },
+        {
+          "label": "Website",
+          "href": "https://vercel.com",
+          "source": "github"
+        }
+      ]
+    },
+    "repositories": [
+      {
+        "name": "vercel/next.js",
+        "description": "The React Framework",
+        "language": "JavaScript",
+        "href": "https://github.com/vercel/next.js",
+        "stars": 138591,
+        "image": {
+          "url": "https://assets.vercel.com/image/upload/v1662130559/nextjs/Icon_light_background.png",
+          "alt": "next.js README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://assets.vercel.com/image/upload/v1662130559/nextjs/Icon_light_background.png"
+        ],
+        "readmeExcerpt": "Used by some of the world's largest companies, Next.js enables you to create full-stack web applications by extending the latest React features, and integrating powerful Rust-based JavaScript tooling for the fastest builds.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://assets.vercel.com/image/upload/v1662130559/nextjs/Icon_light_background.png",
+          "alt": "next.js README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "vercel/hyper",
+        "description": "A terminal built on web technologies",
+        "language": "TypeScript",
+        "href": "https://github.com/vercel/hyper",
+        "stars": 44678,
+        "image": {
+          "url": "https://assets.vercel.com/image/upload/v1549723846/repositories/hyper/hyper-3-repo-banner.png",
+          "alt": "hyper README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://assets.vercel.com/image/upload/v1549723846/repositories/hyper/hyper-3-repo-banner.png"
+        ],
+        "readmeExcerpt": "The goal of the project is to create a beautiful and extensible experience for command-line interface users, built on open web standards. In the beginning, our focus will be primarily around speed, stability and the development of the correct API for extension authors.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://assets.vercel.com/image/upload/v1549723846/repositories/hyper/hyper-3-repo-banner.png",
+          "alt": "hyper README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "vercel/swr",
+        "description": "React Hooks for Data Fetching",
+        "language": "TypeScript",
+        "href": "https://github.com/vercel/swr",
+        "stars": 32350,
+        "image": {
+          "url": "https://assets.vercel.com/image/upload/v1572289618/swr/banner.png",
+          "alt": "swr README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://assets.vercel.com/image/upload/v1572289618/swr/banner.png"
+        ],
+        "readmeExcerpt": "The name “**SWR**” is derived from stale-while-revalidate, a cache invalidation strategy popularized by HTTP RFC 5861. **SWR** first returns the data from cache (stale), then sends the request (revalidate), and finally comes with the up-to-date data again.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://assets.vercel.com/image/upload/v1572289618/swr/banner.png",
+          "alt": "swr README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "vercel/turborepo",
+        "description": "Build system optimized for JavaScript and TypeScript, written in Rust",
+        "language": "Rust",
+        "href": "https://github.com/vercel/turborepo",
+        "stars": 30120,
+        "image": {
+          "url": "https://user-images.githubusercontent.com/4060187/196936104-5797972c-ab10-4834-bd61-0d1e5f442c9c.png",
+          "alt": "turborepo README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://user-images.githubusercontent.com/4060187/196936104-5797972c-ab10-4834-bd61-0d1e5f442c9c.png"
+        ],
+        "readmeExcerpt": "Turborepo is a high-performance build system for JavaScript and TypeScript codebases, written in Rust.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://user-images.githubusercontent.com/4060187/196936104-5797972c-ab10-4834-bd61-0d1e5f442c9c.png",
+          "alt": "turborepo README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "vercel/ai",
+        "description": "The AI Toolkit for TypeScript. From the creators of Next.js, the AI SDK is a free open-source library for building AI-powered applications and agents",
+        "language": "TypeScript",
+        "href": "https://github.com/vercel/ai",
+        "stars": 23200,
+        "image": {
+          "url": "https://raw.githubusercontent.com/vercel/ai/main/assets/hero.gif",
+          "alt": "ai README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://raw.githubusercontent.com/vercel/ai/main/assets/hero.gif"
+        ],
+        "readmeExcerpt": "The AI SDK is a provider-agnostic TypeScript toolkit designed to help you build AI-powered applications and agents using popular UI frameworks like Next.js, React, Svelte, Vue, Angular, and runtimes like Node.js.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://raw.githubusercontent.com/vercel/ai/main/assets/hero.gif",
+          "alt": "ai README preview",
+          "source": "readme"
+        }
+      },
+      {
+        "name": "vercel/chatbot",
+        "description": "A full-featured, hackable Next.js AI chatbot built by Vercel",
+        "language": "TypeScript",
+        "href": "https://github.com/vercel/chatbot",
+        "stars": 20038,
+        "image": {
+          "url": "https://vercel.com/button",
+          "alt": "chatbot README preview",
+          "source": "readme"
+        },
+        "readmeImages": [
+          "https://vercel.com/button",
+          "https://raw.githubusercontent.com/vercel/chatbot/main/app/(chat)/opengraph-image.png"
+        ],
+        "readmeExcerpt": "Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.",
+        "descriptionSource": "github",
+        "resolvedImage": {
+          "url": "https://vercel.com/button",
+          "alt": "chatbot README preview",
+          "source": "readme"
+        }
+      }
+    ],
+    "techStack": [
+      "TypeScript",
+      "JavaScript",
+      "Rust",
+      "HTML",
+      "MDX",
+      "Svelte"
+    ],
+    "hasBio": true
+  },
+  "createdAt": "2026-04-03T07:25:46.041Z",
+  "updatedAt": "2026-04-03T07:25:46.041Z",
+  "viewCount": 0
+}

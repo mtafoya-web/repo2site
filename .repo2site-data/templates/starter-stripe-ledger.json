@@ -1,0 +1,88 @@
+{
+  "id": "system-stripe-ledger",
+  "slug": "starter-stripe-ledger",
+  "schemaVersion": 1,
+  "status": "published",
+  "isSystem": true,
+  "isRecommended": true,
+  "title": "API Ledger",
+  "description": "A structured API-first starter generated from public developer tooling repositories, tailored for polished full-stack and product engineering portfolios.",
+  "category": "full-stack",
+  "tags": [
+    "starter",
+    "api",
+    "tooling",
+    "full-stack"
+  ],
+  "previewImageUrl": "https://poser.pugx.org/stripe/stripe-php/v/stable.svg",
+  "sourceLabel": "Inspired by real-world repositories from the Stripe developer ecosystem",
+  "author": {
+    "provider": "anonymous",
+    "id": "repo2site-system",
+    "displayName": "Repo2Site Starter Templates",
+    "username": "",
+    "profileUrl": "",
+    "avatarUrl": ""
+  },
+  "preset": {
+    "appearance": {
+      "themeId": "editorial-amber",
+      "colorMode": "light",
+      "density": "compact",
+      "sectionLayout": "stacked",
+      "cardStyle": "outlined"
+    },
+    "layout": {
+      "sectionOrder": [
+        "hero",
+        "professional",
+        "projects",
+        "about",
+        "links",
+        "contact"
+      ],
+      "hiddenSections": []
+    }
+  },
+  "exampleProjects": [
+    {
+      "name": "stripe/stripe-node",
+      "description": "[!TIP] Want to chat live with Stripe engineers? Join us on our Discord server.",
+      "tech": [
+        "TypeScript",
+        "Go",
+        "PHP"
+      ]
+    },
+    {
+      "name": "stripe/stripe-php",
+      "description": "[!TIP] Want to chat live with Stripe engineers? Join us on our Discord server.",
+      "tech": [
+        "PHP",
+        "Go",
+        "TypeScript"
+      ]
+    },
+    {
+      "name": "stripe/stripe-ios",
+      "description": "[!TIP] Want to chat live with Stripe engineers? Join us on our Discord server.",
+      "tech": [
+        "Swift",
+        "Go",
+        "TypeScript"
+      ]
+    }
+  ],
+  "likes": 0,
+  "remixes": 6,
+  "ratingAverage": 0,
+  "ratingsCount": 0,
+  "createdAt": "2026-03-22T08:20:43.725Z",
+  "updatedAt": "2026-04-03T09:27:23.013Z",
+  "publishedAt": "2026-03-22T08:20:43.725Z",
+  "likedActorIds": [],
+  "ratingsByActor": {},
+  "reactionsByActor": {},
+  "dislikes": 0,
+  "viewerReaction": null
+}
