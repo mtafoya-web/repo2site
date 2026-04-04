@@ -100,6 +100,7 @@ export type PortfolioCanvasComponent = {
   visible: boolean;
   rowId?: string;
   width?: PortfolioSectionWidth;
+  widthRatio?: number;
   title?: string;
 };
 

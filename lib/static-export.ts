@@ -251,6 +251,28 @@ function slugify(value: string) {
   return normalized || "portfolio";
 }
 
+function getSectionWidthRatio(widthRatio: number | undefined, width: string | undefined, isFullWidth: boolean) {
+  if (isFullWidth) {
+    return 1;
+  }
+
+  if (typeof widthRatio === "number" && Number.isFinite(widthRatio)) {
+    return Math.min(1, Math.max(0.28, widthRatio));
+  }
+
+  switch (width) {
+    case "half":
+      return 0.5;
+    case "third":
+      return 1 / 3;
+    case "two-thirds":
+      return 2 / 3;
+    case "full":
+    default:
+      return 1;
+  }
+}
+
 function normalizeTechKey(value: string) {
   const baseKey = value.trim().toLowerCase().replace(/[._/]+/g, " ");
   return TECH_ICON_ALIASES[baseKey] ?? baseKey.replace(/\s+/g, "");
@@ -486,6 +508,21 @@ img { display: block; max-width: 100%; }
   display: grid;
   gap: 1.5rem;
 }
+.layout-row {
+  display: grid;
+  gap: 1.5rem;
+}
+.layout-row.flexible {
+  display: flex;
+  align-items: flex-start;
+}
+.layout-cell {
+  width: 100%;
+}
+.layout-row.flexible .layout-cell {
+  flex: 0 0 var(--section-width, 100%);
+  max-width: var(--section-width, 100%);
+}
 .two-col {
   display: grid;
   gap: 1.5rem;
@@ -588,6 +625,8 @@ img { display: block; max-width: 100%; }
 }
 @media (max-width: 980px) {
   .hero-grid, .two-col, .project-layout, .contact-grid { grid-template-columns: 1fr; }
+  .layout-row.flexible { display: grid; }
+  .layout-row.flexible .layout-cell { flex: none; max-width: 100%; }
 }
 @media (max-width: 720px) {
   .shell { width: calc(100vw - 1rem); margin: 0.5rem auto; border-radius: 1.4rem; }
@@ -605,6 +644,24 @@ function hasText(value?: string | null) {
 
 function buildHtml(portfolio: FinalPortfolio) {
   const visibleSections = portfolio.layout.components.filter((component) => component.visible);
+  const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>(
+    (rows, component) => {
+      const rowId =
+        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+          ? component.id
+          : component.rowId || component.id;
+      const existingRow = rows.find((row) => row.id === rowId);
+
+      if (existingRow) {
+        existingRow.items.push(component);
+      } else {
+        rows.push({ id: rowId, items: [component] });
+      }
+
+      return rows;
+    },
+    [],
+  );
   const hiddenSections = new Set(
     portfolio.layout.components
       .filter((component) => !component.visible && component.type !== "custom")
@@ -995,12 +1052,39 @@ function buildHtml(portfolio: FinalPortfolio) {
       }</section>`,
     ]),
   );
-  const orderedContentMarkup = visibleSections
-    .map((component) =>
-      component.type === "custom"
-        ? customSectionMarkup[component.id] || ""
-        : sectionMarkup[component.type as keyof typeof sectionMarkup] || "",
-    )
+  const orderedContentMarkup = sectionRows
+    .map((row) => {
+      const isFlexibleRow =
+        portfolio.appearance.sectionLayout !== "stacked" &&
+        row.items.some((component) => component.type !== "projects") &&
+        row.items.length > 1;
+
+      const rowMarkup = row.items
+        .map((component) => {
+          const markup =
+            component.type === "custom"
+              ? customSectionMarkup[component.id] || ""
+              : sectionMarkup[component.type as keyof typeof sectionMarkup] || "";
+
+          if (!markup) {
+            return "";
+          }
+
+          const widthRatio = getSectionWidthRatio(
+            component.widthRatio,
+            component.width,
+            portfolio.appearance.sectionLayout === "stacked" || component.type === "projects",
+          );
+
+          return `<div class="layout-cell" style="--section-width:${Math.round(widthRatio * 100)}%">${markup}</div>`;
+        })
+        .filter(Boolean)
+        .join("");
+
+      return rowMarkup
+        ? `<div class="layout-row ${isFlexibleRow ? "flexible" : ""}">${rowMarkup}</div>`
+        : "";
+    })
     .filter(Boolean)
     .join("");
 

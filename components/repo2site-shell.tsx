@@ -7,6 +7,7 @@ import type {
   CSSProperties,
   DragEvent,
   FormEvent,
+  MouseEvent,
   ReactNode,
   TextareaHTMLAttributes,
 } from "react";
@@ -51,7 +52,6 @@ import type {
   PortfolioOverrides,
   PortfolioSectionId,
   PortfolioSectionType,
-  PortfolioSectionWidth,
   PreviewAbout,
   PreviewHero,
   PreviewLink,
@@ -516,12 +516,19 @@ const PALETTE_FIELD_LABELS: Record<keyof PreviewTheme["palette"], string> = {
 };
 
 type ThemeStyleMap = ReturnType<typeof buildThemeStyles>;
-const SECTION_WIDTH_LABELS: Record<PortfolioSectionWidth, string> = {
-  full: "Full",
-  half: "50 / 50",
-  third: "33 / 67",
-  "two-thirds": "67 / 33",
+type InspectorTab = "content" | "layout" | "style" | "theme" | "section";
+const SECTION_CONTENT_HINTS: Record<PortfolioSectionType, string> = {
+  hero: "Edit the opening message, actions, and visual treatment directly in the canvas to shape the first impression.",
+  about: "Use this section for context and positioning. Keep it concise, specific, and easy to scan.",
+  professional:
+    "Fine-tune your role framing, summary, and availability here to make the portfolio feel intentional instead of auto-generated.",
+  projects:
+    "Reorder projects, swap the featured project, and rewrite summaries so the strongest work leads the story.",
+  links: "Add the links you actually want recruiters to click. Resume, LinkedIn, portfolio, and supporting docs work best here.",
+  contact: "Keep contact options clear and low-friction. A short note plus one or two reliable channels is usually enough.",
+  custom: "Use custom sections for awards, testimonials, writing, speaking, or anything that makes the portfolio feel more complete.",
 };
+const SECTION_MIN_WIDTH_RATIO = 0.28;
 
 function createLinkId() {
   return `link-${Math.random().toString(36).slice(2, 10)}`;
@@ -569,18 +576,25 @@ function canSectionShareRow(component: PortfolioCanvasComponent) {
   return component.type !== "projects";
 }
 
-function getNextSectionWidth(currentWidth: PortfolioSectionWidth): PortfolioSectionWidth {
-  switch (currentWidth) {
-    case "full":
-      return "half";
+function getSectionWidthRatio(component: PortfolioCanvasComponent) {
+  if (component.type === "projects") {
+    return 1;
+  }
+
+  if (typeof component.widthRatio === "number" && Number.isFinite(component.widthRatio)) {
+    return Math.min(1, Math.max(SECTION_MIN_WIDTH_RATIO, component.widthRatio));
+  }
+
+  switch (component.width) {
     case "half":
-      return "third";
+      return 0.5;
     case "third":
-      return "two-thirds";
+      return 1 / 3;
     case "two-thirds":
-      return "full";
+      return 2 / 3;
+    case "full":
     default:
-      return "half";
+      return 1;
   }
 }
 
@@ -936,16 +950,23 @@ function PreviewSectionFrame({
   themeStyles,
   theme,
   isDragging,
+  isResizing,
+  isSelected,
+  isHovered,
   isDropTarget,
   dropPosition,
-  width,
+  widthRatio,
   canResize,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
   onRemove,
-  onCycleWidth,
+  onResizeStart,
+  onSelect,
+  onHoverChange,
+  duplicateLabel,
+  onDuplicate,
   children,
 }: {
   sectionId: string;
@@ -953,16 +974,23 @@ function PreviewSectionFrame({
   themeStyles: ThemeStyleMap;
   theme: PreviewTheme;
   isDragging: boolean;
+  isResizing: boolean;
+  isSelected: boolean;
+  isHovered: boolean;
   isDropTarget: boolean;
   dropPosition: "before" | "after" | "left" | "right" | null;
-  width: PortfolioSectionWidth;
+  widthRatio: number;
   canResize: boolean;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragOver: (event: DragEvent<HTMLElement>) => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
   onRemove: () => void;
-  onCycleWidth?: () => void;
+  onResizeStart?: (event: MouseEvent<HTMLButtonElement>) => void;
+  onSelect: () => void;
+  onHoverChange: (hovered: boolean) => void;
+  duplicateLabel?: string;
+  onDuplicate?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -970,7 +998,10 @@ function PreviewSectionFrame({
       id={sectionId}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`relative transition ${isDragging ? "opacity-60" : ""}`}
+      onClick={onSelect}
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+      className={`relative cursor-pointer transition ${isDragging ? "opacity-60" : ""}`}
     >
       {isDropTarget && dropPosition === "before" ? (
         <div
@@ -1000,8 +1031,13 @@ function PreviewSectionFrame({
         className="rounded-[2rem] border p-3 sm:p-4"
         style={{
           ...themeStyles.surface,
-          borderColor: isDropTarget ? theme.palette.accent : themeStyles.surface.borderColor,
-          boxShadow: isDropTarget ? `0 0 0 1px ${theme.palette.accent}` : undefined,
+          borderColor: isDropTarget || isSelected ? theme.palette.accent : themeStyles.surface.borderColor,
+          boxShadow:
+            isDropTarget || isSelected
+              ? `0 0 0 1px ${theme.palette.accent}`
+              : isHovered
+                ? `0 0 0 1px ${themeStyles.surface.borderColor}`
+                : undefined,
         }}
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1012,14 +1048,38 @@ function PreviewSectionFrame({
             <p className="mt-1 text-sm font-medium">{label}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {canResize && onCycleWidth ? (
-              <button
-                type="button"
-                onClick={onCycleWidth}
+            {canResize ? (
+              <span
                 className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
                 style={themeStyles.ghostButton}
               >
-                Width {SECTION_WIDTH_LABELS[width]}
+                Width {Math.round(widthRatio * 100)}%
+              </span>
+            ) : null}
+            {canResize && onResizeStart ? (
+              <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.stopPropagation();
+                  onResizeStart(event);
+                }}
+                className="inline-flex cursor-ew-resize items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={isResizing ? themeStyles.accentButton : themeStyles.ghostButton}
+              >
+                Resize
+              </button>
+            ) : null}
+            {onDuplicate ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDuplicate();
+                }}
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={themeStyles.ghostButton}
+              >
+                {duplicateLabel || "Duplicate"}
               </button>
             ) : null}
             <button
@@ -1039,7 +1099,10 @@ function PreviewSectionFrame({
             </button>
             <button
               type="button"
-              onClick={onRemove}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemove();
+              }}
               className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
               style={themeStyles.ghostButton}
             >
@@ -1057,8 +1120,8 @@ function PreviewCanvasItemFrame({
   label,
   themeStyles,
   isEditing,
-  isDragging,
-  isDropTarget,
+  isDragging = false,
+  isDropTarget = false,
   onDragStart,
   onDragOver,
   onDrop,
@@ -1069,8 +1132,8 @@ function PreviewCanvasItemFrame({
   label: string;
   themeStyles: ThemeStyleMap;
   isEditing: boolean;
-  isDragging: boolean;
-  isDropTarget: boolean;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
   onDragStart?: (event: DragEvent<HTMLElement>) => void;
   onDragOver?: (event: DragEvent<HTMLElement>) => void;
   onDrop?: (event: DragEvent<HTMLElement>) => void;
@@ -1224,11 +1287,14 @@ function reorderCanvasComponent(
 
     draggedComponent.rowId = sharedRowId;
     targetComponent.rowId = sharedRowId;
-    draggedComponent.width = draggedComponent.width === "full" ? "half" : draggedComponent.width || "half";
-    targetComponent.width = targetComponent.width === "full" ? "half" : targetComponent.width || "half";
+    draggedComponent.width = undefined;
+    targetComponent.width = undefined;
+    draggedComponent.widthRatio = 0.5;
+    targetComponent.widthRatio = 0.5;
   } else {
     draggedComponent.rowId = createLayoutRowId();
     draggedComponent.width = "full";
+    draggedComponent.widthRatio = 1;
   }
 
   const insertIndex =
@@ -1281,6 +1347,10 @@ export function Repo2SiteShell() {
   const [dropTargetChildComponentId, setDropTargetChildComponentId] = useState<string | null>(null);
   const [draggedProjectName, setDraggedProjectName] = useState<string | null>(null);
   const [projectDropTargetName, setProjectDropTargetName] = useState<string | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorTab>("layout");
+  const [resizingSectionId, setResizingSectionId] = useState<string | null>(null);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [showCustomizeHint, setShowCustomizeHint] = useState(false);
   const [showCustomizeTrigger, setShowCustomizeTrigger] = useState(true);
@@ -1322,6 +1392,13 @@ export function Repo2SiteShell() {
   const appliedTemplateSlugRef = useRef<string | null>(null);
   const aiAcceptedCountRef = useRef<number | null>(null);
   const lastGitHubAutofillUsernameRef = useRef<string | null>(null);
+  const sectionResizeRef = useRef<{
+    sectionId: string;
+    rowId: string;
+    startX: number;
+    rowWidth: number;
+    ratios: Record<string, number>;
+  } | null>(null);
   const hasResumeContext =
     uploadedResumeFiles.length > 0 ||
     Boolean(overrides.documents.resumeAssetUrl) ||
@@ -1646,6 +1723,82 @@ export function Repo2SiteShell() {
   }, [isCustomizeOpen]);
 
   useEffect(() => {
+    function handlePointerMove(event: globalThis.MouseEvent) {
+      const resizeState = sectionResizeRef.current;
+
+      if (!resizeState) {
+        return;
+      }
+
+      const deltaRatio = (event.clientX - resizeState.startX) / resizeState.rowWidth;
+
+      updateLayoutComponents((components) => {
+        const rowComponents = components.filter(
+          (component) =>
+            component.visible &&
+            (component.rowId || component.id) === resizeState.rowId &&
+            canSectionShareRow(component),
+        );
+
+        if (rowComponents.length < 2) {
+          return components;
+        }
+
+        const startCurrent = resizeState.ratios[resizeState.sectionId] ?? getSectionWidthRatio(rowComponents[0]);
+        const siblingIds = rowComponents
+          .map((component) => component.id)
+          .filter((id) => id !== resizeState.sectionId);
+        const totalSiblingStart = siblingIds.reduce(
+          (sum, id) => sum + (resizeState.ratios[id] ?? SECTION_MIN_WIDTH_RATIO),
+          0,
+        );
+        const maxCurrent = Math.max(
+          SECTION_MIN_WIDTH_RATIO,
+          1 - siblingIds.length * SECTION_MIN_WIDTH_RATIO,
+        );
+        const nextCurrent = Math.min(maxCurrent, Math.max(SECTION_MIN_WIDTH_RATIO, startCurrent + deltaRatio));
+        const remaining = Math.max(SECTION_MIN_WIDTH_RATIO * siblingIds.length, 1 - nextCurrent);
+
+        return components.map((component) => {
+          if ((component.rowId || component.id) !== resizeState.rowId || !canSectionShareRow(component)) {
+            return component;
+          }
+
+          if (component.id === resizeState.sectionId) {
+            return {
+              ...component,
+              widthRatio: nextCurrent,
+              width: undefined,
+            };
+          }
+
+          const startSibling = resizeState.ratios[component.id] ?? SECTION_MIN_WIDTH_RATIO;
+          const nextSibling =
+            totalSiblingStart > 0 ? (startSibling / totalSiblingStart) * remaining : remaining / siblingIds.length;
+
+          return {
+            ...component,
+            widthRatio: Math.max(SECTION_MIN_WIDTH_RATIO, nextSibling),
+            width: undefined,
+          };
+        });
+      });
+    }
+
+    function handlePointerUp() {
+      stopSectionResize();
+    }
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+  }, [updateLayoutComponents]);
+
+  useEffect(() => {
     function handleWindowError(event: ErrorEvent) {
       void reportClientError({
         message: event.message || "Unhandled browser error",
@@ -1717,6 +1870,67 @@ export function Repo2SiteShell() {
 
       return resolved;
     });
+  }
+
+  function revealInspector(nextTab?: InspectorTab) {
+    if (nextTab) {
+      setActiveInspectorTab(nextTab);
+    }
+
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1279px)").matches) {
+      toggleCustomizePanel(true);
+    }
+  }
+
+  function focusSection(sectionId: string, nextTab: InspectorTab = "section") {
+    setSelectedSectionId(sectionId);
+    if (!isEditMode) {
+      toggleEditMode(true);
+    }
+    revealInspector(nextTab);
+  }
+
+  function stopSectionResize() {
+    sectionResizeRef.current = null;
+    setResizingSectionId(null);
+  }
+
+  function startSectionResize(sectionId: string, event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+
+    if (overrides.appearance.sectionLayout === "stacked") {
+      return;
+    }
+
+    const component = overrides.layout.components.find((item) => item.id === sectionId);
+
+    if (!component || !canSectionShareRow(component)) {
+      return;
+    }
+
+    const rowId = component.rowId || component.id;
+    const rowComponents = overrides.layout.components.filter(
+      (item) => item.visible && (item.rowId || item.id) === rowId && canSectionShareRow(item),
+    );
+
+    if (rowComponents.length < 2) {
+      return;
+    }
+
+    const rowElement = event.currentTarget.closest("[data-layout-row-id]");
+
+    if (!(rowElement instanceof HTMLElement)) {
+      return;
+    }
+
+    sectionResizeRef.current = {
+      sectionId,
+      rowId,
+      startX: event.clientX,
+      rowWidth: Math.max(rowElement.getBoundingClientRect().width, 1),
+      ratios: Object.fromEntries(rowComponents.map((item) => [item.id, getSectionWidthRatio(item)])),
+    };
+    setResizingSectionId(sectionId);
   }
 
   function triggerSpriteReaction(type: BuilderSpriteReactionType, meta?: string) {
@@ -2938,6 +3152,7 @@ export function Repo2SiteShell() {
             visible: true,
             rowId: section.id,
             width: "full" as const,
+            widthRatio: 1,
             title: section.title,
           })),
         ],
@@ -3068,18 +3283,9 @@ export function Repo2SiteShell() {
     triggerSpriteReaction("drag-end");
   }
 
-  function updateSectionWidth(sectionId: string) {
-    updateLayoutComponents((components) =>
-      components.map((component) =>
-        component.id === sectionId && canSectionShareRow(component)
-          ? { ...component, width: getNextSectionWidth(component.width || "full") }
-          : component,
-      ),
-    );
-  }
-
   function addBuiltInSection(sectionId: PortfolioSectionId) {
     restoreSection(sectionId);
+    focusSection(sectionId, "section");
   }
 
   function addCustomSection() {
@@ -3106,11 +3312,58 @@ export function Repo2SiteShell() {
             visible: true,
             rowId,
             width: "full",
+            widthRatio: 1,
             title: `Custom Section ${current.customSections.length + 1}`,
           },
         ]),
       },
     }));
+
+    focusSection(sectionId, "content");
+  }
+
+  function duplicateSection(sectionId: string) {
+    const sourceSection = overrides.customSections.find((section) => section.id === sectionId);
+
+    if (!sourceSection) {
+      return;
+    }
+
+    const nextId = createCustomSectionId();
+    const sourceLayout = overrides.layout.components.find((component) => component.id === sectionId);
+
+    updateOverrides((current) => ({
+      ...current,
+      customSections: [
+        ...current.customSections,
+        {
+          id: nextId,
+          title: `${sourceSection.title} Copy`,
+          description: sourceSection.description,
+        },
+      ],
+      layout: {
+        ...current.layout,
+        components: normalizeLayoutComponents([
+          ...current.layout.components,
+          {
+            id: nextId,
+            type: "custom",
+            visible: true,
+            rowId: createLayoutRowId(),
+            width: sourceLayout?.width || "full",
+            widthRatio: sourceLayout?.widthRatio || getSectionWidthRatio(sourceLayout ?? {
+              id: nextId,
+              type: "custom",
+              visible: true,
+            }),
+            title: `${sourceSection.title} Copy`,
+          },
+        ]),
+      },
+    }));
+
+    focusSection(nextId, "content");
   }
 
   function removeSection(sectionId: string) {
@@ -3129,10 +3382,18 @@ export function Repo2SiteShell() {
           components: current.layout.components.filter((item) => item.id !== sectionId),
         },
       }));
+
+      if (selectedSectionId === sectionId) {
+        setSelectedSectionId(null);
+      }
       return;
     }
 
     toggleSectionVisibility(sectionId);
+
+    if (selectedSectionId === sectionId) {
+      setSelectedSectionId(null);
+    }
   }
 
   function handleChildDragStart(componentId: string) {
@@ -3410,6 +3671,14 @@ export function Repo2SiteShell() {
     },
     [],
   );
+  const selectedCanvasComponent =
+    visibleCanvasComponents.find((component) => component.id === selectedSectionId) ??
+    canvasComponents.find((component) => component.id === selectedSectionId) ??
+    null;
+  const selectedCustomSection =
+    selectedCanvasComponent?.type === "custom"
+      ? overrides.customSections.find((section) => section.id === selectedCanvasComponent.id) ?? null
+      : null;
 
   const hiddenChildComponentIds = new Set(overrides.layout.hiddenComponentIds);
   const componentOrder = overrides.layout.componentOrder;
@@ -3650,6 +3919,22 @@ export function Repo2SiteShell() {
       };
     })
     .filter((group) => group.items.length > 0);
+  const hiddenSectionCount = hiddenCanvasComponents.length;
+  const hiddenBlockCount = hiddenChildComponentGroups.reduce((count, group) => count + group.items.length, 0);
+  const availableBuiltInSections = canvasComponents.filter(
+    (
+      component,
+    ): component is PortfolioCanvasComponent & { type: PortfolioSectionId } =>
+      isBuiltInSectionType(component.type) && !component.visible,
+  );
+  const selectedSectionLabel = selectedCanvasComponent
+    ? selectedCanvasComponent.type === "custom"
+      ? selectedCustomSection?.title || "Custom Section"
+      : sectionLabels[selectedCanvasComponent.type]
+    : "Nothing selected";
+  const selectedSectionHint = selectedCanvasComponent
+    ? SECTION_CONTENT_HINTS[selectedCanvasComponent.type]
+    : "Select a section on the canvas to adjust layout, styling, and section settings here.";
 
   function isCanvasChildVisible(componentId: string) {
     return !hiddenChildComponentIds.has(componentId);
@@ -5480,171 +5765,538 @@ export function Repo2SiteShell() {
   }
 
   function renderCustomizePanelContent() {
+    const inspectorTabs: Array<{ id: InspectorTab; label: string }> = [
+      { id: "content", label: "Content" },
+      { id: "layout", label: "Layout" },
+      { id: "style", label: "Style" },
+      { id: "theme", label: "Theme" },
+      { id: "section", label: "Section" },
+    ];
+
     return (
       <div className="grid gap-4">
-        <div>
+        <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
           <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
-            Customize
+            Builder Inspector
           </p>
-          <p className="mt-1 text-sm font-medium">
-            Shape the visual style here while the live preview handles the page structure.
-          </p>
+          <p className="mt-1 text-sm font-medium">{selectedSectionLabel}</p>
           <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-            Use the preview as your editing canvas. This drawer is only for theme, palette, density, layout feel, and card styling.
+            {selectedSectionHint}
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Theme
-            <select
-              value={overrides.appearance.themeId || theme.id}
-              onChange={(event) =>
-                updateOverrides((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    themeId: event.target.value,
-                  },
-                }))
-              }
-              className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-              style={themeStyles.strongSurface}
+        <div className="flex flex-wrap gap-2">
+          {inspectorTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveInspectorTab(tab.id)}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={activeInspectorTab === tab.id ? appThemeStyles.accentButton : appThemeStyles.ghostButton}
             >
-              <option value="">Auto ({theme.name})</option>
-              {PORTFOLIO_THEMES.map((themeOption) => (
-                <option key={themeOption.id} value={themeOption.id}>
-                  {themeOption.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Color Mode
-            <select
-              value={overrides.appearance.colorMode}
-              onChange={(event) =>
-                updateOverrides((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    colorMode: event.target.value as PortfolioOverrides["appearance"]["colorMode"],
-                  },
-                }))
-              }
-              className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-              style={themeStyles.strongSurface}
-            >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Density
-            <select
-              value={overrides.appearance.density}
-              onChange={(event) =>
-                updateOverrides((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    density: event.target.value as PortfolioOverrides["appearance"]["density"],
-                  },
-                }))
-              }
-              className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-              style={themeStyles.strongSurface}
-            >
-              <option value="compact">Compact</option>
-              <option value="spacious">Spacious</option>
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Card Style
-            <select
-              value={overrides.appearance.cardStyle}
-              onChange={(event) =>
-                updateOverrides((current) => ({
-                  ...current,
-                  appearance: {
-                    ...current.appearance,
-                    cardStyle: event.target.value as PortfolioOverrides["appearance"]["cardStyle"],
-                  },
-                }))
-              }
-              className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-              style={themeStyles.strongSurface}
-            >
-              <option value="soft">Soft</option>
-              <option value="outlined">Outlined</option>
-              <option value="elevated">Elevated</option>
-            </select>
-          </label>
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <div className="grid gap-1">
-          <label className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Section Layout
-          </label>
-          <p className="text-xs leading-5" style={themeStyles.mutedText}>
-            Turn stacked layout on for a simple vertical flow, or switch it off to place non-project sections side by side.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: "stacked", label: "Stacked Layout" },
-              { id: "split", label: "Flexible Layout" },
-            ].map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() =>
+        {activeInspectorTab === "theme" ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Theme
+              <select
+                value={overrides.appearance.themeId || theme.id}
+                onChange={(event) =>
                   updateOverrides((current) => ({
                     ...current,
                     appearance: {
                       ...current.appearance,
-                      sectionLayout: option.id as PortfolioOverrides["appearance"]["sectionLayout"],
+                      themeId: event.target.value,
                     },
                   }))
                 }
-                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={
-                  overrides.appearance.sectionLayout === option.id
-                    ? themeStyles.accentButton
-                    : themeStyles.ghostButton
-                }
+                className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                style={themeStyles.strongSurface}
               >
-                {option.label}
+                <option value="">Auto ({theme.name})</option>
+                {PORTFOLIO_THEMES.map((themeOption) => (
+                  <option key={themeOption.id} value={themeOption.id}>
+                    {themeOption.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Color Mode
+              <select
+                value={overrides.appearance.colorMode}
+                onChange={(event) =>
+                  updateOverrides((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      colorMode: event.target.value as PortfolioOverrides["appearance"]["colorMode"],
+                    },
+                  }))
+                }
+                className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                style={themeStyles.strongSurface}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
+        {activeInspectorTab === "style" ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Density
+                <select
+                  value={overrides.appearance.density}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      appearance: {
+                        ...current.appearance,
+                        density: event.target.value as PortfolioOverrides["appearance"]["density"],
+                      },
+                    }))
+                  }
+                  className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                  style={themeStyles.strongSurface}
+                >
+                  <option value="compact">Compact</option>
+                  <option value="spacious">Spacious</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Card Style
+                <select
+                  value={overrides.appearance.cardStyle}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      appearance: {
+                        ...current.appearance,
+                        cardStyle: event.target.value as PortfolioOverrides["appearance"]["cardStyle"],
+                      },
+                    }))
+                  }
+                  className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                  style={themeStyles.strongSurface}
+                >
+                  <option value="soft">Soft</option>
+                  <option value="outlined">Outlined</option>
+                  <option value="elevated">Elevated</option>
+                </select>
+              </label>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border p-4" style={themeStyles.surface}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Custom Palette
+                </p>
+                <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                  Fine-tune the preset theme with your own colors. These changes carry through preview, templates, public shares, and export.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearCustomPalette}
+                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={themeStyles.ghostButton}
+              >
+                Clear Palette Overrides
               </button>
-            ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(Object.keys(PALETTE_FIELD_LABELS) as Array<keyof PreviewTheme["palette"]>).map((paletteKey) => (
+                <PaletteFieldControl
+                  key={paletteKey}
+                  label={PALETTE_FIELD_LABELS[paletteKey]}
+                  value={overrides.appearance.customPalette?.[paletteKey] || activePalette[paletteKey]}
+                  onChange={(nextValue) => updateCustomPalette(paletteKey, nextValue)}
+                  onReset={() => resetCustomPaletteField(paletteKey)}
+                  themeStyles={themeStyles}
+                />
+              ))}
+            </div>
+          </>
+        ) : null}
+        {activeInspectorTab === "layout" ? (
+          <div className="grid gap-4">
+            <div className="grid gap-1">
+              <label className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Section Layout
+              </label>
+              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                Turn stacked layout on for a simple vertical flow, or switch it off to place non-project sections side by side.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "stacked", label: "Stacked Layout" },
+                  { id: "split", label: "Flexible Layout" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        appearance: {
+                          ...current.appearance,
+                          sectionLayout: option.id as PortfolioOverrides["appearance"]["sectionLayout"],
+                        },
+                      }))
+                    }
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={
+                      overrides.appearance.sectionLayout === option.id
+                        ? themeStyles.accentButton
+                        : themeStyles.ghostButton
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Layout Behavior
+              </p>
+              <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                Keep the editor focused on one canvas. Use drag-and-drop to place sections, then drag the resize control on the canvas to change widths directly.
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border p-4" style={themeStyles.surface}>
+        ) : null}
+        {activeInspectorTab === "section" ? (
+          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+            {selectedCanvasComponent ? (
+              <div className="grid gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                    Selected Section
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedCanvasComponent.type === "custom"
+                      ? selectedCustomSection?.title || "Custom Section"
+                      : sectionLabels[selectedCanvasComponent.type]}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removeSection(selectedCanvasComponent.id)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.ghostButton}
+                  >
+                    {selectedCanvasComponent.type === "custom" ? "Remove Section" : "Hide Section"}
+                  </button>
+                  {selectedCanvasComponent.type === "custom" ? (
+                    <button
+                      type="button"
+                      onClick={() => duplicateSection(selectedCanvasComponent.id)}
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.ghostButton}
+                    >
+                      Duplicate
+                    </button>
+                  ) : null}
+                </div>
+                {selectedCanvasComponent.type !== "projects" ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Width
+                    </p>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      Resize this section directly on the canvas. Drag the resize handle to change its share of the row.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                    Projects stays full-width to keep portfolio work readable and consistent.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                Select a section in the preview to adjust its settings here.
+              </p>
+            )}
+          </div>
+        ) : null}
+        {activeInspectorTab === "content" ? (
+          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+            {selectedCustomSection ? (
+              <div className="grid gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Custom Section Content
+                </p>
+                <input
+                  value={selectedCustomSection.title}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      customSections: current.customSections.map((section) =>
+                        section.id === selectedCustomSection.id ? { ...section, title: event.target.value } : section,
+                      ),
+                    }))
+                  }
+                  placeholder="Section title"
+                  className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                  style={themeStyles.strongSurface}
+                />
+                <textarea
+                  value={selectedCustomSection.description}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      customSections: current.customSections.map((section) =>
+                        section.id === selectedCustomSection.id ? { ...section, description: event.target.value } : section,
+                      ),
+                    }))
+                  }
+                  rows={5}
+                  placeholder="Describe what this section should communicate"
+                  className="min-h-[120px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
+                  style={themeStyles.strongSurface}
+                />
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Content Editing
+                </p>
+                {selectedCanvasComponent ? (
+                  <>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      {SECTION_CONTENT_HINTS[selectedCanvasComponent.type]}
+                    </p>
+                    <div className="mt-3 rounded-[0.95rem] border p-3" style={themeStyles.strongSurface}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                        Best way to edit this section
+                      </p>
+                      <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                        Open edit mode, then work directly inside the canvas. Inline fields stay closer to the final design and make the builder feel more visual.
+                      </p>
+                      {!isEditMode ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleEditMode(true)}
+                          className="mt-3 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          Open Edit Mode
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                    Use the live canvas to edit generated copy directly. Select a section to see the most relevant guidance here.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  function renderBuilderWorkspacePanel() {
+    if (!preview) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-[1.35rem] border p-4 sm:p-5" style={themeStyles.sectionSurface}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-              Custom Palette
+            <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+              Builder Workspace
             </p>
-            <p className="text-xs leading-5" style={themeStyles.mutedText}>
-              Fine-tune the preset theme with your own colors. These changes carry through preview, templates, public shares, and export.
+            <p className="mt-1 text-sm font-medium">
+              Select a section, move it on the canvas, then refine content, layout, and style in the inspector.
+            </p>
+            <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+              Flexible layout lets non-project sections share a row. Projects always stays full width.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={clearCustomPalette}
-            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-            style={themeStyles.ghostButton}
-          >
-            Clear Palette Overrides
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleEditMode()}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={themeStyles.ghostButton}
+            >
+              {isEditMode ? "Hide Editor" : "Open Editor"}
+            </button>
+            <button
+              type="button"
+              onClick={resetCanvasLayout}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={themeStyles.ghostButton}
+            >
+              Reset Canvas
+            </button>
+            <button
+              type="button"
+              onClick={() => revealInspector(selectedCanvasComponent?.type === "custom" ? "content" : "layout")}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] xl:hidden"
+              style={themeStyles.accentButton}
+            >
+              Open Inspector
+            </button>
+          </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(Object.keys(PALETTE_FIELD_LABELS) as Array<keyof PreviewTheme["palette"]>).map((paletteKey) => (
-            <PaletteFieldControl
-              key={paletteKey}
-              label={PALETTE_FIELD_LABELS[paletteKey]}
-              value={overrides.appearance.customPalette?.[paletteKey] || activePalette[paletteKey]}
-              onChange={(nextValue) => updateCustomPalette(paletteKey, nextValue)}
-              onReset={() => resetCustomPaletteField(paletteKey)}
-              themeStyles={themeStyles}
-            />
-          ))}
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.9fr)]">
+          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Page Structure
+                </p>
+                <p className="mt-1 text-sm font-medium">
+                  {selectedCanvasComponent ? `${selectedSectionLabel} selected` : "Choose a section to start editing"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.chip}>
+                  {visibleCanvasComponents.length} visible
+                </span>
+                {hiddenSectionCount > 0 ? (
+                  <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                    {hiddenSectionCount} hidden
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+              {selectedSectionHint}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canvasComponents.map((component) => {
+                const label =
+                  component.type === "custom"
+                    ? overrides.customSections.find((section) => section.id === component.id)?.title ||
+                      component.title ||
+                      "Custom Section"
+                    : sectionLabels[component.type];
+                const isSelected = selectedSectionId === component.id;
+
+                return (
+                  <button
+                    key={`navigator-${component.id}`}
+                    type="button"
+                    onClick={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]"
+                    style={
+                      isSelected
+                        ? themeStyles.accentButton
+                        : component.visible
+                          ? themeStyles.ghostButton
+                          : {
+                              ...themeStyles.ghostButton,
+                              opacity: 0.68,
+                            }
+                    }
+                  >
+                    {label}
+                    {!component.visible ? " (Hidden)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Add Section
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {availableBuiltInSections.map((component) => (
+                  <button
+                    key={`add-${component.id}`}
+                    type="button"
+                    onClick={() => addBuiltInSection(component.type)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.ghostButton}
+                  >
+                    {sectionLabels[component.type]}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={addCustomSection}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.accentButton}
+                >
+                  Custom Section
+                </button>
+              </div>
+            </div>
+
+            {(hiddenSectionCount > 0 || hiddenBlockCount > 0) ? (
+              <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Restore Hidden
+                </p>
+                {hiddenSectionCount > 0 ? (
+                  <div className="mt-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Sections
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {hiddenCanvasComponents.map((component) => (
+                        <button
+                          key={`restore-${component.id}`}
+                          type="button"
+                          onClick={() => restoreSection(component.id)}
+                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {hiddenBlockCount > 0 ? (
+                  <div className={hiddenSectionCount > 0 ? "mt-4" : "mt-3"}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Blocks
+                    </p>
+                    <div className="mt-2 grid gap-3">
+                      {hiddenChildComponentGroups.map((group) => (
+                        <div key={group.parentId}>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.mutedText}>
+                            {group.label}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {group.items.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => setChildComponentVisible(item.id, true)}
+                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                                style={themeStyles.ghostButton}
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     );
@@ -6420,6 +7072,7 @@ export function Repo2SiteShell() {
         </section>
 
         <section className="overflow-hidden rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]" style={themeStyles.surface}>
+          <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_22rem]">
           <article className="overflow-hidden">
             {error ? (
               <div className="border-b px-6 py-4 text-sm" style={themeStyles.accentBlock}>
@@ -6429,25 +7082,44 @@ export function Repo2SiteShell() {
             <header className="border-b px-5 py-3 backdrop-blur sm:px-7 sm:py-4" style={themeStyles.navSurface}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+                    Visual Builder
+                  </p>
+                  <p className="mt-1 text-sm font-semibold">
                     {preview?.profile.name || "Portfolio Preview"}
                   </p>
                   <p className="mt-1 text-xs" style={themeStyles.mutedText}>
-                    {preview?.profile.username ? `@${preview.profile.username}` : "Start by loading GitHub, then use the preview to review and edit the generated site"}
+                    {selectedCanvasComponent
+                      ? `${selectedSectionLabel} selected. Click, drag, and refine the page directly on the canvas.`
+                      : preview?.profile.username
+                        ? `@${preview.profile.username}`
+                        : "Start by loading GitHub, then use the preview to review and edit the generated site"}
                   </p>
                 </div>
-                <nav className="flex flex-wrap items-center gap-4 text-sm" style={themeStyles.mutedText}>
-                  {showHero ? <a href="#hero" className="transition hover:opacity-80">Hero</a> : null}
-                  {showAbout ? <a href="#about" className="transition hover:opacity-80">About</a> : null}
-                  {showProfessional ? <a href="#professional" className="transition hover:opacity-80">Professional</a> : null}
-                  {showProjects ? <a href="#projects" className="transition hover:opacity-80">Projects</a> : null}
-                  {showLinks ? <a href="#links" className="transition hover:opacity-80">Links</a> : null}
-                  {showContact ? <a href="#contact" className="transition hover:opacity-80">Contact</a> : null}
-                </nav>
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedCanvasComponent ? (
+                    <span
+                      className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.chip}
+                    >
+                      {selectedSectionLabel}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => revealInspector(selectedCanvasComponent?.type === "custom" ? "content" : "layout")}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] xl:hidden"
+                    style={themeStyles.ghostButton}
+                  >
+                    Inspector
+                  </button>
+                </div>
               </div>
             </header>
 
-            <div className={`grid ${densityClasses.stackGap} ${densityClasses.sectionPadding}`}>
+            <div
+              className={`mx-auto grid w-full max-w-[72rem] ${densityClasses.stackGap} ${densityClasses.sectionPadding} bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:24px_24px]`}
+            >
               {!preview ? (
                 <div className="rounded-[1.6rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
                   <div className="flex items-start gap-4">
@@ -6484,141 +7156,63 @@ export function Repo2SiteShell() {
                   </div>
                 </div>
               ) : null}
-              {preview ? (
-                <div className="rounded-[1.35rem] border p-4 sm:p-5" style={themeStyles.sectionSurface}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
-                        Preview Canvas
-                      </p>
-                      <p className="mt-1 text-sm font-medium">
-                        Manage the page structure directly here.
-                      </p>
-                      <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-                        Drag sections and visible blocks in the preview. Remove pieces you do not want, then restore them here when you want them back.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
+              {renderBuilderWorkspacePanel()}
+              {preview && visibleSectionRows.length === 0 ? (
+                <div className="rounded-[1.5rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+                    Empty Canvas
+                  </p>
+                  <p className="mt-2 text-lg font-semibold">There are no visible sections right now.</p>
+                  <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
+                    Restore a hidden section or add a custom one to keep building.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {hiddenCanvasComponents.slice(0, 4).map((component) => (
                       <button
+                        key={`empty-restore-${component.id}`}
                         type="button"
-                        onClick={() => toggleEditMode()}
-                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                        onClick={() => restoreSection(component.id)}
+                        className="rounded-full border px-4 py-2 text-sm font-medium"
                         style={themeStyles.ghostButton}
                       >
-                        {isEditMode ? "Hide Editor" : "Open Editor"}
+                        Restore {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
                       </button>
-                      <button
-                        type="button"
-                        onClick={resetCanvasLayout}
-                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                        style={themeStyles.ghostButton}
-                      >
-                        Reset Canvas
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                      {hiddenCanvasComponents.length > 0 ? (
-                        <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                            Restore sections
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {hiddenCanvasComponents.map((component) => (
-                              <button
-                                key={component.id}
-                                type="button"
-                                onClick={() => restoreSection(component.id)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                style={themeStyles.ghostButton}
-                              >
-                                Add {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
-                      <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                          Add section
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {canvasComponents
-                            .filter((component) => isBuiltInSectionType(component.type) && !component.visible)
-                            .map((component) => (
-                              <button
-                                key={`add-${component.id}`}
-                                type="button"
-                                onClick={() => addBuiltInSection(component.type)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                style={themeStyles.ghostButton}
-                              >
-                                {sectionLabels[component.type]}
-                              </button>
-                            ))}
-                          <button
-                            type="button"
-                            onClick={addCustomSection}
-                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                            style={themeStyles.accentButton}
-                          >
-                            Custom Section
-                          </button>
-                        </div>
-                      </div>
-                      {hiddenChildComponentGroups.length > 0 ? (
-                        <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                            Restore blocks
-                          </p>
-                          <div className="mt-3 grid gap-3">
-                            {hiddenChildComponentGroups.map((group) => (
-                              <div key={group.parentId}>
-                                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                                  {group.label}
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {group.items.map((item) => (
-                                    <button
-                                      key={item.id}
-                                      type="button"
-                                      onClick={() => setChildComponentVisible(item.id, true)}
-                                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                      style={themeStyles.ghostButton}
-                                    >
-                                      Add {item.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addCustomSection}
+                      className="rounded-full border px-4 py-2 text-sm font-medium"
+                      style={themeStyles.accentButton}
+                    >
+                      Add Custom Section
+                    </button>
                   </div>
                 </div>
               ) : null}
               {visibleSectionRows.map((row) => (
                 <div
                   key={row.id}
-                  className={`grid gap-4 ${portfolio.appearance.sectionLayout === "stacked" ? "grid-cols-1" : "xl:grid-cols-12"}`}
+                  data-layout-row-id={row.id}
+                  className={`grid gap-4 ${
+                    portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1
+                      ? "grid-cols-1"
+                      : "grid-cols-1 xl:flex xl:items-start"
+                  }`}
                 >
                   {row.items.map((component) => {
                     const isDragging = draggedSectionId === component.id;
                     const isDropTarget = dropTargetSectionId === component.id && draggedSectionId !== component.id;
-                    const widthClass =
+                    const widthRatio =
                       portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
-                        ? "xl:col-span-12"
-                        : component.width === "half"
-                          ? "xl:col-span-6"
-                          : component.width === "third"
-                            ? "xl:col-span-4"
-                            : component.width === "two-thirds"
-                              ? "xl:col-span-8"
-                              : "xl:col-span-12";
+                        ? 1
+                        : getSectionWidthRatio(component);
 
                     return (
-                      <div key={component.id} className={widthClass}>
+                      <div
+                        key={component.id}
+                        className="w-full xl:shrink-0 xl:basis-[var(--section-width)] xl:max-w-[var(--section-width)]"
+                        style={{ ["--section-width" as string]: `${Math.round(widthRatio * 100)}%` } as CSSProperties}
+                      >
                         <PreviewSectionFrame
                           sectionId={component.id}
                           label={
@@ -6629,11 +7223,18 @@ export function Repo2SiteShell() {
                           themeStyles={themeStyles}
                           theme={theme}
                           isDragging={isDragging}
+                          isResizing={resizingSectionId === component.id}
+                          isSelected={selectedSectionId === component.id}
+                          isHovered={hoveredSectionId === component.id}
                           isDropTarget={isDropTarget}
                           dropPosition={isDropTarget ? dropPosition : null}
-                          width={component.width || "full"}
+                          widthRatio={widthRatio}
                           canResize={portfolio.appearance.sectionLayout !== "stacked" && canSectionShareRow(component)}
-                          onCycleWidth={() => updateSectionWidth(component.id)}
+                          onResizeStart={(event) => startSectionResize(component.id, event)}
+                          duplicateLabel={component.type === "custom" ? "Duplicate" : undefined}
+                          onDuplicate={component.type === "custom" ? () => duplicateSection(component.id) : undefined}
+                          onSelect={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
+                          onHoverChange={(hovered) => setHoveredSectionId(hovered ? component.id : null)}
                           onDragStart={(event) => {
                             event.dataTransfer.effectAllowed = "move";
                             handleSectionDragStart(component.id);
@@ -6659,6 +7260,21 @@ export function Repo2SiteShell() {
               ))}
             </div>
           </article>
+          {preview ? (
+            <aside
+              className="hidden border-l xl:block"
+              style={{
+                borderColor: theme.palette.border,
+                backgroundColor: themeStyles.strongSurface.backgroundColor,
+                color: themeStyles.strongSurface.color,
+              }}
+            >
+              <div className="sticky top-0 h-screen overflow-y-auto px-5 py-5">
+                {renderCustomizePanelContent()}
+              </div>
+            </aside>
+          ) : null}
+          </div>
         </section>
       </div>
       {isCustomizeOpen ? (
@@ -6666,7 +7282,7 @@ export function Repo2SiteShell() {
           type="button"
           aria-label="Close customize panel"
           onClick={() => toggleCustomizePanel(false)}
-          className="fixed inset-0 z-[58] bg-slate-950/28 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[58] bg-slate-950/28 backdrop-blur-[2px] xl:hidden"
         />
       ) : null}
       {isBuilderMode ? (
@@ -6676,7 +7292,7 @@ export function Repo2SiteShell() {
           reaction={spriteReaction}
         />
       ) : null}
-      <div className="fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-3 sm:bottom-5 sm:right-5">
+      <div className="fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-3 sm:bottom-5 sm:right-5 xl:hidden">
         {showCustomizeHint && !isCustomizeOpen ? (
           <div
             className="max-w-[15rem] rounded-[1rem] border px-4 py-3 text-sm shadow-[0_20px_48px_-30px_rgba(15,23,42,0.7)]"
@@ -6702,7 +7318,7 @@ export function Repo2SiteShell() {
         </div>
       </div>
       <aside
-        className={`fixed right-0 top-0 z-[59] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed right-0 top-0 z-[59] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out xl:hidden ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
         style={themeStyles.strongSurface}
         aria-hidden={!isCustomizeOpen}
       >

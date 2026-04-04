@@ -19,6 +19,28 @@ function toCanvasKey(value: string) {
     .replace(/^-+|-+$/g, "") || "item";
 }
 
+function getSectionWidthRatio(widthRatio: number | undefined, width: string | undefined, isFullWidth: boolean) {
+  if (isFullWidth) {
+    return 1;
+  }
+
+  if (typeof widthRatio === "number" && Number.isFinite(widthRatio)) {
+    return Math.min(1, Math.max(0.28, widthRatio));
+  }
+
+  switch (width) {
+    case "half":
+      return 0.5;
+    case "third":
+      return 1 / 3;
+    case "two-thirds":
+      return 2 / 3;
+    case "full":
+    default:
+      return 1;
+  }
+}
+
 function buildPublicThemeStyles(record: SharedPortfolioRecord) {
   const { portfolio } = record;
   const { palette } = portfolio.theme;
@@ -505,19 +527,18 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
             {sectionRows.map((row) => (
               <div
                 key={row.id}
-                className={`grid gap-4 ${portfolio.appearance.sectionLayout === "stacked" ? "grid-cols-1" : "lg:grid-cols-12"}`}
+                className={`grid gap-4 ${
+                  portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1
+                    ? "grid-cols-1"
+                    : "grid-cols-1 lg:flex lg:items-start"
+                }`}
               >
                 {row.items.map((component) => {
-                  const widthClass =
-                    portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
-                      ? "lg:col-span-12"
-                      : component.width === "half"
-                        ? "lg:col-span-6"
-                        : component.width === "third"
-                          ? "lg:col-span-4"
-                          : component.width === "two-thirds"
-                            ? "lg:col-span-8"
-                            : "lg:col-span-12";
+                  const widthRatio = getSectionWidthRatio(
+                    component.widthRatio,
+                    component.width,
+                    portfolio.appearance.sectionLayout === "stacked" || component.type === "projects",
+                  );
                   const markup =
                     component.type === "custom"
                       ? customSectionMap[component.id]
@@ -528,7 +549,11 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
                   }
 
                   return (
-                    <div key={component.id} className={widthClass}>
+                    <div
+                      key={component.id}
+                      className="w-full lg:shrink-0 lg:basis-[var(--section-width)] lg:max-w-[var(--section-width)]"
+                      style={{ ["--section-width" as string]: `${Math.round(widthRatio * 100)}%` } as CSSProperties}
+                    >
                       {markup}
                     </div>
                   );

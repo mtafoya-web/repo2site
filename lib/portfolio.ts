@@ -146,6 +146,20 @@ export const PROFESSIONAL_ACTION_LABELS = {
   github: "View GitHub Profile",
 } as const;
 
+function mapLegacyWidthToRatio(width: PortfolioSectionWidth | undefined) {
+  switch (width) {
+    case "half":
+      return 0.5;
+    case "third":
+      return 1 / 3;
+    case "two-thirds":
+      return 2 / 3;
+    case "full":
+    default:
+      return 1;
+  }
+}
+
 export function normalizeExternalUrl(value: string) {
   const trimmedValue = value.trim();
 
@@ -257,6 +271,20 @@ function normalizeSectionWidth(
   return "full";
 }
 
+function normalizeWidthRatio(
+  value: number | undefined,
+  sectionType: PortfolioSectionType,
+  legacyWidth: PortfolioSectionWidth | undefined,
+) {
+  if (sectionType === "projects") {
+    return 1;
+  }
+
+  const fallback = mapLegacyWidthToRatio(legacyWidth);
+  const candidate = typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return Math.min(1, Math.max(0.28, candidate));
+}
+
 function normalizeRowId(value: string | undefined, fallback: string) {
   return value?.trim() ? value : fallback;
 }
@@ -282,6 +310,7 @@ export function buildLayoutComponents(
       visible: !hidden.has(sectionId),
       rowId: sectionId,
       width: "full",
+      widthRatio: 1,
     });
   }
 
@@ -292,7 +321,8 @@ export function buildLayoutComponents(
 
     components.push({
       ...defaultComponent,
-      visible: !hidden.has(defaultComponent.type),
+      visible: defaultComponent.type === "custom" ? true : !hidden.has(defaultComponent.type),
+      widthRatio: normalizeWidthRatio(defaultComponent.widthRatio, defaultComponent.type, defaultComponent.width),
     });
   }
 
@@ -337,12 +367,13 @@ export function normalizeLayoutComponents(
       visible: component.visible,
       rowId: normalizeRowId(component.rowId, component.id || component.type),
       width: normalizeSectionWidth(component.width, component.type),
+      widthRatio: normalizeWidthRatio(component.widthRatio, component.type, component.width),
       title: component.title?.trim() || undefined,
     });
   }
 
   for (const fallbackComponent of buildLayoutComponents(sectionOrder, hiddenSections)) {
-    if (seenTypes.has(fallbackComponent.type)) {
+    if (fallbackComponent.type !== "custom" && seenTypes.has(fallbackComponent.type)) {
       continue;
     }
 
