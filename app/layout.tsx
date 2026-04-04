@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono, Manrope } from "next/font/google";
 import Script from "next/script";
+import { Repo2SiteCompanionProvider } from "@/components/repo2site-companion-dock";
 import { AppThemeProvider } from "@/components/app-theme-provider";
-import { AppThemeToggle } from "@/components/app-theme-toggle";
 import { APP_THEME_STORAGE_KEY } from "@/lib/app-theme";
 import { assertProductionAppRuntimeEnv } from "@/lib/runtime-env";
 import "./globals.css";
@@ -62,12 +62,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
-        <Script
-          id="repo2site-theme-init"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: themeInitScript }}
-        />
         {plausibleDomain ? (
           <Script
             defer
@@ -77,12 +75,9 @@ export default function RootLayout({
           />
         ) : null}
         <AppThemeProvider>
-          <div className="pointer-events-none fixed right-4 top-4 z-[80] sm:right-5 sm:top-5" style={{ top: "max(1rem, env(safe-area-inset-top))", right: "max(1rem, env(safe-area-inset-right))" }}>
-            <div className="pointer-events-auto">
-              <AppThemeToggle />
-            </div>
-          </div>
-          {children}
+          <Repo2SiteCompanionProvider>
+            <div className="min-h-screen">{children}</div>
+          </Repo2SiteCompanionProvider>
         </AppThemeProvider>
       </body>
     </html>

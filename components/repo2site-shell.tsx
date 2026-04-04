@@ -8,16 +8,13 @@ import type {
   DragEvent,
   FormEvent,
   MouseEvent,
+  PointerEvent,
   ReactNode,
   TextareaHTMLAttributes,
 } from "react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAppTheme } from "@/components/app-theme-provider";
-import {
-  Repo2SiteBuilderSprite,
-  type BuilderSpriteReactionSignal,
-  type BuilderSpriteReactionType,
-} from "@/components/repo2site-builder-sprite";
+import { useRepo2SiteCompanion } from "@/components/repo2site-companion-dock";
 import {
   Repo2SiteGuidedTour,
   Repo2SiteWalkthroughLauncher,
@@ -27,17 +24,23 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { buildAppThemeStyles } from "@/lib/app-theme";
 import { reportClientError } from "@/lib/monitoring";
 import {
+  SECTION_MIN_WIDTH_RATIO,
   DEFAULT_CARD_LABELS,
   DEFAULT_SECTION_ORDER,
   applyEnhancementToOverrides,
   buildFinalPortfolio,
   buildLayoutComponents,
+  canSectionShareRow,
+  canSectionsShareRow,
   createEmptyOverrides,
+  getCanvasSectionWidthRatio,
+  getAllowedRowWidthRatios,
   getHiddenSectionsFromComponents,
   getSectionOrderFromComponents,
   normalizeExternalUrl,
   normalizeLayoutComponents,
   orderCanvasChildIds,
+  snapRowWidthRatio,
 } from "@/lib/portfolio";
 import type { ContentSource, ResolvedPreviewRepository } from "@/lib/portfolio";
 import { applyTemplateRecord, buildTemplatePreset } from "@/lib/template-presets";
@@ -145,10 +148,10 @@ const FALLBACK_REPOSITORIES: PreviewRepository[] = [
   },
 ];
 
+const SECTION_RESIZE_HANDLE_HIT_WIDTH = 22;
+
 const FALLBACK_LINKS: PreviewLink[] = [{ label: "GitHub", href: "https://github.com/username" }];
 const FALLBACK_TECH_STACK = ["TypeScript", "Next.js", "Tailwind CSS"];
-const CUSTOMIZE_HINT_STORAGE_KEY = "repo2site-customize-hint-seen";
-const BETA_SPRITE_STORAGE_KEY = "repo2site-beta-sprite-enabled";
 
 function toCanvasKey(value: string) {
   return value
@@ -363,6 +366,7 @@ function buildThemeStyles(
   const pageColor = isDarkMode ? "#09111f" : theme.palette.page;
   const surfaceColor = isDarkMode ? "rgba(13, 21, 35, 0.9)" : theme.palette.surface;
   const surfaceStrongColor = isDarkMode ? "#0f1729" : theme.palette.surfaceStrong;
+  const subtleSurfaceColor = isDarkMode ? "rgba(15, 23, 41, 0.58)" : theme.palette.pageAccent;
   const borderColor = isDarkMode ? "rgba(148, 163, 184, 0.2)" : theme.palette.border;
   const textColor = isDarkMode ? "#e5eefb" : theme.palette.text;
   const mutedColor = isDarkMode ? "#93a4bf" : theme.palette.muted;
@@ -422,6 +426,12 @@ function buildThemeStyles(
     } satisfies CSSProperties,
     strongSurface: {
       backgroundColor: surfaceStrongColor,
+      borderColor,
+      color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
+    } satisfies CSSProperties,
+    subtleSurface: {
+      backgroundColor: subtleSurfaceColor,
       borderColor,
       color: textColor,
       ["--field-placeholder" as string]: placeholderColor,
@@ -528,25 +538,12 @@ const SECTION_CONTENT_HINTS: Record<PortfolioSectionType, string> = {
   contact: "Keep contact options clear and low-friction. A short note plus one or two reliable channels is usually enough.",
   custom: "Use custom sections for awards, testimonials, writing, speaking, or anything that makes the portfolio feel more complete.",
 };
-const SECTION_MIN_WIDTH_RATIO = 0.28;
 
 function createLinkId() {
   return `link-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function getInitialPortfolioColorMode(): PortfolioOverrides["appearance"]["colorMode"] {
-  if (typeof document !== "undefined") {
-    const currentTheme = document.documentElement.dataset.uiTheme;
-
-    if (currentTheme === "light" || currentTheme === "dark") {
-      return currentTheme;
-    }
-  }
-
-  if (typeof window !== "undefined") {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-
   return "dark";
 }
 
@@ -570,32 +567,6 @@ function createLayoutRowId() {
 
 function isBuiltInSectionType(type: PortfolioSectionType): type is PortfolioSectionId {
   return ["hero", "about", "professional", "projects", "contact", "links"].includes(type);
-}
-
-function canSectionShareRow(component: PortfolioCanvasComponent) {
-  return component.type !== "projects";
-}
-
-function getSectionWidthRatio(component: PortfolioCanvasComponent) {
-  if (component.type === "projects") {
-    return 1;
-  }
-
-  if (typeof component.widthRatio === "number" && Number.isFinite(component.widthRatio)) {
-    return Math.min(1, Math.max(SECTION_MIN_WIDTH_RATIO, component.widthRatio));
-  }
-
-  switch (component.width) {
-    case "half":
-      return 0.5;
-    case "third":
-      return 1 / 3;
-    case "two-thirds":
-      return 2 / 3;
-    case "full":
-    default:
-      return 1;
-  }
 }
 
 function formatSourceLabel(source: ContentSource | "github") {
@@ -791,24 +762,20 @@ function InlineEditableField({
   compact?: boolean;
 }) {
   const source = value.trim() ? activeSource : "github";
-  const generatedPreview = generatedValue.trim() || "GitHub draft is empty for this field.";
+  const generatedPreview = generatedValue.trim();
   const aiPreview = suggestedValue.trim();
+  const hasManualValue = value.trim().length > 0;
+  const hasGeneratedPreview = generatedPreview.length > 0;
 
   if (!editing) {
     return null;
   }
 
   return (
-    <div className="mt-3 grid gap-2 rounded-[1rem] border p-3" style={themeStyles.strongSurface}>
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium">
-        <span>{label}</span>
+    <div className="mt-3 grid gap-2.5 rounded-[1rem] border border-transparent p-1">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-medium">
+        <span style={themeStyles.mutedText}>{label}</span>
         <div className="flex items-center gap-2">
-          <span
-            className="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
-            style={themeStyles.surface}
-          >
-            Editable
-          </span>
           <SourceBadge source={source} themeStyles={themeStyles} />
         </div>
       </div>
@@ -819,7 +786,7 @@ function InlineEditableField({
           rows={compact ? 2 : 4}
           placeholder={placeholder}
           className={`rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition ${compact ? "min-h-[72px]" : "min-h-[108px]"}`}
-          style={themeStyles.surface}
+          style={themeStyles.strongSurface}
         />
       ) : (
         <input
@@ -827,23 +794,33 @@ function InlineEditableField({
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-          style={themeStyles.surface}
+          style={themeStyles.strongSurface}
         />
       )}
-      <div className="flex flex-wrap items-start justify-between gap-3 text-xs leading-5" style={themeStyles.mutedText}>
-        <span className="min-w-0 flex-1 break-words">GitHub draft: {generatedPreview}</span>
-        {value.trim() ? (
-          <button type="button" onClick={onReset} className="shrink-0 font-semibold" style={{ color: themeStyles.githubBadge.color }}>
-            Clear manual edit
-          </button>
-        ) : null}
-      </div>
+      {hasGeneratedPreview || hasManualValue ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 text-xs leading-5" style={themeStyles.mutedText}>
+          <span className="min-w-0 flex-1 break-words">
+            {hasManualValue
+              ? "Manual edit active"
+              : hasGeneratedPreview
+                ? `Using GitHub copy: ${generatedPreview}`
+                : ""}
+          </span>
+          {hasManualValue ? (
+            <button type="button" onClick={onReset} className="shrink-0 font-semibold" style={{ color: themeStyles.githubBadge.color }}>
+              Revert
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {aiPreview ? (
-        <div className="rounded-[0.95rem] border px-3 py-3 text-xs leading-6" style={themeStyles.accentBlock}>
+        <div className="rounded-[0.95rem] border px-3 py-3 text-xs leading-6" style={themeStyles.surface}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <SourceBadge source="ai" themeStyles={themeStyles} />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">Pending suggestion</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Suggested revision
+              </span>
             </div>
             <div className="flex items-center gap-3">
               {onApplySuggestion ? (
@@ -853,7 +830,7 @@ function InlineEditableField({
                   className="font-semibold"
                   style={{ color: themeStyles.aiBadge.color }}
                 >
-                  Accept AI
+                  Apply
                 </button>
               ) : null}
               {onDismissSuggestion ? (
@@ -863,7 +840,7 @@ function InlineEditableField({
                   className="font-semibold"
                   style={{ color: themeStyles.githubBadge.color }}
                 >
-                  Dismiss
+                  Hide
                 </button>
               ) : null}
             </div>
@@ -872,6 +849,50 @@ function InlineEditableField({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function CompactActionMenu({
+  themeStyles,
+  items,
+}: {
+  themeStyles: ThemeStyleMap;
+  items: Array<{
+    label: string;
+    onSelect: () => void;
+    tone?: "default" | "danger";
+  }>;
+}) {
+  return (
+    <details className="relative">
+      <summary
+        className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border text-base font-semibold transition [&::-webkit-details-marker]:hidden"
+        style={themeStyles.ghostButton}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span aria-hidden="true">•••</span>
+      </summary>
+      <div
+        className="absolute right-0 top-[calc(100%+0.45rem)] z-40 grid min-w-[10.5rem] gap-1 rounded-[1rem] border p-1.5 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.45)]"
+        style={themeStyles.strongSurface}
+      >
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              item.onSelect();
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+            className="rounded-[0.8rem] px-3 py-2 text-left text-sm font-medium transition"
+            style={item.tone === "danger" ? { color: themeStyles.errorText.color } : themeStyles.ghostButton}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -918,8 +939,8 @@ function PaletteFieldControl({
         <button
           type="button"
           onClick={onReset}
-          className="text-[10px] font-semibold uppercase tracking-[0.16em]"
-          style={themeStyles.mutedText}
+          className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+          style={themeStyles.ghostButton}
         >
           Reset
         </button>
@@ -962,7 +983,6 @@ function PreviewSectionFrame({
   onDrop,
   onDragEnd,
   onRemove,
-  onResizeStart,
   onSelect,
   onHoverChange,
   duplicateLabel,
@@ -986,13 +1006,14 @@ function PreviewSectionFrame({
   onDrop: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
   onRemove: () => void;
-  onResizeStart?: (event: MouseEvent<HTMLButtonElement>) => void;
   onSelect: () => void;
   onHoverChange: (hovered: boolean) => void;
   duplicateLabel?: string;
   onDuplicate?: () => void;
   children: ReactNode;
 }) {
+  const showToolbar = isHovered || isSelected || isResizing;
+
   return (
     <section
       id={sectionId}
@@ -1001,7 +1022,7 @@ function PreviewSectionFrame({
       onClick={onSelect}
       onMouseEnter={() => onHoverChange(true)}
       onMouseLeave={() => onHoverChange(false)}
-      className={`relative cursor-pointer transition ${isDragging ? "opacity-60" : ""}`}
+      className={`group/section relative h-full min-w-0 cursor-pointer transition ${isDragging ? "opacity-60" : ""}`}
     >
       {isDropTarget && dropPosition === "before" ? (
         <div
@@ -1028,7 +1049,7 @@ function PreviewSectionFrame({
         />
       ) : null}
       <div
-        className="rounded-[2rem] border p-3 sm:p-4"
+        className="flex h-full min-w-0 flex-col rounded-[1.75rem] border px-4 py-4 sm:px-5 sm:py-5"
         style={{
           ...themeStyles.surface,
           borderColor: isDropTarget || isSelected ? theme.palette.accent : themeStyles.surface.borderColor,
@@ -1040,47 +1061,22 @@ function PreviewSectionFrame({
                 : undefined,
         }}
       >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
-              Live Preview
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={themeStyles.mutedText}>
+              {label}
             </p>
-            <p className="mt-1 text-sm font-medium">{label}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {canResize ? (
+          <div
+            className={`flex items-center gap-2 transition ${showToolbar ? "opacity-100" : "pointer-events-none opacity-0 group-hover/section:opacity-100 group-hover/section:pointer-events-auto"}`}
+          >
+            {canResize && (isSelected || isResizing) ? (
               <span
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={themeStyles.ghostButton}
+                className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                style={themeStyles.mutedText}
               >
-                Width {Math.round(widthRatio * 100)}%
+                {Math.round(widthRatio * 100)}%
               </span>
-            ) : null}
-            {canResize && onResizeStart ? (
-              <button
-                type="button"
-                onMouseDown={(event) => {
-                  event.stopPropagation();
-                  onResizeStart(event);
-                }}
-                className="inline-flex cursor-ew-resize items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={isResizing ? themeStyles.accentButton : themeStyles.ghostButton}
-              >
-                Resize
-              </button>
-            ) : null}
-            {onDuplicate ? (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onDuplicate();
-                }}
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={themeStyles.ghostButton}
-              >
-                {duplicateLabel || "Duplicate"}
-              </button>
             ) : null}
             <button
               type="button"
@@ -1097,22 +1093,76 @@ function PreviewSectionFrame({
             >
               <span aria-hidden="true">⋮⋮</span>
             </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onRemove();
-              }}
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-              style={themeStyles.ghostButton}
-            >
-              Remove
-            </button>
+            <CompactActionMenu
+              themeStyles={themeStyles}
+              items={[
+                ...(onDuplicate
+                  ? [
+                      {
+                        label: duplicateLabel || "Duplicate section",
+                        onSelect: onDuplicate,
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Remove section",
+                  onSelect: onRemove,
+                  tone: "danger" as const,
+                },
+              ]}
+            />
           </div>
         </div>
         {children}
       </div>
     </section>
+  );
+}
+
+function PreviewRowResizeHandle({
+  themeStyles,
+  theme,
+  isActive,
+  onPointerDown,
+}: {
+  themeStyles: ThemeStyleMap;
+  theme: PreviewTheme;
+  isActive: boolean;
+  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <div className="hidden xl:flex xl:w-5 xl:flex-none xl:items-stretch xl:justify-center">
+      <button
+        type="button"
+        onPointerDown={onPointerDown}
+        className="group relative h-full min-h-[12rem] cursor-ew-resize touch-none"
+        aria-label="Resize sections"
+        title="Drag to resize sections"
+      >
+        <span
+          className="absolute inset-y-3 left-1/2 -translate-x-1/2 rounded-full transition"
+          style={{
+            width: "2px",
+            backgroundColor: isActive ? theme.palette.accent : themeStyles.surface.borderColor,
+          }}
+        />
+        <span
+          className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition"
+          style={{
+            width: `${SECTION_RESIZE_HANDLE_HIT_WIDTH}px`,
+            height: "2.75rem",
+            ...themeStyles.strongSurface,
+            borderColor: isActive ? theme.palette.accent : themeStyles.strongSurface.borderColor,
+            boxShadow: isActive ? `0 0 0 1px ${theme.palette.accent}` : undefined,
+          }}
+        >
+          <span className="flex items-center gap-1">
+            <span className="h-4 w-[2px] rounded-full" style={{ backgroundColor: theme.palette.muted }} />
+            <span className="h-4 w-[2px] rounded-full" style={{ backgroundColor: theme.palette.muted }} />
+          </span>
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -1149,7 +1199,7 @@ function PreviewCanvasItemFrame({
     <div
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`relative rounded-[1.35rem] border p-3 transition ${isDragging ? "opacity-60" : ""}`}
+      className={`group/item relative rounded-[1.2rem] border p-3 transition ${isDragging ? "opacity-60" : ""}`}
       style={{
         ...themeStyles.strongSurface,
         borderColor: isDropTarget ? themeStyles.accentButton.backgroundColor : themeStyles.strongSurface.borderColor,
@@ -1158,11 +1208,11 @@ function PreviewCanvasItemFrame({
           : undefined,
       }}
     >
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.mutedText}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.mutedText}>
           {label}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 opacity-0 transition group-hover/item:opacity-100 focus-within:opacity-100">
           {onDragStart ? (
             <button
               type="button"
@@ -1181,14 +1231,16 @@ function PreviewCanvasItemFrame({
             </button>
           ) : null}
           {onRemove ? (
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
-              style={themeStyles.ghostButton}
-            >
-              Remove
-            </button>
+            <CompactActionMenu
+              themeStyles={themeStyles}
+              items={[
+                {
+                  label: "Hide block",
+                  onSelect: onRemove,
+                  tone: "danger",
+                },
+              ]}
+            />
           ) : null}
         </div>
       </div>
@@ -1281,16 +1333,26 @@ function reorderCanvasComponent(
 
   if (position === "left" || position === "right") {
     const sharedRowId =
-      canSectionShareRow(draggedComponent) && canSectionShareRow(targetComponent)
+      canSectionsShareRow(draggedComponent, targetComponent)
         ? targetComponent.rowId || targetComponent.id
         : createLayoutRowId();
 
-    draggedComponent.rowId = sharedRowId;
-    targetComponent.rowId = sharedRowId;
-    draggedComponent.width = undefined;
-    targetComponent.width = undefined;
-    draggedComponent.widthRatio = 0.5;
-    targetComponent.widthRatio = 0.5;
+    if (canSectionsShareRow(draggedComponent, targetComponent)) {
+      const leftComponent = position === "left" ? draggedComponent : targetComponent;
+      const rightComponent = position === "left" ? targetComponent : draggedComponent;
+      const leftRatio = getAllowedRowWidthRatios(leftComponent, rightComponent).includes(0.6) ? 0.6 : 0.5;
+
+      draggedComponent.rowId = sharedRowId;
+      targetComponent.rowId = sharedRowId;
+      draggedComponent.width = undefined;
+      targetComponent.width = undefined;
+      draggedComponent.widthRatio = position === "left" ? leftRatio : 1 - leftRatio;
+      targetComponent.widthRatio = position === "left" ? 1 - leftRatio : leftRatio;
+    } else {
+      draggedComponent.rowId = createLayoutRowId();
+      draggedComponent.width = "full";
+      draggedComponent.widthRatio = 1;
+    }
   } else {
     draggedComponent.rowId = createLayoutRowId();
     draggedComponent.width = "full";
@@ -1317,9 +1379,8 @@ function mergeEnrichmentResults(
 }
 
 export function Repo2SiteShell() {
-  const { resolvedTheme } = useAppTheme();
+  const { renderTheme, themeChoice, setThemeChoice, isHydrated } = useAppTheme();
   const searchParams = useSearchParams();
-  const isBuilderMode = true;
   const initialPortfolioColorModeRef = useRef<PortfolioOverrides["appearance"]["colorMode"]>(
     getInitialPortfolioColorMode(),
   );
@@ -1350,12 +1411,8 @@ export function Repo2SiteShell() {
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
   const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorTab>("layout");
-  const [resizingSectionId, setResizingSectionId] = useState<string | null>(null);
+  const [resizingSectionIds, setResizingSectionIds] = useState<string[]>([]);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
-  const [showCustomizeHint, setShowCustomizeHint] = useState(false);
-  const [showCustomizeTrigger, setShowCustomizeTrigger] = useState(true);
-  const [isSpriteEnabled, setIsSpriteEnabled] = useState(true);
-  const [spriteReaction, setSpriteReaction] = useState<BuilderSpriteReactionSignal | null>(null);
   const [isQuickStartExpanded, setIsQuickStartExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isTemplateOpen, setIsTemplateOpen] = useState(false);
@@ -1385,19 +1442,21 @@ export function Repo2SiteShell() {
   const [authSession, setAuthSession] = useState<AuthSummary>(null);
   const [githubImportAutofillNotice, setGitHubImportAutofillNotice] = useState<string | null>(null);
   const [isGitHubSignInHelpOpen, setIsGitHubSignInHelpOpen] = useState(false);
+  const { triggerSpriteReaction } = useRepo2SiteCompanion();
   const resumeUploadInputRef = useRef<HTMLInputElement | null>(null);
   const heroImageInputRef = useRef<HTMLInputElement | null>(null);
-  const customizeTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareSlugCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedTemplateSlugRef = useRef<string | null>(null);
   const aiAcceptedCountRef = useRef<number | null>(null);
   const lastGitHubAutofillUsernameRef = useRef<string | null>(null);
   const sectionResizeRef = useRef<{
-    sectionId: string;
+    leftSectionId: string;
+    rightSectionId: string;
     rowId: string;
     startX: number;
     rowWidth: number;
-    ratios: Record<string, number>;
+    leftStart: number;
+    rightStart: number;
   } | null>(null);
   const hasResumeContext =
     uploadedResumeFiles.length > 0 ||
@@ -1416,6 +1475,30 @@ export function Repo2SiteShell() {
     onOpenProfileEdit: () => setIsEditMode(true),
     onTrackEvent: trackAnalyticsEvent,
   });
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    setOverrides((current) => {
+      if (current.appearance.colorMode !== initialPortfolioColorModeRef.current) {
+        return current;
+      }
+
+      if (current.appearance.colorMode === renderTheme) {
+        return current;
+      }
+
+      return {
+        ...current,
+        appearance: {
+          ...current.appearance,
+          colorMode: renderTheme,
+        },
+      };
+    });
+  }, [isHydrated, renderTheme]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -1465,22 +1548,6 @@ export function Repo2SiteShell() {
     setGitHubImportAutofillNotice(authSession.username);
     lastGitHubAutofillUsernameRef.current = authSession.username;
   }, [authSession, profileUrl]);
-
-  useEffect(() => {
-    const hasSeenCustomizeHint = window.localStorage.getItem(CUSTOMIZE_HINT_STORAGE_KEY);
-
-    if (!hasSeenCustomizeHint) {
-      setShowCustomizeHint(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const savedPreference = window.localStorage.getItem(BETA_SPRITE_STORAGE_KEY);
-
-    if (savedPreference === "off") {
-      setIsSpriteEnabled(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (!preview) {
@@ -1632,98 +1699,7 @@ export function Repo2SiteShell() {
   }, [isShareOpen, preview, shareSlug]);
 
   useEffect(() => {
-    function clearCustomizeTypingTimeout() {
-      if (customizeTypingTimeoutRef.current) {
-        clearTimeout(customizeTypingTimeoutRef.current);
-        customizeTypingTimeoutRef.current = null;
-      }
-    }
-
-    function scheduleCustomizeTriggerReturn(delay = 1400) {
-      clearCustomizeTypingTimeout();
-      customizeTypingTimeoutRef.current = setTimeout(() => {
-        setShowCustomizeTrigger(true);
-        customizeTypingTimeoutRef.current = null;
-      }, delay);
-    }
-
-    function isTextEntryTarget(target: EventTarget | null) {
-      if (!(target instanceof HTMLElement)) {
-        return false;
-      }
-
-      if (target.closest("[data-tour-id='tour-customize-button']")) {
-        return false;
-      }
-
-      if (target.isContentEditable) {
-        return true;
-      }
-
-      if (target instanceof HTMLTextAreaElement) {
-        return true;
-      }
-
-      if (target instanceof HTMLInputElement) {
-        const textEntryTypes = new Set([
-          "text",
-          "email",
-          "url",
-          "search",
-          "tel",
-          "number",
-          "password",
-        ]);
-
-        return textEntryTypes.has(target.type || "text");
-      }
-
-      return false;
-    }
-
-    function handleTextActivity(event: Event) {
-      if (isCustomizeOpen || !isTextEntryTarget(event.target)) {
-        return;
-      }
-
-      setShowCustomizeTrigger(false);
-      scheduleCustomizeTriggerReturn();
-    }
-
-    function handleBlur(event: FocusEvent) {
-      if (isCustomizeOpen || !isTextEntryTarget(event.target)) {
-        return;
-      }
-
-      scheduleCustomizeTriggerReturn(300);
-    }
-
-    document.addEventListener("input", handleTextActivity, true);
-    document.addEventListener("keydown", handleTextActivity, true);
-    document.addEventListener("focusin", handleTextActivity, true);
-    document.addEventListener("focusout", handleBlur, true);
-
-    return () => {
-      clearCustomizeTypingTimeout();
-      document.removeEventListener("input", handleTextActivity, true);
-      document.removeEventListener("keydown", handleTextActivity, true);
-      document.removeEventListener("focusin", handleTextActivity, true);
-      document.removeEventListener("focusout", handleBlur, true);
-    };
-  }, [isCustomizeOpen]);
-
-  useEffect(() => {
-    if (isCustomizeOpen) {
-      setShowCustomizeTrigger(true);
-      if (customizeTypingTimeoutRef.current) {
-        clearTimeout(customizeTypingTimeoutRef.current);
-        customizeTypingTimeoutRef.current = null;
-      }
-    }
-  }, [isCustomizeOpen]);
-
-  useEffect(() => {
-    function handlePointerMove(event: globalThis.MouseEvent) {
+    function handlePointerMove(event: globalThis.PointerEvent) {
       const resizeState = sectionResizeRef.current;
 
       if (!resizeState) {
@@ -1733,54 +1709,53 @@ export function Repo2SiteShell() {
       const deltaRatio = (event.clientX - resizeState.startX) / resizeState.rowWidth;
 
       updateLayoutComponents((components) => {
-        const rowComponents = components.filter(
-          (component) =>
-            component.visible &&
-            (component.rowId || component.id) === resizeState.rowId &&
-            canSectionShareRow(component),
-        );
+        const leftComponent = components.find((component) => component.id === resizeState.leftSectionId);
+        const rightComponent = components.find((component) => component.id === resizeState.rightSectionId);
 
-        if (rowComponents.length < 2) {
+        if (!leftComponent || !rightComponent) {
           return components;
         }
 
-        const startCurrent = resizeState.ratios[resizeState.sectionId] ?? getSectionWidthRatio(rowComponents[0]);
-        const siblingIds = rowComponents
-          .map((component) => component.id)
-          .filter((id) => id !== resizeState.sectionId);
-        const totalSiblingStart = siblingIds.reduce(
-          (sum, id) => sum + (resizeState.ratios[id] ?? SECTION_MIN_WIDTH_RATIO),
-          0,
+        if (
+          !leftComponent.visible ||
+          !rightComponent.visible ||
+          !canSectionsShareRow(leftComponent, rightComponent) ||
+          (leftComponent.rowId || leftComponent.id) !== resizeState.rowId ||
+          (rightComponent.rowId || rightComponent.id) !== resizeState.rowId
+        ) {
+          return components;
+        }
+
+        const pairTotal = resizeState.leftStart + resizeState.rightStart;
+        const rawLeft = Math.min(
+          pairTotal - SECTION_MIN_WIDTH_RATIO,
+          Math.max(SECTION_MIN_WIDTH_RATIO, resizeState.leftStart + deltaRatio),
         );
-        const maxCurrent = Math.max(
-          SECTION_MIN_WIDTH_RATIO,
-          1 - siblingIds.length * SECTION_MIN_WIDTH_RATIO,
-        );
-        const nextCurrent = Math.min(maxCurrent, Math.max(SECTION_MIN_WIDTH_RATIO, startCurrent + deltaRatio));
-        const remaining = Math.max(SECTION_MIN_WIDTH_RATIO * siblingIds.length, 1 - nextCurrent);
+        const normalizedLeft = snapRowWidthRatio(rawLeft, leftComponent, rightComponent);
+        const nextRight = 1 - normalizedLeft;
 
         return components.map((component) => {
           if ((component.rowId || component.id) !== resizeState.rowId || !canSectionShareRow(component)) {
             return component;
           }
 
-          if (component.id === resizeState.sectionId) {
+          if (component.id === resizeState.leftSectionId) {
             return {
               ...component,
-              widthRatio: nextCurrent,
+              widthRatio: normalizedLeft,
               width: undefined,
             };
           }
 
-          const startSibling = resizeState.ratios[component.id] ?? SECTION_MIN_WIDTH_RATIO;
-          const nextSibling =
-            totalSiblingStart > 0 ? (startSibling / totalSiblingStart) * remaining : remaining / siblingIds.length;
+          if (component.id === resizeState.rightSectionId) {
+            return {
+              ...component,
+              widthRatio: nextRight,
+              width: undefined,
+            };
+          }
 
-          return {
-            ...component,
-            widthRatio: Math.max(SECTION_MIN_WIDTH_RATIO, nextSibling),
-            width: undefined,
-          };
+          return component;
         });
       });
     }
@@ -1789,12 +1764,12 @@ export function Repo2SiteShell() {
       stopSectionResize();
     }
 
-    window.addEventListener("mousemove", handlePointerMove);
-    window.addEventListener("mouseup", handlePointerUp);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
 
     return () => {
-      window.removeEventListener("mousemove", handlePointerMove);
-      window.removeEventListener("mouseup", handlePointerUp);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
     };
   }, [updateLayoutComponents]);
 
@@ -1863,8 +1838,6 @@ export function Repo2SiteShell() {
       const resolved = typeof nextOpen === "boolean" ? nextOpen : !current;
 
       if (resolved) {
-        setShowCustomizeHint(false);
-        window.localStorage.setItem(CUSTOMIZE_HINT_STORAGE_KEY, "true");
         trackAnalyticsEvent("Customize Panel Opened");
       }
 
@@ -1892,28 +1865,30 @@ export function Repo2SiteShell() {
 
   function stopSectionResize() {
     sectionResizeRef.current = null;
-    setResizingSectionId(null);
+    setResizingSectionIds([]);
   }
 
-  function startSectionResize(sectionId: string, event: MouseEvent<HTMLButtonElement>) {
+  function startSectionResize(
+    rowId: string,
+    leftSectionId: string,
+    rightSectionId: string,
+    event: PointerEvent<HTMLButtonElement>,
+  ) {
     event.preventDefault();
+    event.stopPropagation();
 
     if (overrides.appearance.sectionLayout === "stacked") {
       return;
     }
 
-    const component = overrides.layout.components.find((item) => item.id === sectionId);
+    const leftComponent = overrides.layout.components.find((item) => item.id === leftSectionId);
+    const rightComponent = overrides.layout.components.find((item) => item.id === rightSectionId);
 
-    if (!component || !canSectionShareRow(component)) {
+    if (!leftComponent || !rightComponent || !canSectionsShareRow(leftComponent, rightComponent)) {
       return;
     }
 
-    const rowId = component.rowId || component.id;
-    const rowComponents = overrides.layout.components.filter(
-      (item) => item.visible && (item.rowId || item.id) === rowId && canSectionShareRow(item),
-    );
-
-    if (rowComponents.length < 2) {
+    if ((leftComponent.rowId || leftComponent.id) !== rowId || (rightComponent.rowId || rightComponent.id) !== rowId) {
       return;
     }
 
@@ -1924,29 +1899,15 @@ export function Repo2SiteShell() {
     }
 
     sectionResizeRef.current = {
-      sectionId,
+      leftSectionId,
+      rightSectionId,
       rowId,
       startX: event.clientX,
       rowWidth: Math.max(rowElement.getBoundingClientRect().width, 1),
-      ratios: Object.fromEntries(rowComponents.map((item) => [item.id, getSectionWidthRatio(item)])),
+      leftStart: getCanvasSectionWidthRatio(leftComponent),
+      rightStart: getCanvasSectionWidthRatio(rightComponent),
     };
-    setResizingSectionId(sectionId);
-  }
-
-  function triggerSpriteReaction(type: BuilderSpriteReactionType, meta?: string) {
-    setSpriteReaction({
-      type,
-      meta,
-      nonce: Date.now() + Math.random(),
-    });
-  }
-
-  function toggleSpriteEnabled() {
-    setIsSpriteEnabled((current) => {
-      const next = !current;
-      window.localStorage.setItem(BETA_SPRITE_STORAGE_KEY, next ? "on" : "off");
-      return next;
-    });
+    setResizingSectionIds([leftSectionId, rightSectionId]);
   }
 
   function toggleEditMode(nextOpen?: boolean) {
@@ -1959,6 +1920,14 @@ export function Repo2SiteShell() {
 
       return resolved;
     });
+  }
+
+  function cycleAppTheme() {
+    const nextTheme =
+      themeChoice === "system" ? "light" : themeChoice === "light" ? "dark" : "system";
+
+    setThemeChoice(nextTheme);
+    triggerSpriteReaction("theme-change", nextTheme);
   }
 
   function getTourHighlightProps(targetId: string) {
@@ -3352,7 +3321,7 @@ export function Repo2SiteShell() {
             visible: true,
             rowId: createLayoutRowId(),
             width: sourceLayout?.width || "full",
-            widthRatio: sourceLayout?.widthRatio || getSectionWidthRatio(sourceLayout ?? {
+            widthRatio: sourceLayout?.widthRatio || getCanvasSectionWidthRatio(sourceLayout ?? {
               id: nextId,
               type: "custom",
               visible: true,
@@ -3444,7 +3413,7 @@ export function Repo2SiteShell() {
     techStack: FALLBACK_TECH_STACK,
   });
   const theme = portfolio.theme;
-  const appThemeStyles = buildAppThemeStyles(resolvedTheme);
+  const appThemeStyles = buildAppThemeStyles(renderTheme);
   const themeStyles = buildThemeStyles(
     theme,
     portfolio.appearance.cardStyle,
@@ -3501,6 +3470,18 @@ export function Repo2SiteShell() {
   const shareEmailHref = sharedPortfolioUrl
     ? `mailto:?subject=${encodeURIComponent(`${portfolio.hero.name} | Portfolio`)}&body=${encodeURIComponent(`${shareText}\n\n${sharedPortfolioUrl}`)}`
     : "";
+  const customizeLauncherStyle = {
+    backgroundColor: theme.palette.accent,
+    color: "#ffffff",
+    borderColor:
+      portfolio.appearance.colorMode === "dark"
+        ? "rgba(255,255,255,0.9)"
+        : "rgba(15,23,42,0.14)",
+    boxShadow:
+      portfolio.appearance.colorMode === "dark"
+        ? `0 26px 60px -28px ${theme.palette.accent}`
+        : `0 24px 52px -28px ${theme.palette.accent}`,
+  } satisfies CSSProperties;
   const actionPriority = ["resume", "coverLetter", "linkedIn", "handshake", "portfolio", "github"] as const;
   const primaryProfessionalActions = professional.actions
     .filter((action) => action.id !== "email" && action.id !== "phone")
@@ -3656,7 +3637,7 @@ export function Repo2SiteShell() {
   const visibleSectionRows = visibleCanvasComponents.reduce<Array<{ id: string; items: PortfolioCanvasComponent[] }>>(
     (rows, component) => {
       const rowId =
-        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+        portfolio.appearance.sectionLayout === "stacked" || !canSectionShareRow(component)
           ? component.id
           : component.rowId || component.id;
       const existingRow = rows.find((row) => row.id === rowId);
@@ -4598,17 +4579,14 @@ export function Repo2SiteShell() {
                     >
                       <div className={`rounded-[1.8rem] border ${densityClasses.cardPadding}`} style={themeStyles.sectionSurface}>
                         <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>Profile Details</p>
-                        <p className="mt-3 text-sm leading-6" style={themeStyles.mutedText}>
-                          Add the basics visitors expect to see at a glance. These details are optional, and the site will hide them cleanly when you leave them blank.
-                        </p>
-                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em]" style={themeStyles.mutedText}>Company</p>
-                            <p className="mt-2 text-base font-medium">{professional.company || preview?.profile.company || "Not shared"}</p>
+                            <p className="mt-2 text-base font-medium">{professional.company || preview?.profile.company || "Add company"}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-[0.2em]" style={themeStyles.mutedText}>Location</p>
-                            <p className="mt-2 text-base font-medium">{professional.location || preview?.profile.location || "Not shared"}</p>
+                            <p className="mt-2 text-base font-medium">{professional.location || preview?.profile.location || "Add location"}</p>
                           </div>
                         </div>
                         <div className={`${isEditMode ? "mt-4 grid gap-3 sm:grid-cols-2" : "hidden"}`}>
@@ -4635,11 +4613,6 @@ export function Repo2SiteShell() {
                           />
                           <InlineEditableField label="Location override" value={overrides.professional.location} onChange={(nextValue) => updateOverrides((current) => ({ ...current, professional: { ...current.professional, location: nextValue } }))} generatedValue={preview?.profile.location ?? ""} placeholder="San Francisco, CA" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, professional: { ...current.professional, location: "" } }))} editing={isEditMode} compact />
                         </div>
-                        {!professional.company && !preview?.profile.company ? (
-                          <p className="mt-3 text-xs leading-5" style={themeStyles.mutedText}>
-                            No company added yet. Open edit mode and add one if you want to show your employer, team, or organization.
-                          </p>
-                        ) : null}
                       </div>
                     </PreviewCanvasItemFrame>
                   </div>
@@ -4829,6 +4802,10 @@ export function Repo2SiteShell() {
               }
 
               if (componentId === "professional:company") {
+                if (!isEditMode && !(professional.company || preview?.profile.company)) {
+                  return null;
+                }
+
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -4844,7 +4821,7 @@ export function Repo2SiteShell() {
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
                     <p className="text-xs uppercase tracking-[0.2em]" style={themeStyles.mutedText}>Company</p>
-                    <p className="mt-2 text-base font-medium">{professional.company || preview?.profile.company || "Not shared"}</p>
+                    <p className="mt-2 text-base font-medium">{professional.company || preview?.profile.company}</p>
                     <div className={`${isEditMode ? "mt-3 grid gap-3" : "hidden"}`}>
                       <InlineEditableField label="Company" value={overrides.professional.company} onChange={(nextValue) => updateOverrides((current) => ({ ...current, professional: { ...current.professional, company: nextValue } }))} generatedValue={preview?.profile.company ?? ""} placeholder="Acme Inc." themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, professional: { ...current.professional, company: "" } }))} editing={isEditMode} compact />
                     </div>
@@ -4853,6 +4830,10 @@ export function Repo2SiteShell() {
               }
 
               if (componentId === "professional:location") {
+                if (!isEditMode && !(professional.location || preview?.profile.location)) {
+                  return null;
+                }
+
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -4868,7 +4849,7 @@ export function Repo2SiteShell() {
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
                     <p className="text-xs uppercase tracking-[0.2em]" style={themeStyles.mutedText}>Location</p>
-                    <p className="mt-2 text-base font-medium">{professional.location || preview?.profile.location || "Not shared"}</p>
+                    <p className="mt-2 text-base font-medium">{professional.location || preview?.profile.location}</p>
                     <div className={`${isEditMode ? "mt-3 grid gap-3" : "hidden"}`}>
                       <InlineEditableField label="Location override" value={overrides.professional.location} onChange={(nextValue) => updateOverrides((current) => ({ ...current, professional: { ...current.professional, location: nextValue } }))} generatedValue={preview?.profile.location ?? ""} placeholder="San Francisco, CA" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, professional: { ...current.professional, location: "" } }))} editing={isEditMode} compact />
                     </div>
@@ -4877,6 +4858,10 @@ export function Repo2SiteShell() {
               }
 
               if (componentId === "professional:availability") {
+                if (!isEditMode && !professional.availability) {
+                  return null;
+                }
+
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -4892,7 +4877,7 @@ export function Repo2SiteShell() {
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
                     <p className="text-xs uppercase tracking-[0.2em]" style={themeStyles.mutedText}>Availability</p>
-                    <p className="mt-2 text-base font-medium">{professional.availability || "Not added yet"}</p>
+                    <p className="mt-2 text-base font-medium">{professional.availability || "Add availability"}</p>
                     <div className={`${isEditMode ? "mt-3 grid gap-3" : "hidden"}`}>
                       <InlineEditableField label="Availability" value={overrides.professional.availability} onChange={(nextValue) => updateOverrides((current) => ({ ...current, professional: { ...current.professional, availability: nextValue } }))} generatedValue="" placeholder="Open to product engineering roles" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, professional: { ...current.professional, availability: "" } }))} editing={isEditMode} compact />
                     </div>
@@ -5087,6 +5072,10 @@ export function Repo2SiteShell() {
               }
 
               if (componentId === "contact:note") {
+                if (!isEditMode && !contactText) {
+                  return null;
+                }
+
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -5101,7 +5090,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    {contactText ? <p className="break-words whitespace-pre-wrap text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>{contactText}</p> : <p className="text-sm" style={themeStyles.mutedText}>No custom contact note yet.</p>}
+                    {contactText ? <p className="break-words whitespace-pre-wrap text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>{contactText}</p> : null}
                     <InlineEditableField label="Custom contact note" value={overrides.contact.customText} onChange={(nextValue) => updateOverrides((current) => ({ ...current, contact: { ...current.contact, customText: nextValue } }))} generatedValue="" placeholder="Add a short invitation to reach out" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, contact: { ...current.contact, customText: "" } }))} editing={isEditMode} multiline />
                   </PreviewCanvasItemFrame>
                 );
@@ -5276,6 +5265,10 @@ export function Repo2SiteShell() {
               }
 
               if (componentId === "links:description") {
+                if (!isEditMode && !linksDescription.value.trim()) {
+                  return null;
+                }
+
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -5965,7 +5958,7 @@ export function Repo2SiteShell() {
                 Layout Behavior
               </p>
               <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-                Keep the editor focused on one canvas. Use drag-and-drop to place sections, then drag the resize control on the canvas to change widths directly.
+                Keep the editor focused on one canvas. Use drag-and-drop to place sections, then drag the divider handles between sections to resize them directly.
               </p>
             </div>
           </div>
@@ -6004,18 +5997,18 @@ export function Repo2SiteShell() {
                     </button>
                   ) : null}
                 </div>
-                {selectedCanvasComponent.type !== "projects" ? (
+                {canSectionShareRow(selectedCanvasComponent) ? (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
                       Width
                     </p>
                     <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
-                      Resize this section directly on the canvas. Drag the resize handle to change its share of the row.
+                      Resize this section directly on the canvas. Drag the divider handle beside it to change its share of the row.
                     </p>
                   </div>
                 ) : (
                   <p className="text-xs leading-5" style={themeStyles.mutedText}>
-                    Projects stays full-width to keep portfolio work readable and consistent.
+                    This section stays full-width to keep the layout readable and visually balanced.
                   </p>
                 )}
               </div>
@@ -6111,20 +6104,30 @@ export function Repo2SiteShell() {
     }
 
     return (
-      <div className="rounded-[1.35rem] border p-4 sm:p-5" style={themeStyles.sectionSurface}>
+      <div className="rounded-[1.1rem] border px-4 py-4 sm:px-5" style={themeStyles.sectionSurface}>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
               Builder Workspace
             </p>
             <p className="mt-1 text-sm font-medium">
-              Select a section, move it on the canvas, then refine content, layout, and style in the inspector.
+              {selectedCanvasComponent
+                ? `${selectedSectionLabel} selected. Drag, resize, or edit it directly on the canvas.`
+                : "Select a section, move it on the canvas, then refine content and styling in the inspector."}
             </p>
             <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
               Flexible layout lets non-project sections share a row. Projects always stays full width.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.chip}>
+              {visibleCanvasComponents.length} visible
+            </span>
+            {hiddenSectionCount > 0 ? (
+              <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                {hiddenSectionCount} hidden
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => toggleEditMode()}
@@ -6152,32 +6155,19 @@ export function Repo2SiteShell() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.9fr)]">
-          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="rounded-[1rem] border px-4 py-3" style={themeStyles.surface}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
                   Page Structure
                 </p>
-                <p className="mt-1 text-sm font-medium">
-                  {selectedCanvasComponent ? `${selectedSectionLabel} selected` : "Choose a section to start editing"}
+                <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                  {selectedSectionHint}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.chip}>
-                  {visibleCanvasComponents.length} visible
-                </span>
-                {hiddenSectionCount > 0 ? (
-                  <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                    {hiddenSectionCount} hidden
-                  </span>
-                ) : null}
-              </div>
             </div>
-            <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
-              {selectedSectionHint}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {canvasComponents.map((component) => {
                 const label =
                   component.type === "custom"
@@ -6212,88 +6202,64 @@ export function Repo2SiteShell() {
             </div>
           </div>
 
-          <div className="grid gap-3">
-            <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                Add Section
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {availableBuiltInSections.map((component) => (
-                  <button
-                    key={`add-${component.id}`}
-                    type="button"
-                    onClick={() => addBuiltInSection(component.type)}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                    style={themeStyles.ghostButton}
-                  >
-                    {sectionLabels[component.type]}
-                  </button>
-                ))}
+          <div className="rounded-[1rem] border px-4 py-3" style={themeStyles.surface}>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Manage Sections
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableBuiltInSections.map((component) => (
                 <button
+                  key={`add-${component.id}`}
                   type="button"
-                  onClick={addCustomSection}
+                  onClick={() => addBuiltInSection(component.type)}
                   className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.accentButton}
+                  style={themeStyles.ghostButton}
                 >
-                  Custom Section
+                  {sectionLabels[component.type]}
                 </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={addCustomSection}
+                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={themeStyles.accentButton}
+              >
+                Custom Section
+              </button>
+              {hiddenCanvasComponents.map((component) => (
+                <button
+                  key={`restore-${component.id}`}
+                  type="button"
+                  onClick={() => restoreSection(component.id)}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Restore {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                </button>
+              ))}
             </div>
-
-            {(hiddenSectionCount > 0 || hiddenBlockCount > 0) ? (
-              <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                  Restore Hidden
-                </p>
-                {hiddenSectionCount > 0 ? (
-                  <div className="mt-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                      Sections
+            {hiddenBlockCount > 0 ? (
+              <div className="mt-3 grid gap-2">
+                {hiddenChildComponentGroups.map((group) => (
+                  <div key={group.parentId}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.mutedText}>
+                      {group.label}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {hiddenCanvasComponents.map((component) => (
+                      {group.items.map((item) => (
                         <button
-                          key={`restore-${component.id}`}
+                          key={item.id}
                           type="button"
-                          onClick={() => restoreSection(component.id)}
+                          onClick={() => setChildComponentVisible(item.id, true)}
                           className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
                           style={themeStyles.ghostButton}
                         >
-                          {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                          {item.label}
                         </button>
                       ))}
                     </div>
                   </div>
-                ) : null}
-                {hiddenBlockCount > 0 ? (
-                  <div className={hiddenSectionCount > 0 ? "mt-4" : "mt-3"}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                      Blocks
-                    </p>
-                    <div className="mt-2 grid gap-3">
-                      {hiddenChildComponentGroups.map((group) => (
-                        <div key={group.parentId}>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.mutedText}>
-                            {group.label}
-                          </p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {group.items.map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => setChildComponentVisible(item.id, true)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                style={themeStyles.ghostButton}
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
+                ))}
               </div>
             ) : null}
           </div>
@@ -6303,8 +6269,8 @@ export function Repo2SiteShell() {
   }
 
   return (
-    <main className="min-h-screen px-3 py-3 sm:px-5 sm:py-4" style={appThemeStyles.page}>
-      <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-2">
+    <main className="min-h-screen px-3 py-3 sm:px-4 sm:py-4 xl:px-5" style={appThemeStyles.page}>
+      <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-3">
         <section className="flex flex-col gap-2">
           <div className="rounded-[1.35rem] border px-4 py-3" style={appThemeStyles.navSurface}>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -6330,14 +6296,6 @@ export function Repo2SiteShell() {
                 </span>
                 <button
                   type="button"
-                  onClick={toggleSpriteEnabled}
-                  className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
-                  style={isSpriteEnabled ? appThemeStyles.accentButton : appThemeStyles.ghostButton}
-                >
-                  {isSpriteEnabled ? "Sprite On" : "Sprite Off"}
-                </button>
-                <button
-                  type="button"
                   onClick={() =>
                     walkthrough.status === "in_progress"
                       ? walkthrough.openWalkthrough("quick")
@@ -6347,6 +6305,14 @@ export function Repo2SiteShell() {
                   style={appThemeStyles.ghostButton}
                 >
                   {walkthrough.status === "in_progress" ? "Resume Walkthrough" : "Walkthrough"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cycleAppTheme}
+                  className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
+                  style={appThemeStyles.ghostButton}
+                >
+                  Theme: {themeChoice === "system" ? "System" : themeChoice === "light" ? "Light" : "Dark"}
                 </button>
               </div>
             </div>
@@ -7071,9 +7037,9 @@ export function Repo2SiteShell() {
 
         </section>
 
-        <section className="overflow-hidden rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]" style={themeStyles.surface}>
-          <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_22rem]">
-          <article className="overflow-hidden">
+        <section className="rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]" style={themeStyles.surface}>
+          <div className={preview ? "xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]" : ""}>
+          <article className="min-w-0">
             {error ? (
               <div className="border-b px-6 py-4 text-sm" style={themeStyles.accentBlock}>
                 {error}
@@ -7118,7 +7084,7 @@ export function Repo2SiteShell() {
             </header>
 
             <div
-              className={`mx-auto grid w-full max-w-[72rem] ${densityClasses.stackGap} ${densityClasses.sectionPadding} bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:24px_24px]`}
+              className={`grid w-full min-w-0 ${densityClasses.stackGap} px-4 py-4 sm:px-5 sm:py-5 bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:24px_24px]`}
             >
               {!preview ? (
                 <div className="rounded-[1.6rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
@@ -7196,84 +7162,113 @@ export function Repo2SiteShell() {
                   className={`grid gap-4 ${
                     portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1
                       ? "grid-cols-1"
-                      : "grid-cols-1 xl:flex xl:items-start"
+                      : "grid-cols-1 rounded-[1.6rem] border p-3 xl:grid xl:items-stretch xl:gap-4 xl:p-4"
                   }`}
+                  style={(() => {
+                    if (portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1) {
+                      return undefined;
+                    }
+
+                    const leftRatio = getCanvasSectionWidthRatio(row.items[0] ?? row.items[1]);
+                    const rightRatio = getCanvasSectionWidthRatio(row.items[1] ?? row.items[0]);
+
+                    return {
+                      ...themeStyles.subtleSurface,
+                      gridTemplateColumns:
+                        row.items.length === 2
+                          ? `minmax(0, calc(${Math.round(leftRatio * 100)}% - 1.625rem)) 1.25rem minmax(0, calc(${Math.round(rightRatio * 100)}% - 1.625rem))`
+                          : undefined,
+                    } as CSSProperties;
+                  })()}
                 >
-                  {row.items.map((component) => {
+                  {row.items.map((component, index) => {
                     const isDragging = draggedSectionId === component.id;
                     const isDropTarget = dropTargetSectionId === component.id && draggedSectionId !== component.id;
                     const widthRatio =
-                      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+                      portfolio.appearance.sectionLayout === "stacked" || !canSectionShareRow(component)
                         ? 1
-                        : getSectionWidthRatio(component);
+                        : getCanvasSectionWidthRatio(component);
+                    const nextComponent = row.items[index + 1];
+                    const canShowResizeHandle =
+                      portfolio.appearance.sectionLayout !== "stacked" &&
+                      Boolean(nextComponent) &&
+                      canSectionsShareRow(component, nextComponent);
+                    const resizeHandleIsActive =
+                      Boolean(nextComponent) &&
+                      resizingSectionIds.includes(component.id) &&
+                      resizingSectionIds.includes(nextComponent.id);
 
                     return (
-                      <div
-                        key={component.id}
-                        className="w-full xl:shrink-0 xl:basis-[var(--section-width)] xl:max-w-[var(--section-width)]"
-                        style={{ ["--section-width" as string]: `${Math.round(widthRatio * 100)}%` } as CSSProperties}
-                      >
-                        <PreviewSectionFrame
-                          sectionId={component.id}
-                          label={
-                            component.type === "custom"
-                              ? overrides.customSections.find((section) => section.id === component.id)?.title || component.title || "Custom Section"
-                              : sectionLabels[component.type]
+                      <Fragment key={component.id}>
+                        <div
+                          className={`min-w-0 w-full ${row.items.length > 1 ? "xl:self-stretch" : "xl:shrink-0 xl:self-stretch xl:basis-[var(--section-width)] xl:max-w-[var(--section-width)]"}`}
+                          style={
+                            row.items.length > 1
+                              ? undefined
+                              : ({ ["--section-width" as string]: `${Math.round(widthRatio * 100)}%` } as CSSProperties)
                           }
-                          themeStyles={themeStyles}
-                          theme={theme}
-                          isDragging={isDragging}
-                          isResizing={resizingSectionId === component.id}
-                          isSelected={selectedSectionId === component.id}
-                          isHovered={hoveredSectionId === component.id}
-                          isDropTarget={isDropTarget}
-                          dropPosition={isDropTarget ? dropPosition : null}
-                          widthRatio={widthRatio}
-                          canResize={portfolio.appearance.sectionLayout !== "stacked" && canSectionShareRow(component)}
-                          onResizeStart={(event) => startSectionResize(component.id, event)}
-                          duplicateLabel={component.type === "custom" ? "Duplicate" : undefined}
-                          onDuplicate={component.type === "custom" ? () => duplicateSection(component.id) : undefined}
-                          onSelect={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
-                          onHoverChange={(hovered) => setHoveredSectionId(hovered ? component.id : null)}
-                          onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed = "move";
-                            handleSectionDragStart(component.id);
-                          }}
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "move";
-                            handleSectionDragOver(event, component.id);
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            handleSectionDrop(component.id);
-                          }}
-                          onDragEnd={handleSectionDragEnd}
-                          onRemove={() => removeSection(component.id)}
                         >
-                          {renderPreviewSection(component)}
-                        </PreviewSectionFrame>
-                      </div>
+                          <PreviewSectionFrame
+                            sectionId={component.id}
+                            label={
+                              component.type === "custom"
+                                ? overrides.customSections.find((section) => section.id === component.id)?.title || component.title || "Custom Section"
+                                : sectionLabels[component.type]
+                            }
+                            themeStyles={themeStyles}
+                            theme={theme}
+                            isDragging={isDragging}
+                            isResizing={resizingSectionIds.includes(component.id)}
+                            isSelected={selectedSectionId === component.id}
+                            isHovered={hoveredSectionId === component.id}
+                            isDropTarget={isDropTarget}
+                            dropPosition={isDropTarget ? dropPosition : null}
+                            widthRatio={widthRatio}
+                            canResize={
+                              portfolio.appearance.sectionLayout !== "stacked" &&
+                              row.items.length > 1 &&
+                              canSectionShareRow(component)
+                            }
+                            duplicateLabel={component.type === "custom" ? "Duplicate" : undefined}
+                            onDuplicate={component.type === "custom" ? () => duplicateSection(component.id) : undefined}
+                            onSelect={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
+                            onHoverChange={(hovered) => setHoveredSectionId(hovered ? component.id : null)}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "move";
+                              handleSectionDragStart(component.id);
+                            }}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              handleSectionDragOver(event, component.id);
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              handleSectionDrop(component.id);
+                            }}
+                            onDragEnd={handleSectionDragEnd}
+                            onRemove={() => removeSection(component.id)}
+                          >
+                            {renderPreviewSection(component)}
+                          </PreviewSectionFrame>
+                        </div>
+                        {canShowResizeHandle && nextComponent ? (
+                          <PreviewRowResizeHandle
+                            themeStyles={themeStyles}
+                            theme={theme}
+                            isActive={resizeHandleIsActive}
+                            onPointerDown={(event) =>
+                              startSectionResize(row.id, component.id, nextComponent.id, event)
+                            }
+                          />
+                        ) : null}
+                      </Fragment>
                     );
                   })}
                 </div>
               ))}
             </div>
           </article>
-          {preview ? (
-            <aside
-              className="hidden border-l xl:block"
-              style={{
-                borderColor: theme.palette.border,
-                backgroundColor: themeStyles.strongSurface.backgroundColor,
-                color: themeStyles.strongSurface.color,
-              }}
-            >
-              <div className="sticky top-0 h-screen overflow-y-auto px-5 py-5">
-                {renderCustomizePanelContent()}
-              </div>
-            </aside>
-          ) : null}
           </div>
         </section>
       </div>
@@ -7282,43 +7277,23 @@ export function Repo2SiteShell() {
           type="button"
           aria-label="Close customize panel"
           onClick={() => toggleCustomizePanel(false)}
-          className="fixed inset-0 z-[58] bg-slate-950/28 backdrop-blur-[2px] xl:hidden"
+          className="fixed inset-0 z-[58] bg-slate-950/28 backdrop-blur-[2px]"
         />
       ) : null}
-      {isBuilderMode ? (
-        <Repo2SiteBuilderSprite
-          enabled={isSpriteEnabled}
-          palette={activePalette}
-          reaction={spriteReaction}
-        />
+      {!isCustomizeOpen ? (
+        <button
+          type="button"
+          onClick={() => toggleCustomizePanel(true)}
+          aria-label="Open customize tool"
+          title="Open customize tool"
+          className="fixed bottom-5 right-5 z-[90] flex h-20 w-20 items-center justify-center rounded-full border text-[2.5rem] font-semibold shadow-[0_26px_60px_-28px_rgba(15,23,42,0.78)] transition duration-200 hover:-translate-y-1 sm:bottom-6 sm:right-6 sm:h-24 sm:w-24"
+          style={customizeLauncherStyle}
+        >
+          <span aria-hidden="true" className="leading-none">≡</span>
+        </button>
       ) : null}
-      <div className="fixed bottom-4 right-4 z-[60] flex flex-col items-end gap-3 sm:bottom-5 sm:right-5 xl:hidden">
-        {showCustomizeHint && !isCustomizeOpen ? (
-          <div
-            className="max-w-[15rem] rounded-[1rem] border px-4 py-3 text-sm shadow-[0_20px_48px_-30px_rgba(15,23,42,0.7)]"
-            style={themeStyles.strongSurface}
-          >
-            <p className="font-medium">Customize your site here.</p>
-            <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-              Open this tool to fine-tune themes, colors, density, and card styling anytime.
-            </p>
-          </div>
-        ) : null}
-        <div {...getTourHighlightProps("tour-customize-button")}>
-          <button
-            type="button"
-            onClick={() => toggleCustomizePanel()}
-            aria-label="Customize your site"
-            title="Customize your site"
-            className={`group flex h-14 w-14 items-center justify-center rounded-full border text-xl font-semibold shadow-[0_22px_50px_-26px_rgba(15,23,42,0.72)] transition duration-200 hover:-translate-y-1 ${showCustomizeTrigger || isCustomizeOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
-            style={themeStyles.accentButton}
-          >
-            <span aria-hidden="true">≡</span>
-          </button>
-        </div>
-      </div>
       <aside
-        className={`fixed right-0 top-0 z-[59] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out xl:hidden ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed right-0 top-0 z-[89] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out sm:max-w-[30rem] ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
         style={themeStyles.strongSurface}
         aria-hidden={!isCustomizeOpen}
       >

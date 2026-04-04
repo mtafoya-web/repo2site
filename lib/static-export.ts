@@ -1,4 +1,4 @@
-import { orderCanvasChildIds } from "@/lib/portfolio";
+import { getCanvasSectionWidthRatio, orderCanvasChildIds } from "@/lib/portfolio";
 import type { FinalPortfolio } from "@/lib/portfolio";
 import type { GeneratePreviewResponse, PortfolioOverrides, PreviewTheme } from "@/lib/types";
 
@@ -249,28 +249,6 @@ function slugify(value: string) {
     .replaceAll(/^-+|-+$/g, "");
 
   return normalized || "portfolio";
-}
-
-function getSectionWidthRatio(widthRatio: number | undefined, width: string | undefined, isFullWidth: boolean) {
-  if (isFullWidth) {
-    return 1;
-  }
-
-  if (typeof widthRatio === "number" && Number.isFinite(widthRatio)) {
-    return Math.min(1, Math.max(0.28, widthRatio));
-  }
-
-  switch (width) {
-    case "half":
-      return 0.5;
-    case "third":
-      return 1 / 3;
-    case "two-thirds":
-      return 2 / 3;
-    case "full":
-    default:
-      return 1;
-  }
 }
 
 function normalizeTechKey(value: string) {
@@ -647,7 +625,7 @@ function buildHtml(portfolio: FinalPortfolio) {
   const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>(
     (rows, component) => {
       const rowId =
-        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects" || component.type === "hero"
           ? component.id
           : component.rowId || component.id;
       const existingRow = rows.find((row) => row.id === rowId);
@@ -1056,7 +1034,7 @@ function buildHtml(portfolio: FinalPortfolio) {
     .map((row) => {
       const isFlexibleRow =
         portfolio.appearance.sectionLayout !== "stacked" &&
-        row.items.some((component) => component.type !== "projects") &&
+        row.items.some((component) => component.type !== "projects" && component.type !== "hero") &&
         row.items.length > 1;
 
       const rowMarkup = row.items
@@ -1070,11 +1048,10 @@ function buildHtml(portfolio: FinalPortfolio) {
             return "";
           }
 
-          const widthRatio = getSectionWidthRatio(
-            component.widthRatio,
-            component.width,
-            portfolio.appearance.sectionLayout === "stacked" || component.type === "projects",
-          );
+          const widthRatio =
+            portfolio.appearance.sectionLayout === "stacked"
+              ? 1
+              : getCanvasSectionWidthRatio(component);
 
           return `<div class="layout-cell" style="--section-width:${Math.round(widthRatio * 100)}%">${markup}</div>`;
         })

@@ -14,6 +14,8 @@ The publish flow is:
 
 This keeps editor-only state, pending AI suggestions, and internal tool UI out of the public route.
 
+That separation matters even more now that the builder UI uses progressive disclosure and more editor-only affordances. Public shares should continue to render the final portfolio only, never builder controls, helper text, or editing state.
+
 ## Backends
 
 The share service lives in [lib/share-store.ts](/home/tafoy/projects/repo2site/lib/share-store.ts) and resolves a storage driver from environment variables.

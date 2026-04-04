@@ -8,6 +8,7 @@ export type BuilderSpriteReactionType =
   | "drag-end"
   | "ai-accepted"
   | "editor-open"
+  | "theme-change"
   | "export";
 
 export type BuilderSpriteReactionSignal = {
@@ -250,6 +251,13 @@ export function Repo2SiteBuilderSprite({
         message: "builder ready",
         look: "left",
       },
+      "theme-change": {
+        behavior: "react",
+        expression: "surprised",
+        motion: "hop",
+        message: "new vibe",
+        look: "center",
+      },
       export: {
         behavior: "react",
         expression: "happy",
@@ -266,7 +274,7 @@ export function Repo2SiteBuilderSprite({
     setMessage(next.message);
     setLook(next.look);
     setOffset({
-      x: reaction.type === "drag-start" ? 16 : reaction.type === "ai-accepted" ? 20 : 0,
+      x: reaction.type === "drag-start" ? 16 : reaction.type === "ai-accepted" ? 20 : reaction.type === "theme-change" ? 8 : 0,
       y: reaction.type === "export" ? -12 : -7,
     });
 
@@ -276,7 +284,7 @@ export function Repo2SiteBuilderSprite({
       setMotion("idle");
       setMessage(null);
       setOffset({ x: 0, y: 0 });
-    }, reaction.type === "ai-accepted" || reaction.type === "export" ? 1900 : 1300);
+    }, reaction.type === "ai-accepted" || reaction.type === "export" ? 1900 : reaction.type === "theme-change" ? 1500 : 1300);
   }, [enabled, reaction]);
 
   function handleSpriteClick() {

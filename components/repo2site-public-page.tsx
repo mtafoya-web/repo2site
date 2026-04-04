@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { orderCanvasChildIds } from "@/lib/portfolio";
+import { getCanvasSectionWidthRatio, orderCanvasChildIds } from "@/lib/portfolio";
 import type { SharedPortfolioRecord } from "@/lib/share-store";
 import { getSiteOrigin } from "@/lib/site-url";
 
@@ -17,28 +17,6 @@ function toCanvasKey(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "item";
-}
-
-function getSectionWidthRatio(widthRatio: number | undefined, width: string | undefined, isFullWidth: boolean) {
-  if (isFullWidth) {
-    return 1;
-  }
-
-  if (typeof widthRatio === "number" && Number.isFinite(widthRatio)) {
-    return Math.min(1, Math.max(0.28, widthRatio));
-  }
-
-  switch (width) {
-    case "half":
-      return 0.5;
-    case "third":
-      return 1 / 3;
-    case "two-thirds":
-      return 2 / 3;
-    case "full":
-    default:
-      return 1;
-  }
 }
 
 function buildPublicThemeStyles(record: SharedPortfolioRecord) {
@@ -493,7 +471,7 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
   );
   const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>((rows, component) => {
     const rowId =
-      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects" || component.type === "hero"
         ? component.id
         : component.rowId || component.id;
     const row = rows.find((item) => item.id === rowId);
@@ -534,11 +512,10 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
                 }`}
               >
                 {row.items.map((component) => {
-                  const widthRatio = getSectionWidthRatio(
-                    component.widthRatio,
-                    component.width,
-                    portfolio.appearance.sectionLayout === "stacked" || component.type === "projects",
-                  );
+                  const widthRatio =
+                    portfolio.appearance.sectionLayout === "stacked"
+                      ? 1
+                      : getCanvasSectionWidthRatio(component);
                   const markup =
                     component.type === "custom"
                       ? customSectionMap[component.id]

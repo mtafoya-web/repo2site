@@ -4,6 +4,8 @@
 
 Repo2Site helps you turn real GitHub work into a portfolio site. Instead of starting from a blank template, you begin with a public GitHub profile and optionally add a resume or other public sources to improve the draft. From there, you can edit the content, change the design, remix templates, publish a public page, or export a ZIP bundle.
 
+The builder is designed to stay focused. Most controls stay quiet until you hover, select a section, or open the customize drawer.
+
 ## Getting Started
 
 1. Open the builder at `/builder`.
@@ -84,8 +86,10 @@ The editor lets you change the draft directly.
 
 How to do it:
 
-1. Click `Open Editor`.
-2. Update text fields, links, profile details, and layout controls.
+1. Click a section in the preview to focus it.
+2. Use the quieter section controls that appear on hover or selection.
+3. Open inline fields only where you want to make changes.
+4. Use the `•••` menu for secondary actions like remove/hide when available.
 
 What you can edit:
 
@@ -111,6 +115,7 @@ Good things to update:
 Best practice:
 
 - Get the core story right manually before you rely on AI to polish it.
+- Keep optional details hidden unless they add signal.
 
 ### 6. Change Themes and Colors
 
@@ -118,7 +123,7 @@ Use the design controls after the content feels solid.
 
 How to do it:
 
-1. Click the floating `Customize` button.
+1. Click the floating `≡` customize launcher.
 2. Adjust:
    - theme
    - color mode
@@ -139,6 +144,7 @@ What you can do:
 
 - drag sections
 - drag project cards
+- use section hover/focus controls for cleaner editing
 - feature a different project
 - hide or remove visible elements from the layout
 
@@ -146,6 +152,7 @@ Best practice:
 
 - Put your strongest project first.
 - Keep the page easy to scan.
+- Avoid filling every optional field just because it exists.
 
 ### 8. Browse Templates
 
@@ -208,6 +215,14 @@ You can:
 - skip the walkthrough
 - dismiss it and resume later
 - restart it from the help/walkthrough actions in the builder
+
+## How the Cleaner Editor Works
+
+- Click a section to focus it.
+- Focused sections show the clearest editing affordances.
+- Hover reveals secondary controls without keeping them on screen all the time.
+- The customize drawer is for visual system changes.
+- The preview is the main workspace for structure and content.
 
 ## Troubleshooting
 

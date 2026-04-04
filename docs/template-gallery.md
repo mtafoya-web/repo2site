@@ -27,6 +27,12 @@ Templates preserve:
 - section order
 - section visibility
 
+Templates also preserve the calmer editor-side presentation model around those settings:
+
+- layout structure stays reusable
+- personal content stays user-owned
+- optional sections can remain hidden until the user intentionally expands or edits them
+
 Templates do **not** replace:
 
 - imported GitHub repositories

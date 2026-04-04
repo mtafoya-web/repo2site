@@ -146,6 +146,119 @@ export const PROFESSIONAL_ACTION_LABELS = {
   github: "View GitHub Profile",
 } as const;
 
+export const SECTION_MIN_WIDTH_RATIO = 1 / 3;
+export const SECTION_SNAPPED_WIDTH_RATIOS = [1 / 3, 0.4, 0.5, 0.6, 2 / 3] as const;
+
+type SectionLayoutRole = "full" | "heavy" | "light";
+
+function getSectionLayoutRole(sectionType: PortfolioSectionType): SectionLayoutRole {
+  switch (sectionType) {
+    case "hero":
+    case "projects":
+      return "full";
+    case "links":
+    case "contact":
+      return "light";
+    case "about":
+    case "professional":
+    case "custom":
+    default:
+      return "heavy";
+  }
+}
+
+export function canSectionShareRow(component: Pick<PortfolioCanvasComponent, "type">) {
+  return getSectionLayoutRole(component.type) !== "full";
+}
+
+export function isSectionFullWidth(component: Pick<PortfolioCanvasComponent, "type">) {
+  return !canSectionShareRow(component);
+}
+
+export function canSectionsShareRow(
+  leftComponent: Pick<PortfolioCanvasComponent, "id" | "type">,
+  rightComponent: Pick<PortfolioCanvasComponent, "id" | "type">,
+) {
+  if (leftComponent.id === rightComponent.id) {
+    return false;
+  }
+
+  if (!canSectionShareRow(leftComponent) || !canSectionShareRow(rightComponent)) {
+    return false;
+  }
+
+  const leftRole = getSectionLayoutRole(leftComponent.type);
+  const rightRole = getSectionLayoutRole(rightComponent.type);
+
+  return !(leftRole === "heavy" && rightRole === "heavy");
+}
+
+export function getAllowedRowWidthRatios(
+  leftComponent: Pick<PortfolioCanvasComponent, "type">,
+  rightComponent: Pick<PortfolioCanvasComponent, "type">,
+) {
+  const leftRole = getSectionLayoutRole(leftComponent.type);
+  const rightRole = getSectionLayoutRole(rightComponent.type);
+
+  if (leftRole === "light" && rightRole === "light") {
+    return [0.4, 0.5, 0.6];
+  }
+
+  if (
+    (leftRole === "heavy" && rightRole === "light") ||
+    (leftRole === "light" && rightRole === "heavy")
+  ) {
+    return [...SECTION_SNAPPED_WIDTH_RATIOS];
+  }
+
+  return [0.4, 0.5, 0.6];
+}
+
+export function snapRowWidthRatio(
+  value: number,
+  leftComponent: Pick<PortfolioCanvasComponent, "type">,
+  rightComponent: Pick<PortfolioCanvasComponent, "type">,
+) {
+  const allowedRatios = getAllowedRowWidthRatios(leftComponent, rightComponent);
+  const clamped = Math.min(1 - SECTION_MIN_WIDTH_RATIO, Math.max(SECTION_MIN_WIDTH_RATIO, value));
+
+  return allowedRatios.reduce((closest, candidate) =>
+    Math.abs(candidate - clamped) < Math.abs(closest - clamped) ? candidate : closest,
+  );
+}
+
+export function getCanvasSectionWidthRatio(
+  component: Pick<PortfolioCanvasComponent, "type" | "widthRatio" | "width">,
+) {
+  if (isSectionFullWidth(component)) {
+    return 1;
+  }
+
+  if (typeof component.widthRatio === "number" && Number.isFinite(component.widthRatio)) {
+    return Math.min(1, Math.max(SECTION_MIN_WIDTH_RATIO, component.widthRatio));
+  }
+
+  return Math.min(1, Math.max(SECTION_MIN_WIDTH_RATIO, mapLegacyWidthToRatio(component.width)));
+}
+
+function getDefaultRowWidthRatio(
+  leftComponent: Pick<PortfolioCanvasComponent, "type">,
+  rightComponent: Pick<PortfolioCanvasComponent, "type">,
+) {
+  const leftRole = getSectionLayoutRole(leftComponent.type);
+  const rightRole = getSectionLayoutRole(rightComponent.type);
+
+  if (leftRole === "heavy" && rightRole === "light") {
+    return 0.6;
+  }
+
+  if (leftRole === "light" && rightRole === "heavy") {
+    return 0.4;
+  }
+
+  return 0.5;
+}
+
 function mapLegacyWidthToRatio(width: PortfolioSectionWidth | undefined) {
   switch (width) {
     case "half":
@@ -260,7 +373,7 @@ function normalizeSectionWidth(
   width: PortfolioSectionWidth | undefined,
   sectionType: PortfolioSectionType,
 ): PortfolioSectionWidth {
-  if (sectionType === "projects") {
+  if (getSectionLayoutRole(sectionType) === "full") {
     return "full";
   }
 
@@ -276,13 +389,13 @@ function normalizeWidthRatio(
   sectionType: PortfolioSectionType,
   legacyWidth: PortfolioSectionWidth | undefined,
 ) {
-  if (sectionType === "projects") {
+  if (getSectionLayoutRole(sectionType) === "full") {
     return 1;
   }
 
   const fallback = mapLegacyWidthToRatio(legacyWidth);
   const candidate = typeof value === "number" && Number.isFinite(value) ? value : fallback;
-  return Math.min(1, Math.max(0.28, candidate));
+  return Math.min(1, Math.max(SECTION_MIN_WIDTH_RATIO, candidate));
 }
 
 function normalizeRowId(value: string | undefined, fallback: string) {
@@ -380,7 +493,85 @@ export function normalizeLayoutComponents(
     normalized.push(fallbackComponent);
   }
 
-  return normalized;
+  const rows = normalized.reduce<Array<{ id: string; items: PortfolioCanvasComponent[] }>>((acc, component) => {
+    const rowId =
+      !canSectionShareRow(component) || component.widthRatio === 1
+        ? component.id
+        : normalizeRowId(component.rowId, component.id || component.type);
+    const existing = acc.find((row) => row.id === rowId);
+
+    if (existing) {
+      existing.items.push(component);
+    } else {
+      acc.push({ id: rowId, items: [component] });
+    }
+
+    return acc;
+  }, []);
+
+  return rows.flatMap((row) => {
+    const nextComponents: PortfolioCanvasComponent[] = [];
+    const queue = [...row.items];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+
+      if (!current) {
+        continue;
+      }
+
+      if (!canSectionShareRow(current)) {
+        nextComponents.push({
+          ...current,
+          rowId: current.id,
+          width: "full",
+          widthRatio: 1,
+        });
+        continue;
+      }
+
+      const sibling = queue[0];
+
+      if (!sibling || !canSectionsShareRow(current, sibling)) {
+        nextComponents.push({
+          ...current,
+          rowId: current.id,
+          width: "full",
+          widthRatio: 1,
+        });
+        continue;
+      }
+
+      queue.shift();
+
+      const rowId = normalizeRowId(current.rowId, current.id || current.type);
+      const defaultLeftRatio = getDefaultRowWidthRatio(current, sibling);
+      const snappedLeftRatio = snapRowWidthRatio(
+        typeof current.widthRatio === "number" && Number.isFinite(current.widthRatio)
+          ? current.widthRatio
+          : defaultLeftRatio,
+        current,
+        sibling,
+      );
+
+      nextComponents.push(
+        {
+          ...current,
+          rowId,
+          width: undefined,
+          widthRatio: snappedLeftRatio,
+        },
+        {
+          ...sibling,
+          rowId,
+          width: undefined,
+          widthRatio: 1 - snappedLeftRatio,
+        },
+      );
+    }
+
+    return nextComponents;
+  });
 }
 
 export function getSectionOrderFromComponents(components: PortfolioCanvasComponent[]) {

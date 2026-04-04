@@ -13,8 +13,9 @@ import {
 type AppThemeContextValue = {
   themeChoice: AppThemeChoice;
   resolvedTheme: ResolvedAppTheme;
+  renderTheme: ResolvedAppTheme;
+  isHydrated: boolean;
   setThemeChoice: (theme: AppThemeChoice) => void;
-  toggleTheme: () => void;
 };
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);
@@ -29,6 +30,7 @@ function applyThemeToDocument(themeChoice: AppThemeChoice, resolvedTheme: Resolv
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeChoice, setThemeChoiceState] = useState<AppThemeChoice>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("dark");
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const storedTheme = readStoredAppTheme(window.localStorage);
@@ -36,6 +38,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeChoiceState(storedTheme);
     setResolvedTheme(nextResolvedTheme);
     applyThemeToDocument(storedTheme, nextResolvedTheme);
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -58,6 +61,8 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({
       themeChoice,
       resolvedTheme,
+      renderTheme: isHydrated ? resolvedTheme : "dark",
+      isHydrated,
       setThemeChoice: (nextTheme) => {
         const nextResolvedTheme = resolveAppTheme(nextTheme);
         setThemeChoiceState(nextTheme);
@@ -71,16 +76,8 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
 
         applyThemeToDocument(nextTheme, nextResolvedTheme);
       },
-      toggleTheme: () => {
-        const nextTheme = resolvedTheme === "dark" ? "light" : "dark";
-        const nextResolvedTheme = resolveAppTheme(nextTheme);
-        setThemeChoiceState(nextTheme);
-        setResolvedTheme(nextResolvedTheme);
-        window.localStorage.setItem(APP_THEME_STORAGE_KEY, nextTheme);
-        applyThemeToDocument(nextTheme, nextResolvedTheme);
-      },
     }),
-    [resolvedTheme, themeChoice],
+    [isHydrated, resolvedTheme, themeChoice],
   );
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;

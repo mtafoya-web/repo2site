@@ -379,8 +379,8 @@ function TemplateCard({
 }
 
 export function Repo2SiteTemplateGallery() {
-  const { resolvedTheme } = useAppTheme();
-  const pageStyles = buildAppThemeStyles(resolvedTheme);
+  const { renderTheme } = useAppTheme();
+  const pageStyles = buildAppThemeStyles(renderTheme);
   const searchParams = useSearchParams();
   const [sort, setSort] = useState<SortMode>("trending");
   const [templates, setTemplates] = useState<CommunityTemplateRecord[]>([]);

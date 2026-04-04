@@ -10,7 +10,7 @@ GitHub-first portfolio builder that turns public repositories, README context, a
 
 ## Product Overview
 
-Repo2Site helps developers start from real work instead of a blank portfolio template. The app imports a public GitHub profile, selects featured repositories, extracts README signals and images, optionally enriches the draft with resume or public profile sources, and then lets the user edit everything inside a live builder. Users can enhance copy with AI, remix community templates, publish a public share page, or export a static ZIP bundle.
+Repo2Site helps developers start from real work instead of a blank portfolio template. The app imports a public GitHub profile, selects featured repositories, extracts README signals and images, optionally enriches the draft with resume or public profile sources, and then lets the user edit everything inside a live builder. The current builder is intentionally moving toward a calmer SaaS-editor model: lighter section chrome, fewer always-visible controls, progressive disclosure for actions, and cleaner content-first editing. Users can enhance copy with AI, remix community templates, publish a public share page, or export a static ZIP bundle.
 
 This repository currently contains:
 
@@ -26,6 +26,7 @@ This repository currently contains:
 - Featured repository selection, README excerpt extraction, and README image discovery
 - Resume and public-profile enrichment from uploaded PDF files or public URLs
 - Live client-side builder with editable copy, layout ordering, hidden sections, theme selection, palette changes, and density/layout controls
+- Progressive-disclosure editor UI with quieter section controls, compact action menus, and reduced visual noise
 - AI-assisted copy enhancement through the OpenAI Responses API
 - Guided walkthrough with mobile-aware positioning, persistence, restart, and skip/resume behavior
 - Static ZIP export for the final portfolio
@@ -42,9 +43,28 @@ This repository currently contains:
 3. Optionally upload a PDF resume or cover letter, or import additional public profile URLs.
 4. Review the live preview and edit text, links, profile details, and layout.
 5. Optionally run AI enhancement suggestions and accept only the changes you want.
-6. Change theme, density, layout style, card treatment, and colors.
+6. Open the customize drawer from the floating launcher and change theme, density, layout style, card treatment, and colors.
 7. Reorder sections/projects and optionally remix a template from `/templates`.
 8. Export a ZIP bundle or publish a public share page.
+
+## Current Product Direction
+
+Repo2Site is strongest when it behaves like a focused developer-portfolio operating system instead of a generic website builder.
+
+What it already does well:
+
+- turns GitHub work into a credible first draft quickly
+- keeps editing inside a live preview instead of forcing users into disconnected forms
+- separates content, presentation, and publishing cleanly
+- supports multiple end states: export, hosted share page, and reusable templates
+
+What the editor is optimizing for now:
+
+- less clutter by default
+- stronger content hierarchy
+- progressive disclosure instead of always-visible controls
+- cleaner section-level actions and optional fields
+- faster scanning for first-time users
 
 ## Tech Stack
 
@@ -258,6 +278,38 @@ Useful files:
   Final portfolio composition and override resolution
 - [`lib/share-store.ts`](lib/share-store.ts)
   Public share persistence and slug logic
+
+## What Repo2Site Can Become
+
+The highest-upside version of Repo2Site is not "yet another portfolio site builder." It can become a developer identity platform with the builder as the core editing surface.
+
+Plausible product expansions:
+
+- portfolio operating system
+  GitHub import, resume grounding, editable public profile, reusable themes, and one-click publishing
+- application toolkit
+  resume, cover letter, recruiter-facing links, and role-specific portfolio variants from the same source profile
+- template marketplace
+  higher-quality community templates, creator attribution, remix lineage, and curated theme systems
+- developer brand layer
+  speaking, writing, awards, open-source credibility, and public proof beyond repositories alone
+- lightweight career CRM
+  role-specific edits, private/public variants, share tracking, and application-ready exports
+
+## Suggested Next Focus
+
+If you want the product to feel sharper fast, focus next on:
+
+1. editor completion and usability
+   Finish simplifying the builder so section editing, menus, and optional fields feel consistent everywhere.
+2. publish quality
+   Make exported and shared portfolios feel more premium with stronger defaults, better empty states, and more polished responsive behavior.
+3. template quality over template quantity
+   A small set of excellent, distinct presets will do more for the product than a large gallery of similar ones.
+4. role-based outcomes
+   Help users produce different versions for internships, full-time roles, freelance work, or open-source visibility.
+5. trust and conversion
+   Add clearer onboarding, stronger examples, and better proof that the generated site is worth sharing publicly.
 - [`lib/template-store.ts`](lib/template-store.ts)
   Community template persistence and engagement
 - [`lib/static-export.ts`](lib/static-export.ts)

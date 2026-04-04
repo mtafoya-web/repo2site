@@ -41,9 +41,9 @@ const demoRows = [
 ];
 
 export function Repo2SiteLanding() {
-  const { resolvedTheme } = useAppTheme();
-  const styles = buildAppThemeStyles(resolvedTheme);
-  const isDarkTheme = resolvedTheme === "dark";
+  const { renderTheme } = useAppTheme();
+  const styles = buildAppThemeStyles(renderTheme);
+  const isDarkTheme = renderTheme === "dark";
 
   return (
     <section
