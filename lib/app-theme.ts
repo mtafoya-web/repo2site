@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 export const APP_THEME_STORAGE_KEY = "repo2site-ui-theme";
+export const APP_THEME_RESOLVED_COOKIE = "repo2site-ui-theme-resolved";
+export const APP_THEME_SOURCE_COOKIE = "repo2site-ui-theme-source";
 
 export type AppThemeChoice = "system" | "light" | "dark";
 export type ResolvedAppTheme = "light" | "dark";
@@ -43,18 +45,19 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
   const success = isDark ? "#86efac" : "#166534";
   const error = isDark ? "#fda4af" : "#b91c1c";
   const info = isDark ? "#bfdbfe" : "#1d4ed8";
+  const pageBase = isDark ? "#0a1220" : "#edf3fb";
+  const pageGlow = isDark ? "rgba(59,130,246,0.16)" : "rgba(59,130,246,0.1)";
+  const navBase = isDark ? "rgba(15,23,41,0.82)" : "rgba(255,255,255,0.74)";
+  const surfaceBase = isDark ? "rgba(12,19,33,0.9)" : "rgba(255,255,255,0.86)";
+  const strongSurfaceBase = isDark ? "rgba(15,23,41,0.92)" : "rgba(255,255,255,0.92)";
 
   return {
     page: {
-      background: isDark
-        ? "radial-gradient(circle at top right, rgba(59,130,246,0.18), transparent 28%), linear-gradient(180deg, #07101d 0%, #0d1728 42%, #09111f 100%)"
-        : "radial-gradient(circle at top right, rgba(59,130,246,0.12), transparent 26%), linear-gradient(180deg, #f5f8ff 0%, #edf3ff 42%, #f8fbff 100%)",
+      background: `radial-gradient(circle at top right, ${pageGlow}, transparent 28%), linear-gradient(180deg, ${pageBase} 0%, ${pageBase} 100%)`,
       color: foreground,
     } satisfies CSSProperties,
     navSurface: {
-      background: isDark
-        ? "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(15,23,42,0.82))"
-        : "linear-gradient(135deg, rgba(255,255,255,0.94), rgba(238,245,255,0.94))",
+      background: `linear-gradient(135deg, ${isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)"}, ${navBase})`,
       borderColor: border,
       color: foreground,
       boxShadow: isDark
@@ -62,9 +65,7 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
         : "0 20px 50px -36px rgba(15, 23, 42, 0.18)",
     } satisfies CSSProperties,
     surface: {
-      background: isDark
-        ? "linear-gradient(180deg, rgba(12, 19, 33, 0.92), rgba(15, 24, 41, 0.92))"
-        : "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,249,255,0.94))",
+      background: `linear-gradient(180deg, ${surfaceBase}, ${surfaceBase})`,
       borderColor: subtleBorder,
       color: foreground,
       boxShadow: isDark
@@ -72,7 +73,7 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
         : "0 24px 56px -42px rgba(15, 23, 42, 0.14)",
     } satisfies CSSProperties,
     strongSurface: {
-      background: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,0.98)",
+      background: strongSurfaceBase,
       borderColor: border,
       color: foregroundStrong,
     } satisfies CSSProperties,
@@ -100,12 +101,12 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
         : "0 18px 34px -22px rgba(37, 99, 235, 0.36)",
     } satisfies CSSProperties,
     ghostButton: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.86)",
+      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.82)",
       borderColor: border,
       color: foreground,
     } satisfies CSSProperties,
     inputSurface: {
-      backgroundColor: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,0.98)",
+      backgroundColor: strongSurfaceBase,
       borderColor: border,
       color: foregroundStrong,
       ["--field-placeholder" as string]: placeholder,

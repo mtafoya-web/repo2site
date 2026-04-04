@@ -192,4 +192,37 @@ export const SYSTEM_TEMPLATE_DEFINITIONS: SystemTemplateDefinition[] = [
       hiddenSections: [],
     },
   },
+  {
+    id: "system-saas-clean",
+    slug: "starter-saas-clean",
+    profileUrl: "https://github.com/vercel",
+    title: "SaaS Clean",
+    description:
+      "A quieter product-style starter with neutral surfaces, cleaner hierarchy, and a restrained palette for portfolios that should feel polished but not colorful.",
+    category: "product-focused",
+    tags: ["starter", "saas", "clean", "minimal", "product"],
+    sourceLabel: "Built for teams and founders who want a crisp SaaS look in either light or dark mode",
+    isRecommended: true,
+    exampleContent: {
+      aboutTitle: "About this SaaS-style template",
+      professionalTitle: "Product Snapshot",
+      availability: "A clean fit for SaaS portfolios, product engineers, indie makers, and founder-friendly personal sites.",
+      contactTitle: "Start a conversation",
+      contactDescription:
+        "Use this version when you want the site to feel calm, clean, and product-minded without loud palette choices.",
+      contactCustomText: "Mention the best way to reach you for product, engineering, or consulting conversations.",
+      linksTitle: "Proof of work",
+      linksDescription:
+        "Keep resume, GitHub, LinkedIn, and product links in one tidy section with the same clean visual language.",
+    },
+    overrides: {
+      themeId: "saas-clean",
+      colorMode: "light",
+      density: "compact",
+      sectionLayout: "split",
+      cardStyle: "outlined",
+      sectionOrder: ["hero", "projects", "about", "professional", "links", "contact"],
+      hiddenSections: [],
+    },
+  },
 ];

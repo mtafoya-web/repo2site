@@ -98,8 +98,8 @@ Repo2Site is a Next.js application with one large interactive client builder and
 
 High-level flow:
 
-1. `POST /api/generate` validates a GitHub URL and calls `generatePortfolioPreview(...)`.
-2. `lib/preview-generator.ts` fetches GitHub profile + repositories, ranks featured repos, derives summaries/themes, and returns the initial draft.
+1. `POST /api/generate` validates a GitHub URL and calls the portfolio preview service.
+2. `lib/services/portfolio-preview-service.ts` fetches GitHub profile + repositories, ranks featured repos, derives summaries/themes, and returns the initial draft.
 3. `components/repo2site-shell.tsx` stores user overrides client-side and composes the editable portfolio view.
 4. `POST /api/enrich` imports PDF/public sources into structured enrichment suggestions.
 5. `POST /api/enhance` sends draft + overrides + enrichment data to OpenAI and returns suggested copy.
@@ -272,7 +272,7 @@ Useful files:
 
 - [`components/repo2site-shell.tsx`](components/repo2site-shell.tsx)
   Main builder UI and editing workflow
-- [`lib/preview-generator.ts`](lib/preview-generator.ts)
+- [`lib/services/portfolio-preview-service.ts`](lib/services/portfolio-preview-service.ts)
   GitHub import to preview generation pipeline
 - [`lib/portfolio.ts`](lib/portfolio.ts)
   Final portfolio composition and override resolution

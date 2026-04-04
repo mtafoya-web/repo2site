@@ -56,6 +56,7 @@ export type PreviewRepository = {
   description: string;
   language: string;
   href: string;
+  origin?: "github" | "custom";
   stars: number;
   image: PreviewProjectImage | null;
   readmeImages: string[];
@@ -81,6 +82,35 @@ export type PortfolioOverrideLink = {
   id: string;
   label: string;
   href: string;
+};
+
+export type PortfolioCustomProject = {
+  id: string;
+  name: string;
+  description: string;
+  language: string;
+  href: string;
+  imageUrl: string;
+};
+
+export type PortfolioCustomSectionBlockType = "text" | "image";
+export type PortfolioCustomSectionBlockWidth = "full" | "half";
+
+export type PortfolioCustomSectionBlock = {
+  id: string;
+  type: PortfolioCustomSectionBlockType;
+  width: PortfolioCustomSectionBlockWidth;
+  label: string;
+  title: string;
+  text: string;
+  imageUrl: string;
+};
+
+export type PortfolioCustomSection = {
+  id: string;
+  title: string;
+  description: string;
+  blocks: PortfolioCustomSectionBlock[];
 };
 
 export type PortfolioSectionId =
@@ -110,12 +140,16 @@ export type PortfolioDensity = "compact" | "spacious";
 export type PortfolioSectionLayout = "split" | "stacked";
 export type PortfolioCardStyle = "soft" | "outlined" | "elevated";
 export type PortfolioColorMode = "light" | "dark";
+export type PortfolioProjectsLayoutMode = "side-by-side" | "stacked" | "hybrid";
+export type PortfolioProjectsOverflowSize = "compact" | "expanded";
 
 export type PortfolioAppearance = {
   themeId: string;
   colorMode: PortfolioColorMode;
   density: PortfolioDensity;
   sectionLayout: PortfolioSectionLayout;
+  projectsLayout: PortfolioProjectsLayoutMode;
+  projectsOverflowSize: PortfolioProjectsOverflowSize;
   cardStyle: PortfolioCardStyle;
   customPalette?: Partial<PreviewTheme["palette"]>;
 };
@@ -159,11 +193,8 @@ export type PortfolioOverrides = {
     portfolioUrl: string;
       customLinks: PortfolioOverrideLink[];
   };
-  customSections: Array<{
-    id: string;
-    title: string;
-    description: string;
-  }>;
+  customSections: PortfolioCustomSection[];
+  customProjects: PortfolioCustomProject[];
   documents: {
     resumeAssetUrl: string;
     resumeFileName: string;
@@ -184,6 +215,7 @@ export type PortfolioOverrides = {
     sectionOrder: PortfolioSectionId[];
     hiddenSections: PortfolioSectionId[];
     projectOrder: string[];
+    hiddenProjectNames: string[];
     components: PortfolioCanvasComponent[];
     componentOrder: PortfolioCanvasComponentOrder;
     hiddenComponentIds: string[];

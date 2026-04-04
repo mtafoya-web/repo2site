@@ -5,39 +5,54 @@ import { buildAppThemeStyles } from "@/lib/app-theme";
 
 const valueProps = [
   {
-    title: "Start from real work",
+    title: "Generate from real work",
     description:
       "Turn public GitHub repositories, README context, and profile details into a portfolio draft instead of starting from a blank page.",
   },
   {
-    title: "Polish with guided editing",
+    title: "Edit the actual site",
     description:
-      "Edit copy, reorder projects, upload images, and refine your profile in a live preview that stays easy to understand.",
+      "Shape sections directly on the canvas, manage Selected Work, add custom projects, and tune layouts without leaving the builder.",
   },
   {
-    title: "Use AI without losing control",
+    title: "Control layout and style",
     description:
-      "Suggestions stay pending until you approve them, so the portfolio only changes when it matches your voice and goals.",
+      "Switch between stacked and free-flow sections, resize rows, choose cleaner themes, and keep preview and export aligned.",
   },
   {
-    title: "Export a deployable site",
+    title: "Share or export cleanly",
     description:
-      "Download a clean ZIP bundle with just the final portfolio site, ready for static hosting or further customization.",
+      "Publish a shareable public link, browse templates, or export a deployable static site when the portfolio is ready.",
   },
 ];
 
 const howItWorks = [
-  "Paste a public GitHub profile to generate your starting portfolio.",
-  "Upload a resume if you want stronger summaries and profile personalization.",
-  "Review the live preview, edit your details, and reorder projects visually.",
-  "Use AI suggestions when you want help sharpening copy, then export when it looks right.",
+  "Start with GitHub, then optionally add a resume or public links for stronger context.",
+  "Review the generated draft in the live builder and reshape the page section by section.",
+  "Tune layout, Selected Work, custom sections, and theme until the site feels like yours.",
+  "Use AI suggestions only when helpful, then publish or export the final portfolio.",
 ];
 
 const demoRows = [
-  { label: "Profile draft", value: "Generated from GitHub + resume context" },
-  { label: "Project order", value: "Drag to feature your strongest work" },
-  { label: "AI review", value: "Accept only the suggestions you want" },
-  { label: "Export", value: "Download a static portfolio ZIP" },
+  { label: "Builder canvas", value: "Edit sections, rows, projects, and custom blocks live" },
+  { label: "Selected Work", value: "Feature projects, add your own, and control project layout" },
+  { label: "Theme toolkit", value: "Use colorful presets or clean SaaS light and dark modes" },
+  { label: "Ship options", value: "Publish a public link, use templates, or export a deployable ZIP" },
+];
+
+const featureTracks = [
+  {
+    title: "Live builder",
+    description: "Directly edit sections, move rows around, manage Selected Work, and add custom sections with their own blocks.",
+  },
+  {
+    title: "Layout controls",
+    description: "Mix stacked and shared-row layouts, rebalance project presentation, and keep the page readable across devices.",
+  },
+  {
+    title: "Publishing flow",
+    description: "Use templates, publish a public share page, or export a static site that stays true to the preview.",
+  },
 ];
 
 export function Repo2SiteLanding() {
@@ -74,7 +89,7 @@ export function Repo2SiteLanding() {
           </div>
           <a
             href="/builder"
-            className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+            className="motion-surface motion-surface-hover motion-press rounded-full border px-4 py-2 text-sm font-medium"
             style={styles.ghostButton}
           >
             Open builder
@@ -84,25 +99,25 @@ export function Repo2SiteLanding() {
         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(20rem,0.95fr)]">
           <div className="animate-fade-up">
             <p className="inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]" style={styles.chip}>
-              Build a portfolio from real code
+              Portfolio builder, editor, and exporter
             </p>
             <h1 className="mt-5 max-w-4xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-              Turn GitHub work into a polished portfolio without wrestling with templates.
+              Turn GitHub work into a portfolio site you can actually shape, preview, share, and ship.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-8 sm:text-lg" style={styles.mutedText}>
-              Repo2Site generates a strong starting draft from public repositories, README context, and optional career materials, then lets you shape the final site in a live editor.
+              Repo2Site now goes far beyond a one-shot generator. It creates the starting draft from real repositories, then gives you a real builder for layout, projects, custom sections, themes, AI-assisted polish, public sharing, and export.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <a
                 href="/builder"
-                className="rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                className="motion-surface motion-surface-hover motion-press rounded-full px-5 py-3 text-sm font-semibold"
                 style={styles.accentButton}
               >
                 Start building
               </a>
               <a
                 href="#demo-preview"
-                className="rounded-full border px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+                className="motion-surface motion-surface-hover motion-press rounded-full border px-5 py-3 text-sm font-semibold"
                 style={styles.ghostButton}
               >
                 See the workflow
@@ -116,19 +131,19 @@ export function Repo2SiteLanding() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={styles.mutedText}>
-                      Live workflow
+                      What the product is now
                     </p>
-                    <p className="mt-1 text-lg font-semibold">Portfolio builder preview</p>
+                    <p className="mt-1 text-lg font-semibold">Builder-centered workflow</p>
                   </div>
                   <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]" style={styles.chip}>
-                    Reviewable AI
+                    Real editing controls
                   </span>
                 </div>
                 <div className="mt-5 grid gap-3">
                   {demoRows.map((row, index) => (
                     <div
                       key={row.label}
-                      className="group rounded-[1.2rem] border px-4 py-3 transition hover:-translate-y-0.5"
+                      className="motion-surface motion-surface-hover group rounded-[1.2rem] border px-4 py-3"
                       style={{
                         ...styles.subtleSurface,
                         animationDelay: `${index * 90}ms`,
@@ -144,10 +159,10 @@ export function Repo2SiteLanding() {
                     GitHub import
                   </span>
                   <span className="rounded-full border px-3 py-1 text-xs font-medium" style={styles.chip}>
-                    Resume upload
+                    Custom sections
                   </span>
                   <span className="rounded-full border px-3 py-1 text-xs font-medium" style={styles.chip}>
-                    Static export
+                    Public share + export
                   </span>
                 </div>
               </div>
@@ -159,7 +174,7 @@ export function Repo2SiteLanding() {
           {valueProps.map((item, index) => (
             <article
               key={item.title}
-              className="animate-fade-up rounded-[1.6rem] border p-5 backdrop-blur-md transition hover:-translate-y-1"
+              className="motion-surface motion-surface-hover animate-fade-up rounded-[1.6rem] border p-5 backdrop-blur-md"
               style={{
                 ...styles.surface,
                 animationDelay: `${index * 90}ms`,
@@ -176,17 +191,17 @@ export function Repo2SiteLanding() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={styles.mutedText}>How it works</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-              A clear path from GitHub profile to deployable portfolio.
+              A builder workflow that stays useful after the first draft.
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-7" style={styles.mutedText}>
-              The workflow is designed to stay simple for first-time users while still giving experienced builders room to refine details.
+              The draft is only the starting point. The real value now is the editing system around it: layout, projects, themes, custom content, AI, sharing, and export.
             </p>
           </div>
           <div className="grid gap-3">
             {howItWorks.map((step, index) => (
               <div
                 key={step}
-                className="flex gap-4 rounded-[1.25rem] border px-4 py-4 transition"
+                className="motion-surface flex gap-4 rounded-[1.25rem] border px-4 py-4"
                 style={styles.subtleSurface}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-semibold" style={styles.chip}>
@@ -198,17 +213,35 @@ export function Repo2SiteLanding() {
           </div>
         </div>
 
+        <div className="grid gap-4 lg:grid-cols-3">
+          {featureTracks.map((item, index) => (
+            <article
+              key={item.title}
+              className="motion-surface motion-surface-hover animate-fade-up rounded-[1.6rem] border p-5"
+              style={{
+                ...styles.subtleSurface,
+                animationDelay: `${index * 100}ms`,
+              }}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={styles.mutedText}>
+                {item.title}
+              </p>
+              <p className="mt-3 text-base leading-7">{item.description}</p>
+            </article>
+          ))}
+        </div>
+
         <div className="rounded-[2rem] border px-6 py-8 text-center shadow-[0_24px_70px_-40px_rgba(14,165,233,0.2)]" style={styles.heroAccent}>
           <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={styles.chip}>Ready to try it?</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-            Start with your GitHub profile and shape the rest in minutes.
+            Start with GitHub, then build the version you actually want to publish.
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-7" style={styles.mutedText}>
-            Load a profile, upload a resume if you want stronger personalization, review AI suggestions, and export a site you can actually ship.
+            Load a profile, refine the site in the live builder, use themes or templates when helpful, and export or publish when the portfolio feels done.
           </p>
           <a
             href="/builder"
-            className="mt-6 inline-flex rounded-full px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+            className="motion-surface motion-surface-hover motion-press mt-6 inline-flex rounded-full px-5 py-3 text-sm font-semibold"
             style={styles.accentButton}
           >
             Open Repo2Site

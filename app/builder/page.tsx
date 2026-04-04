@@ -1,13 +1,16 @@
 import { Suspense } from "react";
+import { AppLoadingShell } from "@/components/app-loading-shell";
 import { Repo2SiteShell } from "@/components/repo2site-shell";
 
 export default function BuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[40vh] bg-[#09111f] px-4 py-10 text-center text-sm text-slate-300">
-          Loading builder...
-        </div>
+        <AppLoadingShell
+          label="Builder"
+          title="Preparing your editing workspace"
+          description="Loading the live preview, editor controls, and theme tools so the workspace feels ready before you start changing anything."
+        />
       }
     >
       <Repo2SiteShell />

@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   APP_THEME_STORAGE_KEY,
+  APP_THEME_RESOLVED_COOKIE,
+  APP_THEME_SOURCE_COOKIE,
   type AppThemeChoice,
   type ResolvedAppTheme,
   readStoredAppTheme,
@@ -20,24 +22,64 @@ type AppThemeContextValue = {
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);
 
+function readThemeStateFromDocument(): {
+  themeChoice: AppThemeChoice;
+  resolvedTheme: ResolvedAppTheme;
+} {
+  if (typeof document === "undefined") {
+    return {
+      themeChoice: "system" as AppThemeChoice,
+      resolvedTheme: "dark" as ResolvedAppTheme,
+    };
+  }
+
+  const root = document.documentElement;
+  const themeChoice =
+    root.dataset.uiThemeSource === "light" || root.dataset.uiThemeSource === "dark"
+      ? root.dataset.uiThemeSource
+      : "system";
+  const resolvedTheme =
+    root.dataset.uiTheme === "light" || root.dataset.uiTheme === "dark"
+      ? root.dataset.uiTheme
+      : "dark";
+
+  return {
+    themeChoice,
+    resolvedTheme,
+  };
+}
+
 function applyThemeToDocument(themeChoice: AppThemeChoice, resolvedTheme: ResolvedAppTheme) {
   const root = document.documentElement;
   root.dataset.uiTheme = resolvedTheme;
   root.dataset.uiThemeSource = themeChoice;
   root.style.colorScheme = resolvedTheme;
+  document.cookie = `${APP_THEME_RESOLVED_COOKIE}=${resolvedTheme}; path=/; max-age=31536000; samesite=lax`;
+  document.cookie = `${APP_THEME_SOURCE_COOKIE}=${themeChoice}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export function AppThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeChoice, setThemeChoiceState] = useState<AppThemeChoice>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>("dark");
+export function AppThemeProvider({
+  children,
+  initialThemeChoice = "system",
+  initialResolvedTheme = "dark",
+}: {
+  children: React.ReactNode;
+  initialThemeChoice?: AppThemeChoice;
+  initialResolvedTheme?: ResolvedAppTheme;
+}) {
+  const [themeChoice, setThemeChoiceState] = useState<AppThemeChoice>(initialThemeChoice);
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedAppTheme>(initialResolvedTheme);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     const storedTheme = readStoredAppTheme(window.localStorage);
-    const nextResolvedTheme = resolveAppTheme(storedTheme);
-    setThemeChoiceState(storedTheme);
+    const documentTheme = readThemeStateFromDocument();
+    const nextThemeChoice = storedTheme;
+    const nextResolvedTheme =
+      nextThemeChoice === documentTheme.themeChoice ? documentTheme.resolvedTheme : resolveAppTheme(nextThemeChoice);
+    setThemeChoiceState(nextThemeChoice);
     setResolvedTheme(nextResolvedTheme);
-    applyThemeToDocument(storedTheme, nextResolvedTheme);
+    applyThemeToDocument(nextThemeChoice, nextResolvedTheme);
     setIsHydrated(true);
   }, []);
 
@@ -61,7 +103,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({
       themeChoice,
       resolvedTheme,
-      renderTheme: isHydrated ? resolvedTheme : "dark",
+      renderTheme: resolvedTheme,
       isHydrated,
       setThemeChoice: (nextTheme) => {
         const nextResolvedTheme = resolveAppTheme(nextTheme);

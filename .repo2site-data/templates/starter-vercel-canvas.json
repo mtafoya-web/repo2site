@@ -74,12 +74,15 @@
     }
   ],
   "likes": 0,
-  "remixes": 9,
+  "remixes": 12,
   "ratingAverage": 0,
   "ratingsCount": 0,
   "createdAt": "2026-03-22T08:20:43.694Z",
-  "updatedAt": "2026-04-03T08:40:06.376Z",
+  "updatedAt": "2026-04-04T08:01:40.642Z",
   "publishedAt": "2026-03-22T08:20:43.694Z",
   "likedActorIds": [],
-  "ratingsByActor": {}
+  "ratingsByActor": {},
+  "reactionsByActor": {},
+  "dislikes": 0,
+  "viewerReaction": null
 }

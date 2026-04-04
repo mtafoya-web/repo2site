@@ -101,6 +101,23 @@ describe("core API routes", () => {
     assert.match(response.headers.get("X-Exported-Files") || "", /index\.html/);
   });
 
+  test("export also accepts form submission for browser-native downloads", async () => {
+    const formData = new FormData();
+    formData.set("preview", JSON.stringify(createSamplePreview()));
+    formData.set("overrides", JSON.stringify(createSampleOverrides()));
+
+    const response = await exportPost(
+      new Request("http://localhost/api/export", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("Content-Type"), "application/zip");
+    assert.match(response.headers.get("Content-Disposition") || "", /\.zip/i);
+  });
+
   test("share publishing creates a stable public path and availability check", async () => {
     const slug = `share-${Date.now()}`;
     const publishResponse = await sharePost(

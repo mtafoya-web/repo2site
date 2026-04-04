@@ -14,19 +14,46 @@ export type WalkthroughContext = {
   hasPendingAiSuggestions: boolean;
   isCustomizeOpen: boolean;
   isEditMode: boolean;
+  isPreviewMode: boolean;
+  hasHeroEdit: boolean;
+  hasAboutEdit: boolean;
+  hasProjectEdit: boolean;
+  hasLayoutChange: boolean;
+  hasThemeChange: boolean;
+};
+
+export type WalkthroughActionKind =
+  | "focus-github-input"
+  | "open-edit-mode"
+  | "focus-hero"
+  | "focus-about"
+  | "focus-workspace"
+  | "open-customize"
+  | "switch-preview-mode"
+  | "return-to-editor"
+  | "open-export";
+
+export type WalkthroughStepAction = {
+  kind: WalkthroughActionKind;
+  label: string;
 };
 
 export type WalkthroughStepDefinition = {
+  order: number;
   id: string;
   targetId: string;
   title: string;
   description: string;
-  rationale: string;
+  interactionHint?: string;
   modes: WalkthroughMode[];
+  preferredPlacement?: WalkthroughPlacement;
   isRelevant: (context: WalkthroughContext) => boolean;
   isSatisfied?: (context: WalkthroughContext) => boolean;
   autoAdvanceOnSatisfied?: boolean;
   keepTargetInteractive?: boolean;
+  primaryAction?: WalkthroughStepAction;
+  secondaryAction?: WalkthroughStepAction;
+  completionText?: string;
 };
 
 export type WalkthroughStep = WalkthroughStepDefinition & {
@@ -37,6 +64,7 @@ export type WalkthroughSnapshot = {
   status: WalkthroughStatus;
   mode: WalkthroughMode;
   stepId: string | null;
+  completedStepIds: string[];
 };
 
 export type WalkthroughLayout = {
@@ -49,90 +77,101 @@ export type WalkthroughLayout = {
 
 const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
-    id: "resume-upload",
+    order: 1,
+    id: "resume-import",
     targetId: "tour-resume-upload",
-    title: "Upload a resume",
-    description: "Add a resume if you want stronger profile copy from the start.",
-    rationale: "It gives Repo2Site more context for wording and presentation.",
+    title: "Import a resume if you want",
+    description: "This is optional. A resume can help improve the content, but you can skip it.",
+    interactionHint: "Use this when you want stronger context for your portfolio.",
     modes: ["quick", "full"],
+    preferredPlacement: "right",
     isRelevant: () => true,
-    isSatisfied: (context) => context.hasResume,
-    autoAdvanceOnSatisfied: true,
-    keepTargetInteractive: true,
   },
   {
-    id: "github-import",
-    targetId: "tour-github-import",
-    title: "Paste your GitHub link",
-    description: "Paste a public GitHub profile, then load your first draft.",
-    rationale: "This builds the initial site structure from your repos, profile, and README content.",
+    order: 2,
+    id: "generate",
+    targetId: "tour-generate-portfolio",
+    title: "This is the generate button",
+    description: "Use Generate to create or refresh the portfolio from your current data.",
+    interactionHint: "The walkthrough will not run this for you.",
     modes: ["quick", "full"],
+    preferredPlacement: "bottom",
     isRelevant: () => true,
-    isSatisfied: (context) => context.hasPreview,
-    autoAdvanceOnSatisfied: true,
-    keepTargetInteractive: true,
   },
   {
-    id: "profile-edit",
-    targetId: "tour-open-editor",
-    title: "Open the editor",
-    description: "Switch into Edit to change copy, details, and section content directly.",
-    rationale: "This is where you turn the generated draft into your version.",
+    order: 3,
+    id: "live-canvas",
+    targetId: "tour-generated-preview",
+    title: "This is the live canvas",
+    description: "This is the live version of your site. Changes appear here in real time.",
     modes: ["quick", "full"],
+    preferredPlacement: "top",
     isRelevant: () => true,
-    isSatisfied: (context) => context.isEditMode,
-    autoAdvanceOnSatisfied: true,
-    keepTargetInteractive: true,
   },
   {
-    id: "edit-text",
-    targetId: "tour-edit-text",
-    title: "Edit the text directly",
-    description: "Use the text fields in Edit mode to rewrite headings, summaries, and details.",
-    rationale: "Manual edits give you the fastest control over tone and accuracy.",
+    order: 4,
+    id: "edit-canvas",
+    targetId: "tour-hero-headline",
+    title: "Click sections to edit them",
+    description: "Select a section to edit its content on the canvas or through the editing controls.",
+    interactionHint: "Try clicking the highlighted section.",
     modes: ["quick", "full"],
-    isRelevant: () => true,
+    isRelevant: (context) => context.hasPreview,
     keepTargetInteractive: true,
+    preferredPlacement: "right",
+    primaryAction: {
+      kind: "focus-hero",
+      label: "Focus a section",
+    },
   },
   {
-    id: "project-customize",
-    targetId: "tour-projects",
-    title: "Rearrange sections and projects",
-    description: "Drag cards and sections to put the strongest work first.",
-    rationale: "Order shapes the story and helps visitors find the right work faster.",
-    modes: ["quick", "full"],
-    isRelevant: () => true,
-    keepTargetInteractive: true,
-  },
-  {
-    id: "ai-suggestions",
-    targetId: "tour-ai",
-    title: "Use AI to improve the draft",
-    description: "Run AI when you want help with wording, structure, or presentation.",
-    rationale: "It is optional and stays reviewable until you accept what helps.",
-    modes: ["quick", "full"],
-    isRelevant: () => true,
-    keepTargetInteractive: true,
-  },
-  {
-    id: "customize-tool",
+    order: 5,
+    id: "customize-theme",
     targetId: "tour-customize-button",
-    title: "Change themes and colors",
-    description: "Open Customize to adjust the theme, palette, and overall feel.",
-    rationale: "It is the quickest way to shift the look without reworking content.",
+    title: "This is the customize button",
+    description: "Use Customize to change theme, colors, and visual styling across the site.",
+    interactionHint: "Open it to see your visual changes update immediately.",
     modes: ["quick", "full"],
-    isRelevant: () => true,
+    preferredPlacement: "left",
+    isRelevant: (context) => context.hasPreview,
     isSatisfied: (context) => context.isCustomizeOpen,
     autoAdvanceOnSatisfied: true,
     keepTargetInteractive: true,
+    primaryAction: {
+      kind: "open-customize",
+      label: "Open customize",
+    },
   },
   {
-    id: "browse-templates",
-    targetId: "tour-browse-templates",
-    title: "Browse templates for inspiration",
-    description: "Open the template gallery to compare layouts and reusable styles.",
-    rationale: "Templates help you explore stronger presentation options without starting over.",
+    order: 6,
+    id: "enhance-ai",
+    targetId: "tour-ai",
+    title: "This is the enhance with AI button",
+    description: "Use AI to improve descriptions, summaries, and other content when you want help refining the draft.",
+    interactionHint: "AI enhancement is optional.",
     modes: ["quick", "full"],
+    preferredPlacement: "left",
+    isRelevant: () => true,
+  },
+  {
+    order: 7,
+    id: "publish-download",
+    targetId: "tour-publish-options",
+    title: "These are the download and publish actions",
+    description: "Use these options to export the site or publish it through the default GitHub to Vercel flow or your own setup.",
+    interactionHint: "You can publish later. Export is a good first step.",
+    modes: ["quick", "full"],
+    preferredPlacement: "left",
+    isRelevant: () => true,
+  },
+  {
+    order: 8,
+    id: "finish",
+    targetId: "tour-publish-options",
+    title: "You know the core workflow now",
+    description: "Import a resume if you want, generate, edit, customize, enhance, and publish when you are ready.",
+    modes: ["quick", "full"],
+    preferredPlacement: "left",
     isRelevant: () => true,
     keepTargetInteractive: true,
   },
@@ -141,7 +180,9 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
 export function getWalkthroughSteps(mode: WalkthroughMode, context: WalkthroughContext) {
   return WALKTHROUGH_STEP_DEFINITIONS.filter(
     (step) => step.modes.includes(mode) && step.isRelevant(context),
-  ).map((step, order) => ({ ...step, order }));
+  )
+    .sort((leftStep, rightStep) => leftStep.order - rightStep.order)
+    .map((step) => ({ ...step }));
 }
 
 export function getWalkthroughStepById(stepId: string | null, steps: WalkthroughStep[]) {
@@ -206,6 +247,9 @@ export function readWalkthroughSnapshot(storage: Storage | null | undefined) {
       status: parsed.status ?? "completed",
       mode: parsed.mode === "full" ? "full" : "quick",
       stepId: typeof parsed.stepId === "string" ? parsed.stepId : null,
+      completedStepIds: Array.isArray(parsed.completedStepIds)
+        ? parsed.completedStepIds.filter((stepId): stepId is string => typeof stepId === "string")
+        : [],
     } satisfies WalkthroughSnapshot;
   } catch {
     return null;
@@ -300,6 +344,7 @@ export function computeWalkthroughLayout(options: {
   viewportWidth: number;
   viewportHeight: number;
   isMobile: boolean;
+  preferredPlacement?: WalkthroughPlacement;
 }) {
   const {
     anchorRect,
@@ -308,6 +353,7 @@ export function computeWalkthroughLayout(options: {
     viewportWidth,
     viewportHeight,
     isMobile,
+    preferredPlacement,
   } = options;
   const safeLeft = 16;
   const safeRight = 16;
@@ -408,7 +454,16 @@ export function computeWalkthroughLayout(options: {
   const bestCandidate =
     candidates
       .filter((candidate) => candidate.fits)
-      .sort((leftCandidate, rightCandidate) => rightCandidate.score - leftCandidate.score)[0] ?? null;
+      .sort((leftCandidate, rightCandidate) => {
+        const leftPriority = leftCandidate.placement === preferredPlacement ? 1 : 0;
+        const rightPriority = rightCandidate.placement === preferredPlacement ? 1 : 0;
+
+        if (leftPriority !== rightPriority) {
+          return rightPriority - leftPriority;
+        }
+
+        return rightCandidate.score - leftCandidate.score;
+      })[0] ?? null;
 
   if (!bestCandidate) {
     return {

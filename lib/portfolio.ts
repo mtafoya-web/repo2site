@@ -3,6 +3,7 @@ import type {
   PortfolioCanvasComponent,
   PortfolioCanvasComponentOrder,
   PortfolioAppearance,
+  PortfolioCustomSection,
   ProfessionalCtaLabels,
   PortfolioEnhancement,
   PortfolioSectionId,
@@ -12,6 +13,7 @@ import type {
   PreviewAbout,
   PreviewHero,
   PreviewLink,
+  PortfolioCustomProject,
   PreviewProjectImage,
   PreviewRepository,
   PreviewSection,
@@ -92,6 +94,7 @@ export type FinalPortfolio = {
     id: string;
     title: ResolvedField;
     description: ResolvedField;
+    blocks: PortfolioCustomSection["blocks"];
   }>;
   repositories: ResolvedPreviewRepository[];
   techStack: string[];
@@ -132,6 +135,8 @@ export const DEFAULT_APPEARANCE: PortfolioAppearance = {
   colorMode: "dark",
   density: "compact",
   sectionLayout: "split",
+  projectsLayout: "hybrid",
+  projectsOverflowSize: "compact",
   cardStyle: "soft",
 };
 
@@ -146,14 +151,13 @@ export const PROFESSIONAL_ACTION_LABELS = {
   github: "View GitHub Profile",
 } as const;
 
-export const SECTION_MIN_WIDTH_RATIO = 1 / 3;
-export const SECTION_SNAPPED_WIDTH_RATIOS = [1 / 3, 0.4, 0.5, 0.6, 2 / 3] as const;
+export const SECTION_MIN_WIDTH_RATIO = 0.4;
+export const SECTION_SNAPPED_WIDTH_RATIOS = [0.4, 0.5, 0.6] as const;
 
 type SectionLayoutRole = "full" | "heavy" | "light";
 
 function getSectionLayoutRole(sectionType: PortfolioSectionType): SectionLayoutRole {
   switch (sectionType) {
-    case "hero":
     case "projects":
       return "full";
     case "links":
@@ -186,11 +190,7 @@ export function canSectionsShareRow(
   if (!canSectionShareRow(leftComponent) || !canSectionShareRow(rightComponent)) {
     return false;
   }
-
-  const leftRole = getSectionLayoutRole(leftComponent.type);
-  const rightRole = getSectionLayoutRole(rightComponent.type);
-
-  return !(leftRole === "heavy" && rightRole === "heavy");
+  return true;
 }
 
 export function getAllowedRowWidthRatios(
@@ -211,7 +211,7 @@ export function getAllowedRowWidthRatios(
     return [...SECTION_SNAPPED_WIDTH_RATIOS];
   }
 
-  return [0.4, 0.5, 0.6];
+  return [0.5];
 }
 
 export function snapRowWidthRatio(
@@ -337,6 +337,7 @@ export function createEmptyOverrides(
       customLinks: [],
     },
     customSections: [],
+    customProjects: [],
     documents: {
       resumeAssetUrl: "",
       resumeFileName: "",
@@ -348,6 +349,7 @@ export function createEmptyOverrides(
       sectionOrder: DEFAULT_SECTION_ORDER,
       hiddenSections: [],
       projectOrder: [],
+      hiddenProjectNames: [],
       components: DEFAULT_LAYOUT_COMPONENTS.map((component) => ({ ...component })),
       componentOrder: {},
       hiddenComponentIds: [],
@@ -685,6 +687,26 @@ export function resolveProjectImage(
   return repository.image;
 }
 
+function buildCustomProjectRepository(project: PortfolioCustomProject): PreviewRepository {
+  return {
+    name: project.name.trim() || "Untitled Project",
+    description: project.description.trim(),
+    language: project.language.trim() || "Project",
+    href: normalizeExternalUrl(project.href) || "#",
+    origin: "custom",
+    stars: 0,
+    image: project.imageUrl.trim()
+      ? {
+          url: project.imageUrl.trim(),
+          alt: `${project.name.trim() || "Custom project"} preview`,
+          source: "readme",
+        }
+      : null,
+    readmeImages: [],
+    readmeExcerpt: "",
+  };
+}
+
 export function buildResolvedLinks(
   baseLinks: PreviewLink[],
   overrides: PortfolioOverrides,
@@ -790,7 +812,15 @@ export function buildResolvedRepositories(
   repositories: PreviewRepository[],
   overrides: PortfolioOverrides,
 ) {
-  const orderedRepositories = [...repositories].sort((left, right) => {
+  const hiddenProjectNames = new Set(
+    overrides.layout.hiddenProjectNames.map((name) => name.trim()).filter(Boolean),
+  );
+  const allRepositories = [
+    ...repositories,
+    ...overrides.customProjects.map((project) => buildCustomProjectRepository(project)),
+  ];
+  const visibleRepositories = allRepositories.filter((repository) => !hiddenProjectNames.has(repository.name));
+  const orderedRepositories = [...visibleRepositories].sort((left, right) => {
     const leftIndex = overrides.layout.projectOrder.indexOf(left.name);
     const rightIndex = overrides.layout.projectOrder.indexOf(right.name);
 
@@ -819,6 +849,7 @@ export function buildResolvedRepositories(
 
     return {
       ...repository,
+      origin: repository.origin ?? "github",
       description: resolvedDescription.value,
       descriptionSource: resolvedDescription.source,
       resolvedImage: resolveProjectImage(repository, overrides),
@@ -965,6 +996,7 @@ export function buildFinalPortfolio(
     id: section.id,
     title: resolveTextField(section.title || "Custom section", section.title),
     description: resolveTextField(section.description, section.description),
+    blocks: section.blocks ?? [],
   }));
 
   return {
