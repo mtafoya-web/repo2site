@@ -91,10 +91,16 @@ export type PortfolioSectionId =
   | "contact"
   | "links";
 
+export type PortfolioSectionType = PortfolioSectionId | "custom";
+export type PortfolioSectionWidth = "full" | "half" | "third" | "two-thirds";
+
 export type PortfolioCanvasComponent = {
   id: string;
-  type: PortfolioSectionId;
+  type: PortfolioSectionType;
   visible: boolean;
+  rowId?: string;
+  width?: PortfolioSectionWidth;
+  title?: string;
 };
 
 export type PortfolioCanvasComponentOrder = Record<string, string[]>;
@@ -150,8 +156,13 @@ export type PortfolioOverrides = {
     coverLetterUrl: string;
     handshakeUrl: string;
     portfolioUrl: string;
-    customLinks: PortfolioOverrideLink[];
+      customLinks: PortfolioOverrideLink[];
   };
+  customSections: Array<{
+    id: string;
+    title: string;
+    description: string;
+  }>;
   documents: {
     resumeAssetUrl: string;
     resumeFileName: string;

@@ -11,13 +11,19 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useAppTheme } from "@/components/app-theme-provider";
 import {
   Repo2SiteBuilderSprite,
   type BuilderSpriteReactionSignal,
   type BuilderSpriteReactionType,
 } from "@/components/repo2site-builder-sprite";
+import {
+  Repo2SiteGuidedTour,
+  Repo2SiteWalkthroughLauncher,
+} from "@/components/repo2site-guided-tour";
+import { useRepo2SiteWalkthrough } from "@/hooks/use-repo2site-walkthrough";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { buildAppThemeStyles } from "@/lib/app-theme";
 import { reportClientError } from "@/lib/monitoring";
 import {
   DEFAULT_CARD_LABELS,
@@ -35,6 +41,7 @@ import {
 import type { ContentSource, ResolvedPreviewRepository } from "@/lib/portfolio";
 import { applyTemplateRecord, buildTemplatePreset } from "@/lib/template-presets";
 import { PORTFOLIO_THEMES } from "@/lib/themes";
+import { WALKTHROUGH_TARGET_ATTRIBUTE } from "@/lib/repo2site-walkthrough";
 import type {
   EnrichmentSourceResult,
   EnrichmentSuggestion,
@@ -43,6 +50,8 @@ import type {
   PortfolioEnhancement,
   PortfolioOverrides,
   PortfolioSectionId,
+  PortfolioSectionType,
+  PortfolioSectionWidth,
   PreviewAbout,
   PreviewHero,
   PreviewLink,
@@ -138,124 +147,8 @@ const FALLBACK_REPOSITORIES: PreviewRepository[] = [
 
 const FALLBACK_LINKS: PreviewLink[] = [{ label: "GitHub", href: "https://github.com/username" }];
 const FALLBACK_TECH_STACK = ["TypeScript", "Next.js", "Tailwind CSS"];
-const WALKTHROUGH_STORAGE_KEY = "repo2site-walkthrough-state";
 const CUSTOMIZE_HINT_STORAGE_KEY = "repo2site-customize-hint-seen";
 const BETA_SPRITE_STORAGE_KEY = "repo2site-beta-sprite-enabled";
-const WALKTHROUGH_STEPS = [
-  {
-    id: "github-import",
-    targetId: "tour-github-import",
-    title: "Start with GitHub",
-    description:
-      "Paste a public GitHub profile to create your first draft automatically. Repo2Site turns your projects, profile details, and repository descriptions into a starting portfolio.",
-  },
-  {
-    id: "resume-upload",
-    targetId: "tour-resume-upload",
-    title: "Add a resume for better personalization",
-    description:
-      "Uploading a resume is optional, but it helps the app write stronger summaries, profile details, and supporting copy without changing your project structure.",
-  },
-  {
-    id: "profile-edit",
-    targetId: "tour-profile-edit",
-    title: "Review and edit the draft",
-    description:
-      "Open the editor to adjust profile details like company and location. Changes appear right away in the live preview.",
-  },
-  {
-    id: "customize-tool",
-    targetId: "tour-customize-button",
-    title: "Open the Customize tool",
-    description:
-      "Use this button to change the theme, layout, density, and section order without crowding the main workspace.",
-  },
-  {
-    id: "project-customize",
-    targetId: "tour-projects",
-    title: "Customize projects visually",
-    description:
-      "Drag projects to reorder them, make a different project featured, and upload images when you want a more visual card.",
-  },
-  {
-    id: "ai-suggestions",
-    targetId: "tour-ai",
-    title: "Use AI suggestions safely",
-    description:
-      "AI suggestions stay separate until you accept them. Review each suggestion, keep what helps, and dismiss anything that does not fit your voice.",
-  },
-  {
-    id: "export",
-    targetId: "tour-export",
-    title: "Export when it looks right",
-    description:
-      "When the portfolio feels ready, download the ZIP export to publish it as a static site or keep refining it in the editor.",
-  },
-] as const;
-
-type WalkthroughStepId = (typeof WALKTHROUGH_STEPS)[number]["id"];
-type WalkthroughStatus = "new" | "in_progress" | "skipped" | "completed";
-
-function getGuidedTourPosition(anchorRect: DOMRect | null) {
-  if (typeof window === "undefined") {
-    return { top: 24, left: 16, placement: "below" as const };
-  }
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const horizontalPadding = 16;
-  const verticalPadding = 20;
-  const cardWidth = Math.min(420, viewportWidth - horizontalPadding * 2);
-  const estimatedCardHeight = 340;
-
-  if (!anchorRect) {
-    return {
-      top: Math.max(verticalPadding, 24),
-      left: Math.max(horizontalPadding, (viewportWidth - cardWidth) / 2),
-      placement: "center" as const,
-    };
-  }
-
-  const spaceBelow = viewportHeight - anchorRect.bottom;
-  const spaceAbove = anchorRect.top;
-  const spaceRight = viewportWidth - anchorRect.right;
-  const spaceLeft = anchorRect.left;
-
-  if (spaceRight >= cardWidth + 28) {
-    return {
-      top: Math.min(
-        Math.max(verticalPadding, anchorRect.top + anchorRect.height / 2 - estimatedCardHeight / 2),
-        viewportHeight - estimatedCardHeight - verticalPadding,
-      ),
-      left: Math.min(anchorRect.right + 18, viewportWidth - cardWidth - horizontalPadding),
-      placement: "right" as const,
-    };
-  }
-
-  if (spaceLeft >= cardWidth + 28) {
-    return {
-      top: Math.min(
-        Math.max(verticalPadding, anchorRect.top + anchorRect.height / 2 - estimatedCardHeight / 2),
-        viewportHeight - estimatedCardHeight - verticalPadding,
-      ),
-      left: Math.max(horizontalPadding, anchorRect.left - cardWidth - 18),
-      placement: "left" as const,
-    };
-  }
-
-  const placeBelow = spaceBelow >= estimatedCardHeight || spaceBelow >= spaceAbove;
-  const top = placeBelow
-    ? Math.min(anchorRect.bottom + 18, viewportHeight - estimatedCardHeight - verticalPadding)
-    : Math.max(verticalPadding, anchorRect.top - estimatedCardHeight - 18);
-  const centeredLeft = anchorRect.left + anchorRect.width / 2 - cardWidth / 2;
-  const left = Math.min(Math.max(horizontalPadding, centeredLeft), viewportWidth - cardWidth - horizontalPadding);
-
-  return {
-    top,
-    left,
-    placement: placeBelow ? ("below" as const) : ("above" as const),
-  };
-}
 
 function toCanvasKey(value: string) {
   return value
@@ -477,6 +370,11 @@ function buildThemeStyles(
   const chipText = isDarkMode ? "#f8fbff" : theme.palette.accent;
   const accentBlockText = isDarkMode ? "#dbeafe" : theme.palette.accent;
   const ghostBackground = isDarkMode ? "rgba(15, 23, 41, 0.82)" : theme.palette.surfaceStrong;
+  const placeholderColor = isDarkMode ? "#7f93b0" : "#64748b";
+  const helperColor = isDarkMode ? "#c6d4ea" : "#334155";
+  const successColor = isDarkMode ? "#86efac" : "#166534";
+  const errorColor = isDarkMode ? "#fca5a5" : "#b91c1c";
+  const infoColor = isDarkMode ? "#bfdbfe" : "#1d4ed8";
   const userBadge = isDarkMode
     ? {
         backgroundColor: "rgba(16, 185, 129, 0.16)",
@@ -520,11 +418,13 @@ function buildThemeStyles(
       backgroundColor: surfaceColor,
       borderColor,
       color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
     } satisfies CSSProperties,
     strongSurface: {
       backgroundColor: surfaceStrongColor,
       borderColor,
       color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
     } satisfies CSSProperties,
     heroSurface: {
       background: `${isDarkMode ? preset.darkHeroOverlay : preset.lightHeroOverlay}, ${surfaceStrongColor}`,
@@ -556,6 +456,9 @@ function buildThemeStyles(
     mutedText: {
       color: mutedColor,
     } satisfies CSSProperties,
+    helperText: {
+      color: helperColor,
+    } satisfies CSSProperties,
     chip: {
       backgroundColor: chipBackground,
       color: chipText,
@@ -575,6 +478,15 @@ function buildThemeStyles(
       borderColor,
       color: textColor,
       backgroundColor: ghostBackground,
+    } satisfies CSSProperties,
+    infoText: {
+      color: infoColor,
+    } satisfies CSSProperties,
+    successText: {
+      color: successColor,
+    } satisfies CSSProperties,
+    errorText: {
+      color: errorColor,
     } satisfies CSSProperties,
     headline: {
       fontWeight: preset.headlineWeight,
@@ -604,9 +516,31 @@ const PALETTE_FIELD_LABELS: Record<keyof PreviewTheme["palette"], string> = {
 };
 
 type ThemeStyleMap = ReturnType<typeof buildThemeStyles>;
+const SECTION_WIDTH_LABELS: Record<PortfolioSectionWidth, string> = {
+  full: "Full",
+  half: "50 / 50",
+  third: "33 / 67",
+  "two-thirds": "67 / 33",
+};
 
 function createLinkId() {
   return `link-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getInitialPortfolioColorMode(): PortfolioOverrides["appearance"]["colorMode"] {
+  if (typeof document !== "undefined") {
+    const currentTheme = document.documentElement.dataset.uiTheme;
+
+    if (currentTheme === "light" || currentTheme === "dark") {
+      return currentTheme;
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  return "dark";
 }
 
 function buildShareSlug(value: string) {
@@ -617,6 +551,37 @@ function buildShareSlug(value: string) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "portfolio"
   );
+}
+
+function createCustomSectionId() {
+  return `custom-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createLayoutRowId() {
+  return `row-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function isBuiltInSectionType(type: PortfolioSectionType): type is PortfolioSectionId {
+  return ["hero", "about", "professional", "projects", "contact", "links"].includes(type);
+}
+
+function canSectionShareRow(component: PortfolioCanvasComponent) {
+  return component.type !== "projects";
+}
+
+function getNextSectionWidth(currentWidth: PortfolioSectionWidth): PortfolioSectionWidth {
+  switch (currentWidth) {
+    case "full":
+      return "half";
+    case "half":
+      return "third";
+    case "third":
+      return "two-thirds";
+    case "two-thirds":
+      return "full";
+    default:
+      return "half";
+  }
 }
 
 function formatSourceLabel(source: ContentSource | "github") {
@@ -973,25 +938,31 @@ function PreviewSectionFrame({
   isDragging,
   isDropTarget,
   dropPosition,
+  width,
+  canResize,
   onDragStart,
   onDragOver,
   onDrop,
   onDragEnd,
   onRemove,
+  onCycleWidth,
   children,
 }: {
-  sectionId: PortfolioSectionId;
+  sectionId: string;
   label: string;
   themeStyles: ThemeStyleMap;
   theme: PreviewTheme;
   isDragging: boolean;
   isDropTarget: boolean;
-  dropPosition: "before" | "after" | null;
+  dropPosition: "before" | "after" | "left" | "right" | null;
+  width: PortfolioSectionWidth;
+  canResize: boolean;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragOver: (event: DragEvent<HTMLElement>) => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
   onRemove: () => void;
+  onCycleWidth?: () => void;
   children: ReactNode;
 }) {
   return (
@@ -1013,6 +984,18 @@ function PreviewSectionFrame({
           style={{ backgroundColor: theme.palette.accent }}
         />
       ) : null}
+      {isDropTarget && dropPosition === "left" ? (
+        <div
+          className="absolute inset-y-4 left-0 z-20 w-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
+      {isDropTarget && dropPosition === "right" ? (
+        <div
+          className="absolute inset-y-4 right-0 z-20 w-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
       <div
         className="rounded-[2rem] border p-3 sm:p-4"
         style={{
@@ -1029,6 +1012,16 @@ function PreviewSectionFrame({
             <p className="mt-1 text-sm font-medium">{label}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canResize && onCycleWidth ? (
+              <button
+                type="button"
+                onClick={onCycleWidth}
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={themeStyles.ghostButton}
+              >
+                Width {SECTION_WIDTH_LABELS[width]}
+              </button>
+            ) : null}
             <button
               type="button"
               draggable
@@ -1141,175 +1134,6 @@ function PreviewCanvasItemFrame({
   );
 }
 
-function WalkthroughChoiceModal({
-  isOpen,
-  onStart,
-  onExplore,
-}: {
-  isOpen: boolean;
-  onStart: () => void;
-  onExplore: () => void;
-}) {
-  if (!isOpen) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-[1.6rem] border bg-slate-950 p-6 text-slate-100 shadow-[0_28px_80px_-40px_rgba(15,23,42,0.9)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-          Welcome to Repo2Site
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-          Choose how you want to get started.
-        </h2>
-        <p className="mt-3 text-sm leading-7 text-slate-300">
-          You can take a guided tour that points to the real controls in the app, or skip it and explore at your own pace.
-        </p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={onStart}
-            className="rounded-[1.2rem] bg-sky-500 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5"
-          >
-            Start Guided Walkthrough
-          </button>
-          <button
-            type="button"
-            onClick={onExplore}
-            className="rounded-[1.2rem] border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:-translate-y-0.5"
-          >
-            Explore On My Own
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GuidedTourOverlay({
-  isOpen,
-  stepIndex,
-  anchorRect,
-  onNext,
-  onPrevious,
-  onSkip,
-  onExit,
-  onJumpToStep,
-}: {
-  isOpen: boolean;
-  stepIndex: number;
-  anchorRect: DOMRect | null;
-  onNext: () => void;
-  onPrevious: () => void;
-  onSkip: () => void;
-  onExit: () => void;
-  onJumpToStep: (index: number) => void;
-}) {
-  if (!isOpen || typeof document === "undefined") {
-    return null;
-  }
-
-  const step = WALKTHROUGH_STEPS[stepIndex];
-  const isLastStep = stepIndex === WALKTHROUGH_STEPS.length - 1;
-  const position = getGuidedTourPosition(anchorRect);
-  const spotlightStyle = anchorRect
-    ? {
-        top: Math.max(anchorRect.top - 8, 8),
-        left: Math.max(anchorRect.left - 8, 8),
-        width: Math.min(anchorRect.width + 16, window.innerWidth - 16),
-        height: Math.min(anchorRect.height + 16, window.innerHeight - 16),
-      }
-    : null;
-
-  return createPortal(
-    <>
-      <div className="pointer-events-none fixed inset-0 z-[90] bg-slate-950/52" />
-      {spotlightStyle ? (
-        <div
-          className="pointer-events-none fixed z-[91] rounded-[1.2rem] border border-sky-400/80 bg-white/[0.02] shadow-[0_0_0_9999px_rgba(2,6,23,0.36),0_0_0_1px_rgba(56,189,248,0.9),0_22px_70px_-34px_rgba(56,189,248,0.85)]"
-          style={spotlightStyle}
-        />
-      ) : null}
-      <div
-        className="pointer-events-auto fixed z-[95] w-[min(26rem,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[1.35rem] border border-slate-700 bg-slate-950 text-slate-100 shadow-[0_32px_90px_-38px_rgba(15,23,42,0.96)]"
-        style={{ top: position.top, left: position.left, isolation: "isolate" }}
-      >
-        <div className="border-b border-slate-800/90 px-5 py-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Guided Tour
-              </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-50 sm:text-xl">
-                {step.title}
-              </h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={onSkip}
-                className="rounded-full border border-slate-700 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300 transition hover:border-slate-500"
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={onExit}
-                className="rounded-full border border-slate-700 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-300 transition hover:border-slate-500"
-              >
-                Explore On My Own
-              </button>
-            </div>
-          </div>
-        </div>
-          <div className="grid gap-4 px-5 py-4">
-          <div className="grid gap-2">
-            <p className="break-words text-sm leading-6 text-slate-200">{step.description}</p>
-            <p className="text-xs leading-5 text-slate-400">
-              You can keep using the app while this tour is open. It only highlights what to try next.
-            </p>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
-              Step {stepIndex + 1} of {WALKTHROUGH_STEPS.length}
-            </p>
-            <div className="flex flex-wrap justify-end gap-2">
-              {WALKTHROUGH_STEPS.map((item, index) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => onJumpToStep(index)}
-                  aria-label={`Go to walkthrough step ${index + 1}: ${item.title}`}
-                  className={`rounded-full transition ${index === stepIndex ? "h-2.5 w-8 bg-sky-400" : "h-2.5 w-2.5 bg-slate-700 hover:bg-slate-500"}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex flex-col gap-3 border-t border-slate-800/90 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={onPrevious}
-            disabled={stepIndex === 0}
-            className="rounded-full border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 disabled:opacity-40"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={isLastStep ? onSkip : onNext}
-            className="rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-400"
-          >
-            {isLastStep ? "Finish Tour" : "Next"}
-          </button>
-        </div>
-      </div>
-    </>,
-    document.body,
-  );
-}
-
 function formatEnrichmentFieldLabel(field: EnrichmentSuggestion["field"]) {
   switch (field) {
     case "hero.headline":
@@ -1374,7 +1198,7 @@ function reorderCanvasComponent(
   components: PortfolioCanvasComponent[],
   draggedComponentId: string,
   targetComponentId: string,
-  position: "before" | "after" = "before",
+  position: "before" | "after" | "left" | "right" = "before",
 ) {
   const draggedIndex = components.findIndex((component) => component.id === draggedComponentId);
   const targetIndex = components.findIndex((component) => component.id === targetComponentId);
@@ -1385,8 +1209,30 @@ function reorderCanvasComponent(
 
   const nextComponents = [...components];
   const [draggedComponent] = nextComponents.splice(draggedIndex, 1);
+  const targetComponent = nextComponents.find((component) => component.id === targetComponentId);
   const adjustedTargetIndex = nextComponents.findIndex((component) => component.id === targetComponentId);
-  const insertIndex = position === "after" ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+
+  if (!targetComponent) {
+    return components;
+  }
+
+  if (position === "left" || position === "right") {
+    const sharedRowId =
+      canSectionShareRow(draggedComponent) && canSectionShareRow(targetComponent)
+        ? targetComponent.rowId || targetComponent.id
+        : createLayoutRowId();
+
+    draggedComponent.rowId = sharedRowId;
+    targetComponent.rowId = sharedRowId;
+    draggedComponent.width = draggedComponent.width === "full" ? "half" : draggedComponent.width || "half";
+    targetComponent.width = targetComponent.width === "full" ? "half" : targetComponent.width || "half";
+  } else {
+    draggedComponent.rowId = createLayoutRowId();
+    draggedComponent.width = "full";
+  }
+
+  const insertIndex =
+    position === "after" || position === "right" ? adjustedTargetIndex + 1 : adjustedTargetIndex;
   nextComponents.splice(insertIndex, 0, draggedComponent);
   return nextComponents;
 }
@@ -1405,11 +1251,17 @@ function mergeEnrichmentResults(
 }
 
 export function Repo2SiteShell() {
+  const { resolvedTheme } = useAppTheme();
   const searchParams = useSearchParams();
   const isBuilderMode = true;
+  const initialPortfolioColorModeRef = useRef<PortfolioOverrides["appearance"]["colorMode"]>(
+    getInitialPortfolioColorMode(),
+  );
+  const buildEmptyOverrides = () =>
+    createEmptyOverrides({ colorMode: initialPortfolioColorModeRef.current });
   const [profileUrl, setProfileUrl] = useState(SAMPLE_URL);
   const [preview, setPreview] = useState<GeneratePreviewResponse | null>(null);
-  const [overrides, setOverrides] = useState<PortfolioOverrides>(() => createEmptyOverrides());
+  const [overrides, setOverrides] = useState<PortfolioOverrides>(() => buildEmptyOverrides());
   const [error, setError] = useState<string | null>(null);
   const [enhanceError, setEnhanceError] = useState<string | null>(null);
   const [enrichError, setEnrichError] = useState<string | null>(null);
@@ -1422,9 +1274,9 @@ export function Repo2SiteShell() {
   const [uploadedResumeFiles, setUploadedResumeFiles] = useState<File[]>([]);
   const [enrichmentResults, setEnrichmentResults] = useState<EnrichmentSourceResult[]>([]);
   const [openProjectImports, setOpenProjectImports] = useState<Record<string, boolean>>({});
-  const [draggedSectionId, setDraggedSectionId] = useState<PortfolioSectionId | null>(null);
-  const [dropTargetSectionId, setDropTargetSectionId] = useState<PortfolioSectionId | null>(null);
-  const [dropPosition, setDropPosition] = useState<"before" | "after" | null>(null);
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+  const [dropTargetSectionId, setDropTargetSectionId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<"before" | "after" | "left" | "right" | null>(null);
   const [draggedChildComponentId, setDraggedChildComponentId] = useState<string | null>(null);
   const [dropTargetChildComponentId, setDropTargetChildComponentId] = useState<string | null>(null);
   const [draggedProjectName, setDraggedProjectName] = useState<string | null>(null);
@@ -1460,18 +1312,33 @@ export function Repo2SiteShell() {
     suggestedSlug?: string;
   } | null>(null);
   const [isCheckingShareSlug, setIsCheckingShareSlug] = useState(false);
-  const [showWalkthroughChoice, setShowWalkthroughChoice] = useState(false);
-  const [showWalkthrough, setShowWalkthrough] = useState(false);
-  const [walkthroughStepIndex, setWalkthroughStepIndex] = useState(0);
-  const [walkthroughStatus, setWalkthroughStatus] = useState<WalkthroughStatus>("new");
-  const [walkthroughAnchorRect, setWalkthroughAnchorRect] = useState<DOMRect | null>(null);
   const [authSession, setAuthSession] = useState<AuthSummary>(null);
+  const [githubImportAutofillNotice, setGitHubImportAutofillNotice] = useState<string | null>(null);
+  const [isGitHubSignInHelpOpen, setIsGitHubSignInHelpOpen] = useState(false);
   const resumeUploadInputRef = useRef<HTMLInputElement | null>(null);
   const heroImageInputRef = useRef<HTMLInputElement | null>(null);
   const customizeTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shareSlugCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedTemplateSlugRef = useRef<string | null>(null);
   const aiAcceptedCountRef = useRef<number | null>(null);
+  const lastGitHubAutofillUsernameRef = useRef<string | null>(null);
+  const hasResumeContext =
+    uploadedResumeFiles.length > 0 ||
+    Boolean(overrides.documents.resumeAssetUrl) ||
+    Boolean(overrides.documents.coverLetterAssetUrl);
+  const pendingAiSuggestionCount = countPendingAiSuggestions(overrides);
+  const walkthrough = useRepo2SiteWalkthrough({
+    context: {
+      hasPreview: Boolean(preview),
+      hasResume: hasResumeContext,
+      hasProjects: Boolean(preview?.featuredRepositories.length),
+      hasPendingAiSuggestions: pendingAiSuggestionCount > 0,
+      isCustomizeOpen,
+      isEditMode,
+    },
+    onOpenProfileEdit: () => setIsEditMode(true),
+    onTrackEvent: trackAnalyticsEvent,
+  });
 
   useEffect(() => {
     let isCancelled = false;
@@ -1501,21 +1368,26 @@ export function Repo2SiteShell() {
   }, []);
 
   useEffect(() => {
-    const savedState = window.localStorage.getItem(WALKTHROUGH_STORAGE_KEY);
-
-    if (!savedState) {
-      setShowWalkthroughChoice(true);
+    if (!authSession?.username) {
+      setGitHubImportAutofillNotice(null);
       return;
     }
 
-    try {
-      const parsed = JSON.parse(savedState) as { status?: WalkthroughStatus; stepIndex?: number };
-      setWalkthroughStatus(parsed.status ?? "completed");
-      setWalkthroughStepIndex(parsed.stepIndex ?? 0);
-    } catch {
-      setShowWalkthroughChoice(true);
+    if (lastGitHubAutofillUsernameRef.current === authSession.username) {
+      return;
     }
-  }, []);
+
+    if (profileUrl.trim()) {
+      return;
+    }
+
+    const suggestedProfileUrl =
+      authSession.profileUrl?.trim() || `https://github.com/${authSession.username}`;
+
+    setProfileUrl(suggestedProfileUrl);
+    setGitHubImportAutofillNotice(authSession.username);
+    lastGitHubAutofillUsernameRef.current = authSession.username;
+  }, [authSession, profileUrl]);
 
   useEffect(() => {
     const hasSeenCustomizeHint = window.localStorage.getItem(CUSTOMIZE_HINT_STORAGE_KEY);
@@ -1816,82 +1688,6 @@ export function Repo2SiteShell() {
   }, []);
 
   useEffect(() => {
-    if (!showWalkthrough) {
-      setWalkthroughAnchorRect(null);
-      return;
-    }
-
-    const currentStep = WALKTHROUGH_STEPS[walkthroughStepIndex];
-
-    function updateAnchorRect(shouldScroll = false) {
-      const element = document.querySelector<HTMLElement>(`[data-tour-id="${currentStep.targetId}"]`);
-      if (element && shouldScroll) {
-        element.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-      setWalkthroughAnchorRect(element ? element.getBoundingClientRect() : null);
-    }
-
-    const handleViewportChange = () => updateAnchorRect(false);
-
-    updateAnchorRect(true);
-    window.addEventListener("resize", handleViewportChange);
-    window.addEventListener("scroll", handleViewportChange, true);
-
-    return () => {
-      window.removeEventListener("resize", handleViewportChange);
-      window.removeEventListener("scroll", handleViewportChange, true);
-    };
-  }, [showWalkthrough, walkthroughStepIndex, isEditMode, preview, uploadedResumeFiles.length]);
-
-  useEffect(() => {
-    if (!showWalkthrough) {
-      return;
-    }
-
-    const currentStepId = WALKTHROUGH_STEPS[walkthroughStepIndex].id;
-
-    if (currentStepId === "github-import" && preview) {
-      setWalkthroughStepIndex((current) => Math.min(current + 1, WALKTHROUGH_STEPS.length - 1));
-      return;
-    }
-
-    if (
-      currentStepId === "resume-upload" &&
-      (uploadedResumeFiles.length > 0 ||
-        Boolean(overrides.documents.resumeAssetUrl) ||
-        Boolean(overrides.documents.coverLetterAssetUrl))
-    ) {
-      setWalkthroughStepIndex((current) => Math.min(current + 1, WALKTHROUGH_STEPS.length - 1));
-      return;
-    }
-
-    if (currentStepId === "customize-tool" && isCustomizeOpen) {
-      setWalkthroughStepIndex((current) => Math.min(current + 1, WALKTHROUGH_STEPS.length - 1));
-      return;
-    }
-  }, [
-    showWalkthrough,
-    walkthroughStepIndex,
-    preview,
-    uploadedResumeFiles.length,
-    overrides.documents.resumeAssetUrl,
-    overrides.documents.coverLetterAssetUrl,
-    isCustomizeOpen,
-  ]);
-
-  useEffect(() => {
-    if (!showWalkthrough) {
-      return;
-    }
-
-    const currentStepId = WALKTHROUGH_STEPS[walkthroughStepIndex].id;
-
-    if (currentStepId === "profile-edit" && preview && !isEditMode) {
-      setIsEditMode(true);
-    }
-  }, [showWalkthrough, walkthroughStepIndex, preview, isEditMode]);
-
-  useEffect(() => {
     const acceptedCount =
       Number(overrides.aiAccepted.heroHeadline) +
       Number(overrides.aiAccepted.heroSubheadline) +
@@ -1908,45 +1704,6 @@ export function Repo2SiteShell() {
 
     aiAcceptedCountRef.current = acceptedCount;
   }, [overrides.aiAccepted]);
-
-  function persistWalkthroughState(status: WalkthroughStatus, stepIndex = walkthroughStepIndex) {
-    window.localStorage.setItem(
-      WALKTHROUGH_STORAGE_KEY,
-      JSON.stringify({
-        status,
-        stepIndex,
-      }),
-    );
-    setWalkthroughStatus(status);
-  }
-
-  function closeWalkthrough(status: WalkthroughStatus = "completed") {
-    setShowWalkthrough(false);
-    setShowWalkthroughChoice(false);
-    persistWalkthroughState(status);
-    trackAnalyticsEvent("Walkthrough Closed", { status });
-  }
-
-  function startWalkthrough(fromBeginning = false) {
-    const nextStepIndex = fromBeginning ? 0 : Math.min(walkthroughStepIndex, WALKTHROUGH_STEPS.length - 1);
-    setWalkthroughStepIndex(nextStepIndex);
-    setShowWalkthrough(true);
-    setShowWalkthroughChoice(false);
-    persistWalkthroughState("in_progress", nextStepIndex);
-    trackAnalyticsEvent("Walkthrough Started", {
-      resumed: !fromBeginning,
-      step: nextStepIndex + 1,
-    });
-  }
-
-  function chooseExploreMode() {
-    setShowWalkthroughChoice(false);
-    setShowWalkthrough(false);
-    persistWalkthroughState("skipped", walkthroughStepIndex);
-    trackAnalyticsEvent("Walkthrough Skipped", {
-      step: walkthroughStepIndex + 1,
-    });
-  }
 
   function toggleCustomizePanel(nextOpen?: boolean) {
     setIsCustomizeOpen((current) => {
@@ -1990,30 +1747,9 @@ export function Repo2SiteShell() {
     });
   }
 
-  function goToNextWalkthroughStep() {
-    setWalkthroughStepIndex((current) => {
-      const next = Math.min(current + 1, WALKTHROUGH_STEPS.length - 1);
-      persistWalkthroughState(next === WALKTHROUGH_STEPS.length - 1 ? "in_progress" : "in_progress", next);
-      return next;
-    });
-  }
-
-  function goToPreviousWalkthroughStep() {
-    setWalkthroughStepIndex((current) => {
-      const next = Math.max(current - 1, 0);
-      persistWalkthroughState("in_progress", next);
-      return next;
-    });
-  }
-
-  function jumpToWalkthroughStep(index: number) {
-    setWalkthroughStepIndex(index);
-    persistWalkthroughState("in_progress", index);
-  }
-
   function getTourHighlightProps(targetId: string) {
     return {
-      "data-tour-id": targetId,
+      [WALKTHROUGH_TARGET_ATTRIBUTE]: targetId,
     };
   }
 
@@ -2128,7 +1864,7 @@ export function Repo2SiteShell() {
 
       if (!response.ok) {
         setPreview(null);
-        setOverrides(createEmptyOverrides());
+        setOverrides(buildEmptyOverrides());
         setError("error" in result ? result.error : "Something went wrong.");
         trackAnalyticsEvent("GitHub Import Failed", {
           stage: "response",
@@ -2138,7 +1874,7 @@ export function Repo2SiteShell() {
 
       if ("error" in result) {
         setPreview(null);
-        setOverrides(createEmptyOverrides());
+        setOverrides(buildEmptyOverrides());
         setError(result.error);
         trackAnalyticsEvent("GitHub Import Failed", {
           stage: "payload",
@@ -2148,7 +1884,7 @@ export function Repo2SiteShell() {
 
       setPreview(result);
       setOverrides((current) => {
-        const reset = createEmptyOverrides();
+        const reset = buildEmptyOverrides();
 
         return {
           ...reset,
@@ -2172,7 +1908,7 @@ export function Repo2SiteShell() {
       });
     } catch {
       setPreview(null);
-      setOverrides(createEmptyOverrides());
+      setOverrides(buildEmptyOverrides());
       setError("Something went wrong while creating the preview.");
       trackAnalyticsEvent("GitHub Import Failed", {
         stage: "network",
@@ -3194,7 +2930,17 @@ export function Repo2SiteShell() {
         ...current.layout,
         sectionOrder: [...DEFAULT_SECTION_ORDER],
         hiddenSections: [],
-        components: buildLayoutComponents(),
+        components: [
+          ...buildLayoutComponents(),
+          ...current.customSections.map((section) => ({
+            id: section.id,
+            type: "custom" as const,
+            visible: true,
+            rowId: section.id,
+            width: "full" as const,
+            title: section.title,
+          })),
+        ],
         componentOrder: {},
         hiddenComponentIds: [],
       },
@@ -3246,7 +2992,7 @@ export function Repo2SiteShell() {
     updateLayoutComponents((components) => moveCanvasComponent(components, sectionId, direction));
   }
 
-  function toggleSectionVisibility(sectionId: PortfolioSectionId) {
+  function toggleSectionVisibility(sectionId: string) {
     updateLayoutComponents((components) =>
       components.map((component) =>
         component.id === sectionId ? { ...component, visible: !component.visible } : component,
@@ -3254,7 +3000,7 @@ export function Repo2SiteShell() {
     );
   }
 
-  function restoreSection(sectionId: PortfolioSectionId) {
+  function restoreSection(sectionId: string) {
     updateLayoutComponents((components) =>
       components.map((component) =>
         component.id === sectionId ? { ...component, visible: true } : component,
@@ -3262,25 +3008,43 @@ export function Repo2SiteShell() {
     );
   }
 
-  function handleSectionDragStart(sectionId: PortfolioSectionId) {
+  function handleSectionDragStart(sectionId: string) {
     setDraggedSectionId(sectionId);
     setDropTargetSectionId(null);
     setDropPosition(null);
     triggerSpriteReaction("drag-start", sectionId);
   }
 
-  function handleSectionDragOver(event: DragEvent<HTMLElement>, sectionId: PortfolioSectionId) {
+  function handleSectionDragOver(event: DragEvent<HTMLElement>, sectionId: string) {
     if (!draggedSectionId || draggedSectionId === sectionId) {
       return;
     }
 
     const bounds = event.currentTarget.getBoundingClientRect();
-    const nextDropPosition = event.clientY >= bounds.top + bounds.height / 2 ? "after" : "before";
+    const targetComponent = overrides.layout.components.find((component) => component.id === sectionId);
+    const draggedComponent = overrides.layout.components.find((component) => component.id === draggedSectionId);
+    const relativeX = event.clientX - bounds.left;
+    const relativeY = event.clientY - bounds.top;
+    const horizontalDropAllowed =
+      overrides.appearance.sectionLayout !== "stacked" &&
+      targetComponent &&
+      draggedComponent &&
+      canSectionShareRow(targetComponent) &&
+      canSectionShareRow(draggedComponent);
+
+    const nextDropPosition =
+      horizontalDropAllowed && relativeX <= bounds.width * 0.3
+        ? "left"
+        : horizontalDropAllowed && relativeX >= bounds.width * 0.7
+          ? "right"
+          : relativeY >= bounds.height / 2
+            ? "after"
+            : "before";
     setDropTargetSectionId(sectionId);
     setDropPosition(nextDropPosition);
   }
 
-  function handleSectionDrop(sectionId: PortfolioSectionId) {
+  function handleSectionDrop(sectionId: string) {
     if (!draggedSectionId || draggedSectionId === sectionId) {
       setDraggedSectionId(null);
       setDropTargetSectionId(null);
@@ -3302,6 +3066,73 @@ export function Repo2SiteShell() {
     setDropTargetSectionId(null);
     setDropPosition(null);
     triggerSpriteReaction("drag-end");
+  }
+
+  function updateSectionWidth(sectionId: string) {
+    updateLayoutComponents((components) =>
+      components.map((component) =>
+        component.id === sectionId && canSectionShareRow(component)
+          ? { ...component, width: getNextSectionWidth(component.width || "full") }
+          : component,
+      ),
+    );
+  }
+
+  function addBuiltInSection(sectionId: PortfolioSectionId) {
+    restoreSection(sectionId);
+  }
+
+  function addCustomSection() {
+    const sectionId = createCustomSectionId();
+    const rowId = createLayoutRowId();
+
+    updateOverrides((current) => ({
+      ...current,
+      customSections: [
+        ...current.customSections,
+        {
+          id: sectionId,
+          title: `Custom Section ${current.customSections.length + 1}`,
+          description: "Add your own notes, skills, awards, or anything else you want to feature.",
+        },
+      ],
+      layout: {
+        ...current.layout,
+        components: normalizeLayoutComponents([
+          ...current.layout.components,
+          {
+            id: sectionId,
+            type: "custom",
+            visible: true,
+            rowId,
+            width: "full",
+            title: `Custom Section ${current.customSections.length + 1}`,
+          },
+        ]),
+      },
+    }));
+  }
+
+  function removeSection(sectionId: string) {
+    const component = overrides.layout.components.find((item) => item.id === sectionId);
+
+    if (!component) {
+      return;
+    }
+
+    if (component.type === "custom") {
+      updateOverrides((current) => ({
+        ...current,
+        customSections: current.customSections.filter((section) => section.id !== sectionId),
+        layout: {
+          ...current.layout,
+          components: current.layout.components.filter((item) => item.id !== sectionId),
+        },
+      }));
+      return;
+    }
+
+    toggleSectionVisibility(sectionId);
   }
 
   function handleChildDragStart(componentId: string) {
@@ -3352,6 +3183,7 @@ export function Repo2SiteShell() {
     techStack: FALLBACK_TECH_STACK,
   });
   const theme = portfolio.theme;
+  const appThemeStyles = buildAppThemeStyles(resolvedTheme);
   const themeStyles = buildThemeStyles(
     theme,
     portfolio.appearance.cardStyle,
@@ -3462,8 +3294,7 @@ export function Repo2SiteShell() {
         }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: string; href: string }>;
-  const hasOverrides = JSON.stringify(overrides) !== JSON.stringify(createEmptyOverrides());
-  const pendingAiSuggestionCount = countPendingAiSuggestions(overrides);
+  const hasOverrides = JSON.stringify(overrides) !== JSON.stringify(buildEmptyOverrides());
   const completenessChecks = [
     Boolean(portfolio.hero.headline.value.trim() && heroIntroText.trim()),
     Boolean(aboutDescription.value.trim()),
@@ -3499,8 +3330,11 @@ export function Repo2SiteShell() {
       ? "grid gap-6"
       : "grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]";
   const canvasComponents = portfolio.layout.components;
-  const sectionOrder = canvasComponents.map((component) => component.type);
-  const hiddenSections = new Set(canvasComponents.filter((component) => !component.visible).map((component) => component.type));
+  const hiddenSections = new Set(
+    canvasComponents
+      .filter((component) => !component.visible && isBuiltInSectionType(component.type))
+      .map((component) => component.type),
+  );
   const showHero = !hiddenSections.has("hero");
   const showAbout = !hiddenSections.has("about") && Boolean(aboutDescription.value.trim());
   const showProfessional =
@@ -3521,11 +3355,17 @@ export function Repo2SiteShell() {
   const hasProfileDetails = Boolean(
     professional.company || preview?.profile.company || professional.location || preview?.profile.location || isEditMode,
   );
-  const visibleSections = canvasComponents
-    .filter((component) => component.visible)
-    .map((component) => component.type)
-    .filter((sectionId) => {
-      switch (sectionId) {
+  const visibleCanvasComponents = canvasComponents.filter((component) => {
+    if (!component.visible) {
+      return false;
+    }
+
+    if (component.type === "custom") {
+      const customSection = overrides.customSections.find((section) => section.id === component.id);
+      return Boolean(customSection?.title.trim() || customSection?.description.trim() || isEditMode);
+    }
+
+    switch (component.type) {
         case "hero":
           return showHero;
         case "about":
@@ -3541,16 +3381,35 @@ export function Repo2SiteShell() {
         default:
           return false;
       }
-    });
+  });
   const hiddenCanvasComponents = canvasComponents.filter((component) => !component.visible);
-  const sectionLabels: Record<PortfolioSectionId, string> = {
+  const sectionLabels: Record<PortfolioSectionType, string> = {
     hero: "Hero",
     about: "About",
     professional: "Professional",
     projects: "Projects",
     links: "Links",
     contact: "Contact",
+    custom: "Custom",
   };
+  const visibleSectionRows = visibleCanvasComponents.reduce<Array<{ id: string; items: PortfolioCanvasComponent[] }>>(
+    (rows, component) => {
+      const rowId =
+        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+          ? component.id
+          : component.rowId || component.id;
+      const existingRow = rows.find((row) => row.id === rowId);
+
+      if (existingRow) {
+        existingRow.items.push(component);
+      } else {
+        rows.push({ id: rowId, items: [component] });
+      }
+
+      return rows;
+    },
+    [],
+  );
 
   const hiddenChildComponentIds = new Set(overrides.layout.hiddenComponentIds);
   const componentOrder = overrides.layout.componentOrder;
@@ -3797,7 +3656,65 @@ export function Repo2SiteShell() {
   }
 
 
-  function renderPreviewSection(sectionId: PortfolioSectionId) {
+  function renderPreviewSection(component: PortfolioCanvasComponent) {
+    if (component.type === "custom") {
+      const customSection = overrides.customSections.find((section) => section.id === component.id);
+
+      return (
+        <div className={`rounded-[2rem] border ${densityClasses.sectionPadding} space-y-4`} style={themeStyles.surface}>
+          <PreviewCanvasItemFrame
+            label={customSection?.title || component.title || "Custom section"}
+            themeStyles={themeStyles}
+            isEditing={isEditMode}
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+                {customSection?.title || component.title || "Custom Section"}
+              </p>
+              <p className="text-sm leading-7 sm:text-base">
+                {customSection?.description || "Add your own content here from the editor controls."}
+              </p>
+              {isEditMode ? (
+                <div className="grid gap-3">
+                  <input
+                    value={customSection?.title || ""}
+                    onChange={(event) =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        customSections: current.customSections.map((section) =>
+                          section.id === component.id ? { ...section, title: event.target.value } : section,
+                        ),
+                      }))
+                    }
+                    placeholder="Section title"
+                    className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                    style={themeStyles.strongSurface}
+                  />
+                  <textarea
+                    value={customSection?.description || ""}
+                    onChange={(event) =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        customSections: current.customSections.map((section) =>
+                          section.id === component.id ? { ...section, description: event.target.value } : section,
+                        ),
+                      }))
+                    }
+                    rows={4}
+                    placeholder="Describe the content for this custom section"
+                    className="min-h-[108px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
+                    style={themeStyles.strongSurface}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </PreviewCanvasItemFrame>
+        </div>
+      );
+    }
+
+    const sectionId = component.type;
+
     switch (sectionId) {
       case "hero":
         return (
@@ -4319,62 +4236,63 @@ export function Repo2SiteShell() {
 
               if (componentId === "about:description") {
                 return (
-                  <PreviewCanvasItemFrame
-                    key={componentId}
-                    label="About text block"
-                    themeStyles={themeStyles}
-                    isEditing={isEditMode}
-                    isDragging={draggedChildComponentId === componentId}
-                    isDropTarget={dropTargetChildComponentId === componentId && draggedChildComponentId !== componentId}
-                    onDragStart={() => handleChildDragStart(componentId)}
-                    onDragOver={() => handleChildDragOver(componentId)}
-                    onDrop={() => handleChildDrop("about", aboutDefaultIds, componentId)}
-                    onDragEnd={handleChildDragEnd}
-                    onRemove={() => setChildComponentVisible(componentId, false)}
-                  >
-                    <div className={`rounded-[1.8rem] border ${densityClasses.cardPadding}`} style={themeStyles.sectionSurface}>
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>About Me</p>
-                        <SourceBadge source={aboutDescription.source} themeStyles={themeStyles} />
+                  <div key={componentId} {...getTourHighlightProps("tour-edit-text")}>
+                    <PreviewCanvasItemFrame
+                      label="About text block"
+                      themeStyles={themeStyles}
+                      isEditing={isEditMode}
+                      isDragging={draggedChildComponentId === componentId}
+                      isDropTarget={dropTargetChildComponentId === componentId && draggedChildComponentId !== componentId}
+                      onDragStart={() => handleChildDragStart(componentId)}
+                      onDragOver={() => handleChildDragOver(componentId)}
+                      onDrop={() => handleChildDrop("about", aboutDefaultIds, componentId)}
+                      onDragEnd={handleChildDragEnd}
+                      onRemove={() => setChildComponentVisible(componentId, false)}
+                    >
+                      <div className={`rounded-[1.8rem] border ${densityClasses.cardPadding}`} style={themeStyles.sectionSurface}>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>About Me</p>
+                          <SourceBadge source={aboutDescription.source} themeStyles={themeStyles} />
+                        </div>
+                        <h2 className="mt-3 break-words text-3xl font-semibold tracking-tight">About Me</h2>
+                        <p className="mt-5 break-words whitespace-pre-wrap text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>{aboutDescription.value}</p>
+                        <InlineEditableField
+                          label="About Me"
+                          value={overrides.about.description}
+                          onChange={(nextValue) =>
+                            updateOverrides((current) => ({
+                              ...current,
+                              about: { ...current.about, description: nextValue },
+                              aiAccepted: { ...current.aiAccepted, aboutDescription: false },
+                            }))
+                          }
+                          generatedValue={baseAbout.description}
+                          suggestedValue={overrides.aboutSuggestion}
+                          activeSource={overrides.aiAccepted.aboutDescription ? "ai" : "user"}
+                          placeholder="Add a more personal summary"
+                          themeStyles={themeStyles}
+                          onApplySuggestion={() =>
+                            updateOverrides((current) => ({
+                              ...current,
+                              about: { ...current.about, description: current.aboutSuggestion },
+                              aboutSuggestion: "",
+                              aiAccepted: { ...current.aiAccepted, aboutDescription: true },
+                            }))
+                          }
+                          onDismissSuggestion={() => updateOverrides((current) => ({ ...current, aboutSuggestion: "" }))}
+                          onReset={() =>
+                            updateOverrides((current) => ({
+                              ...current,
+                              about: { ...current.about, description: "" },
+                              aiAccepted: { ...current.aiAccepted, aboutDescription: false },
+                            }))
+                          }
+                          editing={isEditMode}
+                          multiline
+                        />
                       </div>
-                      <h2 className="mt-3 break-words text-3xl font-semibold tracking-tight">About Me</h2>
-                      <p className="mt-5 break-words whitespace-pre-wrap text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>{aboutDescription.value}</p>
-                      <InlineEditableField
-                        label="About Me"
-                        value={overrides.about.description}
-                        onChange={(nextValue) =>
-                          updateOverrides((current) => ({
-                            ...current,
-                            about: { ...current.about, description: nextValue },
-                            aiAccepted: { ...current.aiAccepted, aboutDescription: false },
-                          }))
-                        }
-                        generatedValue={baseAbout.description}
-                        suggestedValue={overrides.aboutSuggestion}
-                        activeSource={overrides.aiAccepted.aboutDescription ? "ai" : "user"}
-                        placeholder="Add a more personal summary"
-                        themeStyles={themeStyles}
-                        onApplySuggestion={() =>
-                          updateOverrides((current) => ({
-                            ...current,
-                            about: { ...current.about, description: current.aboutSuggestion },
-                            aboutSuggestion: "",
-                            aiAccepted: { ...current.aiAccepted, aboutDescription: true },
-                          }))
-                        }
-                        onDismissSuggestion={() => updateOverrides((current) => ({ ...current, aboutSuggestion: "" }))}
-                        onReset={() =>
-                          updateOverrides((current) => ({
-                            ...current,
-                            about: { ...current.about, description: "" },
-                            aiAccepted: { ...current.aiAccepted, aboutDescription: false },
-                          }))
-                        }
-                        editing={isEditMode}
-                        multiline
-                      />
-                    </div>
-                  </PreviewCanvasItemFrame>
+                    </PreviewCanvasItemFrame>
+                  </div>
                 );
               }
 
@@ -5667,12 +5585,12 @@ export function Repo2SiteShell() {
             Section Layout
           </label>
           <p className="text-xs leading-5" style={themeStyles.mutedText}>
-            Keep the structure editing in the preview, and use this setting to change the overall layout rhythm.
+            Turn stacked layout on for a simple vertical flow, or switch it off to place non-project sections side by side.
           </p>
           <div className="flex flex-wrap gap-2">
             {[
-              { id: "split", label: "Split" },
-              { id: "stacked", label: "Stacked" },
+              { id: "stacked", label: "Stacked Layout" },
+              { id: "split", label: "Flexible Layout" },
             ].map((option) => (
               <button
                 key={option.id}
@@ -5733,49 +5651,50 @@ export function Repo2SiteShell() {
   }
 
   return (
-    <main className="min-h-screen px-3 py-3 sm:px-5 sm:py-4" style={themeStyles.page}>
+    <main className="min-h-screen px-3 py-3 sm:px-5 sm:py-4" style={appThemeStyles.page}>
       <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-2">
         <section className="flex flex-col gap-2">
-          <div className="rounded-[1.35rem] border px-4 py-3 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.56)]" style={themeStyles.navSurface}>
+          <div className="rounded-[1.35rem] border px-4 py-3" style={appThemeStyles.navSurface}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[0.95rem] border text-sm font-semibold" style={themeStyles.strongSurface}>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[0.95rem] border text-sm font-semibold" style={appThemeStyles.strongSurface}>
                     R2
                   </div>
                   <div>
                     <p className="text-sm font-semibold tracking-tight">Repo2Site</p>
-                    <p className="text-xs" style={themeStyles.mutedText}>
+                    <p className="text-xs" style={appThemeStyles.mutedText}>
                       Turn GitHub work into a portfolio you can review, edit, and export
                     </p>
                   </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.surface}>
+                <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.chip}>
                   {preview?.profile.username ? "Profile live" : "Waiting for source"}
                 </span>
                 <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={isEditMode ? themeStyles.aiBadge : themeStyles.githubBadge}>
                   {isEditMode ? "Editor open" : "Preview focused"}
                 </span>
-                <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.surface}>
-                  Dark mode default
-                </span>
                 <button
                   type="button"
                   onClick={toggleSpriteEnabled}
                   className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
-                  style={isSpriteEnabled ? themeStyles.accentButton : themeStyles.ghostButton}
+                  style={isSpriteEnabled ? appThemeStyles.accentButton : appThemeStyles.ghostButton}
                 >
-                  {isSpriteEnabled ? "Disable Beta Sprite" : "Enable Beta Sprite"}
+                  {isSpriteEnabled ? "Sprite On" : "Sprite Off"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => startWalkthrough(walkthroughStatus !== "in_progress")}
+                  onClick={() =>
+                    walkthrough.status === "in_progress"
+                      ? walkthrough.openWalkthrough("quick")
+                      : walkthrough.showLauncher()
+                  }
                   className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
-                  style={themeStyles.ghostButton}
+                  style={appThemeStyles.ghostButton}
                 >
-                  {walkthroughStatus === "in_progress" ? "Continue Tour" : "Take Tour"}
+                  {walkthrough.status === "in_progress" ? "Resume Walkthrough" : "Walkthrough"}
                 </button>
               </div>
             </div>
@@ -5784,204 +5703,309 @@ export function Repo2SiteShell() {
           <div {...getTourHighlightProps("tour-github-import")}>
             <div
               className="rounded-[1.45rem] border px-4 py-4 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.58)]"
-              style={themeStyles.strongSurface}
+              style={appThemeStyles.strongSurface}
             >
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
-                  Build From GitHub
-                </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[2rem]">
-                  Turn repositories, README context, and career materials into a portfolio draft.
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6" style={themeStyles.mutedText}>
-                  Start with GitHub, optionally add a resume, then review the draft in the live preview before exporting the final site.
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={appThemeStyles.mutedText}>
+                    Build From GitHub
+                  </p>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[2rem]">
+                    Turn repositories, README context, and career materials into a portfolio draft.
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6" style={appThemeStyles.mutedText}>
+                    Start with GitHub, optionally add a resume, then review the draft in the live preview before exporting the final site.
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div {...getTourHighlightProps("tour-resume-upload")}>
-                  <label
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                    style={themeStyles.ghostButton}
-                  >
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.9fr)]">
+                <div className="rounded-[1.15rem] border p-4 sm:p-5" style={appThemeStyles.surface}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                        Primary Flow
+                      </p>
+                      <p className="mt-1 text-base font-semibold">Load a public GitHub profile to generate your draft.</p>
+                      <p className="mt-1 text-sm leading-6" style={appThemeStyles.mutedText}>
+                        Paste a profile URL, create the first version, then refine it with editing, AI, and themes.
+                      </p>
+                    </div>
+                    <span
+                      className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.githubBadge}
+                    >
+                      Draft first
+                    </span>
+                  </div>
+                  <form className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleSubmit}>
                     <input
-                      type="file"
-                      accept="application/pdf,.pdf"
-                      multiple
-                      onChange={handleResumeUploadChange}
-                      className="sr-only"
+                      id="profile-url"
+                      type="url"
+                      aria-label="GitHub profile URL"
+                      required
+                      value={profileUrl}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setProfileUrl(nextValue);
+
+                        if (githubImportAutofillNotice) {
+                          const signedInProfileUrl =
+                            authSession?.profileUrl?.trim() ||
+                            (authSession?.username ? `https://github.com/${authSession.username}` : "");
+
+                          if (nextValue.trim() !== signedInProfileUrl.trim()) {
+                            setGitHubImportAutofillNotice(null);
+                          }
+                        }
+                      }}
+                      placeholder="https://github.com/username"
+                      className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm outline-none transition"
+                      style={appThemeStyles.inputSurface}
                     />
-                    Upload Resume
-                  </label>
+                    <button
+                      type="submit"
+                      disabled={isLoading || isEnhancing}
+                      className="h-11 shrink-0 whitespace-nowrap rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                      style={themeStyles.accentButton}
+                    >
+                      {isLoading ? "Refreshing..." : "Load GitHub"}
+                    </button>
+                  </form>
+                  {githubImportAutofillNotice ? (
+                    <p className="mt-2 text-xs leading-5" style={appThemeStyles.infoText}>
+                      Signed in as @{githubImportAutofillNotice}. Profile link ready to import.
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] leading-5" style={appThemeStyles.mutedText}>
+                    <p>Load GitHub creates the draft from a public profile URL.</p>
+                    <p>Upload a resume if you want stronger personalization.</p>
+                  </div>
                 </div>
-                <div {...getTourHighlightProps("tour-export")}>
-                  <button
-                    type="button"
-                    onClick={handleExportZip}
-                    disabled={!preview || isLoading || isEnhancing || isExporting}
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                    style={themeStyles.ghostButton}
-                  >
-                    {isExporting ? "Exporting..." : "Download Portfolio ZIP"}
-                  </button>
+
+                <div className="grid gap-3">
+                  <div {...getTourHighlightProps("tour-resume-upload")}>
+                    <div className="rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                        Optional Context
+                      </p>
+                      <p className="mt-1 text-sm font-medium">Add your resume before or after import.</p>
+                      <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                        Resume details help Repo2Site shape stronger positioning and project summaries.
+                      </p>
+                      <label
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={themeStyles.ghostButton}
+                      >
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          multiple
+                          onChange={handleResumeUploadChange}
+                          className="sr-only"
+                        />
+                        Upload Resume
+                      </label>
+                    </div>
+                  </div>
+
+                    <div className="rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                            Account Features
+                          </p>
+                          <p className="mt-1 text-sm font-medium">
+                            {authSession ? `Signed in as @${authSession.username}.` : "Sign in stays optional."}
+                          </p>
+                          <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                            Sign in to publish, share, and use account-backed features.
+                          </p>
+                        </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsGitHubSignInHelpOpen((current) => !current)}
+                        aria-expanded={isGitHubSignInHelpOpen}
+                        className="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Why sign in?
+                      </button>
+                    </div>
+                    {authSession ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null);
+                          setAuthSession(null);
+                          setGitHubImportAutofillNotice(null);
+                          setShareError(null);
+                          setTemplateError(null);
+                        }}
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Sign Out @{authSession.username}
+                      </button>
+                    ) : (
+                      <a
+                        href="/api/auth/github?returnTo=/builder"
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Sign In with GitHub
+                      </a>
+                    )}
+                    {isGitHubSignInHelpOpen ? (
+                      <p className="mt-3 text-xs leading-5" style={appThemeStyles.mutedText}>
+                        GitHub import still uses a public profile URL. Sign-in only connects publishing, sharing, and template activity to your account.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsShareOpen((current) => !current)}
-                  disabled={!preview || isLoading}
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                  style={themeStyles.ghostButton}
-                >
-                  {isShareOpen ? "Hide Share" : "Share Portfolio"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsTemplateOpen((current) => !current)}
-                  disabled={!preview || isLoading}
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                  style={themeStyles.ghostButton}
-                >
-                  {isTemplateOpen ? "Hide Templates" : "Publish Template"}
-                </button>
-                <Link
-                  href="/templates"
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                  style={themeStyles.ghostButton}
-                >
-                  Browse Templates
-                </Link>
-                {authSession ? (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null);
-                      setAuthSession(null);
-                      setShareError(null);
-                      setTemplateError(null);
-                    }}
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                    style={themeStyles.ghostButton}
-                  >
-                    Sign Out @{authSession.username}
-                  </button>
-                ) : (
-                  <a
-                    href="/api/auth/github?returnTo=/builder"
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                    style={themeStyles.ghostButton}
-                  >
-                    Sign In with GitHub
-                  </a>
-                )}
-                <div {...getTourHighlightProps("tour-ai")}>
-                  <button
-                    type="button"
-                    onClick={handleEnhance}
-                    disabled={!preview || isLoading || isEnhancing}
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                    style={themeStyles.ghostButton}
-                  >
-                    {isEnhancing ? "Enhancing..." : "Enhance with AI"}
-                  </button>
-                </div>
-                {pendingAiSuggestionCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={acceptAllAiSuggestions}
-                    className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                    style={themeStyles.ghostButton}
-                  >
-                    Accept All AI ({pendingAiSuggestionCount})
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => toggleEditMode()}
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                  style={themeStyles.ghostButton}
-                >
-                  {isEditMode ? "Hide Editor" : "Open Editor"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOverrides(createEmptyOverrides())}
-                  disabled={!hasOverrides}
-                  className="rounded-full px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                  style={themeStyles.accentButton}
-                >
-                  Reset
-                </button>
               </div>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs leading-5" style={themeStyles.mutedText}>
-              <p>Load GitHub first to create the draft.</p>
-              <p>Upload a resume if you want better personalization.</p>
-              <p>AI suggestions stay pending until you accept them.</p>
-              <p>Export downloads only the finished portfolio site.</p>
-            </div>
-            <form className="mt-4 flex flex-wrap items-center gap-2 lg:flex-nowrap" onSubmit={handleSubmit}>
-              <input
-                id="profile-url"
-                type="url"
-                aria-label="GitHub profile URL"
-                required
-                value={profileUrl}
-                onChange={(event) => setProfileUrl(event.target.value)}
-                placeholder="https://github.com/username"
-                className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm outline-none transition"
-                style={themeStyles.strongSurface}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || isEnhancing}
-                className="h-11 shrink-0 whitespace-nowrap rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
-                style={themeStyles.accentButton}
-              >
-                {isLoading ? "Refreshing..." : "Load GitHub"}
-              </button>
-            </form>
-            <div className="mt-4 rounded-[1rem] border" style={themeStyles.surface}>
+
+              <div className="mt-4 rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                      Next Actions
+                    </p>
+                    <p className="mt-1 text-sm font-medium">Once the draft is loaded, refine, publish, and export from here.</p>
+                    <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                      AI suggestions stay pending until accepted. Export downloads only the finished portfolio site.
+                    </p>
+                  </div>
+                  <span
+                    className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    style={appThemeStyles.chip}
+                  >
+                    Secondary actions
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div {...getTourHighlightProps("tour-ai")}>
+                    <button
+                      type="button"
+                      onClick={handleEnhance}
+                      disabled={!preview || isLoading || isEnhancing}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isEnhancing ? "Enhancing..." : "Enhance with AI"}
+                    </button>
+                  </div>
+                  {pendingAiSuggestionCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={acceptAllAiSuggestions}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      Accept All AI ({pendingAiSuggestionCount})
+                    </button>
+                  ) : null}
+                  <div {...getTourHighlightProps("tour-open-editor")}>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditMode()}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isEditMode ? "Hide Editor" : "Open Editor"}
+                    </button>
+                  </div>
+                  <div {...getTourHighlightProps("tour-browse-templates")}>
+                    <Link
+                      href="/templates"
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      Browse Templates
+                    </Link>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsShareOpen((current) => !current)}
+                    disabled={!preview || isLoading}
+                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.ghostButton}
+                  >
+                    {isShareOpen ? "Hide Share" : "Share Portfolio"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTemplateOpen((current) => !current)}
+                    disabled={!preview || isLoading}
+                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.ghostButton}
+                  >
+                    {isTemplateOpen ? "Hide Templates" : "Publish Template"}
+                  </button>
+                  <div {...getTourHighlightProps("tour-export")}>
+                    <button
+                      type="button"
+                      onClick={handleExportZip}
+                      disabled={!preview || isLoading || isEnhancing || isExporting}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isExporting ? "Exporting..." : "Download Portfolio ZIP"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOverrides(buildEmptyOverrides())}
+                    disabled={!hasOverrides}
+                    className="rounded-full px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.accentButton}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            <div className="mt-4 rounded-[1rem] border" style={appThemeStyles.surface}>
               <button
                 type="button"
                 onClick={() => setIsQuickStartExpanded((current) => !current)}
                 className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left"
               >
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
                     How This Works
                   </p>
                   <p className="mt-1 text-sm font-medium">New here? See the quick setup steps.</p>
-                  <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                  <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
                     GitHub creates the draft, your edits shape it, and AI suggestions stay pending until accepted.
                   </p>
                 </div>
                 <span
                   className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
+                  style={appThemeStyles.ghostButton}
                 >
                   {isQuickStartExpanded ? "Hide" : "Show"}
                 </span>
               </button>
               {isQuickStartExpanded ? (
-                <div className="grid gap-3 border-t px-4 py-4" style={{ borderColor: theme.palette.border }}>
+                <div className="grid gap-3 border-t px-4 py-4" style={{ borderColor: appThemeStyles.surface.borderColor }}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-medium">Follow this path if you are new to the builder.</p>
                     <button
                       type="button"
-                      onClick={() => startWalkthrough(true)}
+                      onClick={() => walkthrough.openWalkthrough("quick", true)}
                       className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                      style={themeStyles.ghostButton}
+                      style={appThemeStyles.ghostButton}
                     >
-                      Start Walkthrough
+                      Restart Walkthrough
                     </button>
                   </div>
-                  <div className="grid gap-2 text-sm" style={themeStyles.mutedText}>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>1.</span> Paste a public GitHub profile and click <span className="font-semibold" style={{ color: theme.palette.text }}>Load GitHub</span>.</p>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>2.</span> Upload a resume if you want better summaries and profile details.</p>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>3.</span> Use the preview as your canvas to reorder sections, remove blocks, and restore pieces you want back.</p>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>4.</span> Use the floating Customize button for themes, colors, density, and card styling.</p>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>5.</span> Run AI suggestions when you want help polishing the writing. Nothing changes until you accept it.</p>
-                    <p><span className="font-semibold" style={{ color: theme.palette.text }}>6.</span> Download the ZIP export when the portfolio looks right.</p>
+                  <div className="grid gap-2 text-sm" style={appThemeStyles.mutedText}>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>1.</span> Upload a resume if you want extra context for the builder.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>2.</span> Paste a public GitHub profile and click <span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>Load GitHub</span>.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>3.</span> Use AI when you want help improving wording, structure, and presentation.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>4.</span> Open Edit to adjust content and section details directly.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>5.</span> Open Customize to change themes and colors.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>6.</span> Rearrange sections and projects to put the strongest work first.</p>
                   </div>
                 </div>
               ) : null}
@@ -6245,9 +6269,7 @@ export function Repo2SiteShell() {
                     </p>
                   </div>
                 )}
-                {shareError ? (
-                  <p className="mt-3 text-sm text-rose-400">{shareError}</p>
-                ) : null}
+                {shareError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{shareError}</p> : null}
               </div>
             ) : null}
             {isTemplateOpen ? (
@@ -6340,12 +6362,8 @@ export function Repo2SiteShell() {
                     {isPublishingTemplate ? "Publishing..." : "Publish Template"}
                   </button>
                 </div>
-                {templateMessage ? (
-                  <p className="mt-3 text-sm text-emerald-300">{templateMessage}</p>
-                ) : null}
-                {templateError ? (
-                  <p className="mt-3 text-sm text-rose-400">{templateError}</p>
-                ) : null}
+                {templateMessage ? <p className="mt-3 text-sm" style={themeStyles.successText}>{templateMessage}</p> : null}
+                {templateError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{templateError}</p> : null}
               </div>
             ) : null}
             {preview ? (
@@ -6447,11 +6465,11 @@ export function Repo2SiteShell() {
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => startWalkthrough(true)}
+                          onClick={() => walkthrough.openWalkthrough("quick", true)}
                           className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
                           style={themeStyles.ghostButton}
                         >
-                          Show Me How This Works
+                          Start Walkthrough
                         </button>
                         <button
                           type="button"
@@ -6499,8 +6517,7 @@ export function Repo2SiteShell() {
                       </button>
                     </div>
                   </div>
-                  {hiddenCanvasComponents.length > 0 || hiddenChildComponentGroups.length > 0 ? (
-                    <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
                       {hiddenCanvasComponents.length > 0 ? (
                         <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
@@ -6511,16 +6528,44 @@ export function Repo2SiteShell() {
                               <button
                                 key={component.id}
                                 type="button"
-                                onClick={() => restoreSection(component.id as PortfolioSectionId)}
+                                onClick={() => restoreSection(component.id)}
                                 className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
                                 style={themeStyles.ghostButton}
                               >
-                                Add {sectionLabels[component.type]}
+                                Add {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
                               </button>
                             ))}
                           </div>
                         </div>
                       ) : null}
+                      <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Add section
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {canvasComponents
+                            .filter((component) => isBuiltInSectionType(component.type) && !component.visible)
+                            .map((component) => (
+                              <button
+                                key={`add-${component.id}`}
+                                type="button"
+                                onClick={() => addBuiltInSection(component.type)}
+                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                                style={themeStyles.ghostButton}
+                              >
+                                {sectionLabels[component.type]}
+                              </button>
+                            ))}
+                          <button
+                            type="button"
+                            onClick={addCustomSection}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.accentButton}
+                          >
+                            Custom Section
+                          </button>
+                        </div>
+                      </div>
                       {hiddenChildComponentGroups.length > 0 ? (
                         <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
                           <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
@@ -6550,48 +6595,68 @@ export function Repo2SiteShell() {
                           </div>
                         </div>
                       ) : null}
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-xs leading-5" style={themeStyles.mutedText}>
-                      The current preset structure is fully active. Open the editor to move, hide, or refine any visible block directly in the preview.
-                    </p>
-                  )}
+                  </div>
                 </div>
               ) : null}
-              {visibleSections.map((sectionId) => {
-                const isDragging = draggedSectionId === sectionId;
-                const isDropTarget = dropTargetSectionId === sectionId && draggedSectionId !== sectionId;
+              {visibleSectionRows.map((row) => (
+                <div
+                  key={row.id}
+                  className={`grid gap-4 ${portfolio.appearance.sectionLayout === "stacked" ? "grid-cols-1" : "xl:grid-cols-12"}`}
+                >
+                  {row.items.map((component) => {
+                    const isDragging = draggedSectionId === component.id;
+                    const isDropTarget = dropTargetSectionId === component.id && draggedSectionId !== component.id;
+                    const widthClass =
+                      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+                        ? "xl:col-span-12"
+                        : component.width === "half"
+                          ? "xl:col-span-6"
+                          : component.width === "third"
+                            ? "xl:col-span-4"
+                            : component.width === "two-thirds"
+                              ? "xl:col-span-8"
+                              : "xl:col-span-12";
 
-                return (
-                  <PreviewSectionFrame
-                    key={sectionId}
-                    sectionId={sectionId}
-                    label={sectionLabels[sectionId]}
-                    themeStyles={themeStyles}
-                    theme={theme}
-                    isDragging={isDragging}
-                    isDropTarget={isDropTarget}
-                    dropPosition={isDropTarget ? dropPosition : null}
-                    onDragStart={(event) => {
-                      event.dataTransfer.effectAllowed = "move";
-                      handleSectionDragStart(sectionId);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      handleSectionDragOver(event, sectionId);
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      handleSectionDrop(sectionId);
-                    }}
-                    onDragEnd={handleSectionDragEnd}
-                    onRemove={() => toggleSectionVisibility(sectionId)}
-                  >
-                    {renderPreviewSection(sectionId)}
-                  </PreviewSectionFrame>
-                );
-              })}
+                    return (
+                      <div key={component.id} className={widthClass}>
+                        <PreviewSectionFrame
+                          sectionId={component.id}
+                          label={
+                            component.type === "custom"
+                              ? overrides.customSections.find((section) => section.id === component.id)?.title || component.title || "Custom Section"
+                              : sectionLabels[component.type]
+                          }
+                          themeStyles={themeStyles}
+                          theme={theme}
+                          isDragging={isDragging}
+                          isDropTarget={isDropTarget}
+                          dropPosition={isDropTarget ? dropPosition : null}
+                          width={component.width || "full"}
+                          canResize={portfolio.appearance.sectionLayout !== "stacked" && canSectionShareRow(component)}
+                          onCycleWidth={() => updateSectionWidth(component.id)}
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            handleSectionDragStart(component.id);
+                          }}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            handleSectionDragOver(event, component.id);
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleSectionDrop(component.id);
+                          }}
+                          onDragEnd={handleSectionDragEnd}
+                          onRemove={() => removeSection(component.id)}
+                        >
+                          {renderPreviewSection(component)}
+                        </PreviewSectionFrame>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </article>
         </section>
@@ -6666,20 +6731,24 @@ export function Repo2SiteShell() {
           </div>
         </div>
       </aside>
-      <WalkthroughChoiceModal
-        isOpen={showWalkthroughChoice}
-        onStart={() => startWalkthrough(true)}
-        onExplore={chooseExploreMode}
+      <Repo2SiteWalkthroughLauncher
+        isOpen={walkthrough.showChoice}
+        onStart={() => walkthrough.openWalkthrough("quick", true)}
+        onExplore={walkthrough.skipTour}
       />
-      <GuidedTourOverlay
-        isOpen={showWalkthrough}
-        stepIndex={walkthroughStepIndex}
-        anchorRect={walkthroughAnchorRect}
-        onNext={goToNextWalkthroughStep}
-        onPrevious={goToPreviousWalkthroughStep}
-        onSkip={() => closeWalkthrough("completed")}
-        onExit={() => closeWalkthrough("skipped")}
-        onJumpToStep={jumpToWalkthroughStep}
+      <Repo2SiteGuidedTour
+        isOpen={walkthrough.isOpen}
+        steps={walkthrough.activeSteps}
+        currentStep={walkthrough.currentStep}
+        currentStepIndex={walkthrough.currentStepIndex}
+        anchorRect={walkthrough.anchorRect}
+        prefersReducedMotion={walkthrough.prefersReducedMotion}
+        onNext={walkthrough.goToNextStep}
+        onBack={walkthrough.goToPreviousStep}
+        onSkip={walkthrough.skipTour}
+        onCloseForNow={walkthrough.closeForNow}
+        onFinish={walkthrough.finishTour}
+        onJumpToStep={walkthrough.jumpToStep}
       />
     </main>
   );

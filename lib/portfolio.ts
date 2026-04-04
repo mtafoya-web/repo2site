@@ -7,6 +7,8 @@ import type {
   PortfolioEnhancement,
   PortfolioSectionId,
   PortfolioOverrides,
+  PortfolioSectionType,
+  PortfolioSectionWidth,
   PreviewAbout,
   PreviewHero,
   PreviewLink,
@@ -86,6 +88,11 @@ export type FinalPortfolio = {
     description: ResolvedField;
     links: ResolvedPreviewLink[];
   };
+  customSections: Array<{
+    id: string;
+    title: ResolvedField;
+    description: ResolvedField;
+  }>;
   repositories: ResolvedPreviewRepository[];
   techStack: string[];
   hasBio: boolean;
@@ -105,6 +112,8 @@ export const DEFAULT_LAYOUT_COMPONENTS: PortfolioCanvasComponent[] = DEFAULT_SEC
     id: sectionId,
     type: sectionId,
     visible: true,
+    rowId: sectionId,
+    width: "full",
   }),
 );
 
@@ -155,7 +164,9 @@ export function normalizeExternalUrl(value: string) {
   return `https://${trimmedValue.replace(/^\/+/, "")}`;
 }
 
-export function createEmptyOverrides(): PortfolioOverrides {
+export function createEmptyOverrides(
+  initialAppearance: Partial<PortfolioAppearance> = {},
+): PortfolioOverrides {
   return {
     hero: {
       imageUrl: "",
@@ -198,6 +209,7 @@ export function createEmptyOverrides(): PortfolioOverrides {
       portfolioUrl: "",
       customLinks: [],
     },
+    customSections: [],
     documents: {
       resumeAssetUrl: "",
       resumeFileName: "",
@@ -213,7 +225,10 @@ export function createEmptyOverrides(): PortfolioOverrides {
       componentOrder: {},
       hiddenComponentIds: [],
     },
-    appearance: { ...DEFAULT_APPEARANCE },
+    appearance: {
+      ...DEFAULT_APPEARANCE,
+      ...initialAppearance,
+    },
     aiAccepted: {
       heroHeadline: false,
       heroSubheadline: false,
@@ -225,6 +240,25 @@ export function createEmptyOverrides(): PortfolioOverrides {
       projectDescriptions: {},
     },
   };
+}
+
+function normalizeSectionWidth(
+  width: PortfolioSectionWidth | undefined,
+  sectionType: PortfolioSectionType,
+): PortfolioSectionWidth {
+  if (sectionType === "projects") {
+    return "full";
+  }
+
+  if (width === "half" || width === "third" || width === "two-thirds" || width === "full") {
+    return width;
+  }
+
+  return "full";
+}
+
+function normalizeRowId(value: string | undefined, fallback: string) {
+  return value?.trim() ? value : fallback;
 }
 
 export function buildLayoutComponents(
@@ -246,6 +280,8 @@ export function buildLayoutComponents(
       id: sectionId,
       type: sectionId,
       visible: !hidden.has(sectionId),
+      rowId: sectionId,
+      width: "full",
     });
   }
 
@@ -272,24 +308,36 @@ export function normalizeLayoutComponents(
     return buildLayoutComponents(sectionOrder, hiddenSections);
   }
 
-  const validTypes = new Set(DEFAULT_SECTION_ORDER);
+  const validTypes = new Set<PortfolioSectionType>([...DEFAULT_SECTION_ORDER, "custom"]);
   const seenTypes = new Set<PortfolioSectionId>();
   const normalized: PortfolioCanvasComponent[] = [];
+  const seenIds = new Set<string>();
 
   for (const component of components) {
     if (!validTypes.has(component.type)) {
       continue;
     }
 
-    if (seenTypes.has(component.type)) {
+    if (component.type !== "custom" && seenTypes.has(component.type)) {
       continue;
     }
 
-    seenTypes.add(component.type);
+    if (seenIds.has(component.id)) {
+      continue;
+    }
+
+    if (component.type !== "custom") {
+      seenTypes.add(component.type);
+    }
+
+    seenIds.add(component.id);
     normalized.push({
       id: component.id || component.type,
       type: component.type,
       visible: component.visible,
+      rowId: normalizeRowId(component.rowId, component.id || component.type),
+      width: normalizeSectionWidth(component.width, component.type),
+      title: component.title?.trim() || undefined,
     });
   }
 
@@ -305,11 +353,18 @@ export function normalizeLayoutComponents(
 }
 
 export function getSectionOrderFromComponents(components: PortfolioCanvasComponent[]) {
-  return normalizeSectionOrder(components.map((component) => component.type));
+  return normalizeSectionOrder(
+    components
+      .map((component) => component.type)
+      .filter((type): type is PortfolioSectionId => DEFAULT_SECTION_ORDER.includes(type as PortfolioSectionId)),
+  );
 }
 
 export function getHiddenSectionsFromComponents(components: PortfolioCanvasComponent[]) {
-  return components.filter((component) => !component.visible).map((component) => component.type);
+  return components
+    .filter((component) => !component.visible)
+    .map((component) => component.type)
+    .filter((type): type is PortfolioSectionId => DEFAULT_SECTION_ORDER.includes(type as PortfolioSectionId));
 }
 
 export function normalizeComponentOrderRecord(
@@ -684,6 +739,11 @@ export function buildFinalPortfolio(
   const manualCompany = overrides.professional.company.trim();
   const manualLocation = overrides.professional.location.trim();
   const professionalActions = buildProfessionalActions(preview, overrides);
+  const customSections = overrides.customSections.map((section) => ({
+    id: section.id,
+    title: resolveTextField(section.title || "Custom section", section.title),
+    description: resolveTextField(section.description, section.description),
+  }));
 
   return {
     theme,
@@ -731,6 +791,7 @@ export function buildFinalPortfolio(
       description: linksDescription,
       links,
     },
+    customSections,
     repositories,
     techStack,
     hasBio: Boolean(preview?.profile.bio),

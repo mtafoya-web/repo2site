@@ -4,6 +4,30 @@
 
 :root {
   color-scheme: dark;
+  --app-bg: #09111f;
+  --app-fg: #e5eefb;
+  --app-muted: #93a4bf;
+  --app-border: rgba(148, 163, 184, 0.16);
+  --app-surface: rgba(12, 19, 33, 0.92);
+  --app-surface-strong: rgba(15, 23, 41, 0.94);
+  --app-chip: rgba(255, 255, 255, 0.04);
+  --app-accent: #2563eb;
+  --app-accent-soft: rgba(37, 99, 235, 0.12);
+  --app-placeholder: #7f93b0;
+}
+
+:root[data-ui-theme="light"] {
+  color-scheme: light;
+  --app-bg: #f6f9ff;
+  --app-fg: #0f172a;
+  --app-muted: #475569;
+  --app-border: rgba(148, 163, 184, 0.22);
+  --app-surface: rgba(255, 255, 255, 0.94);
+  --app-surface-strong: rgba(255, 255, 255, 0.98);
+  --app-chip: rgba(37, 99, 235, 0.08);
+  --app-accent: #2563eb;
+  --app-accent-soft: rgba(37, 99, 235, 0.08);
+  --app-placeholder: #64748b;
 }
 
 html {
@@ -13,10 +37,13 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: #09111f;
-  color: #e5eefb;
+  background: var(--app-bg);
+  color: var(--app-fg);
   font-family: var(--font-sans), "Segoe UI", sans-serif;
   line-height: 1.5;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
 }
 
 * {
@@ -27,6 +54,12 @@ button,
 input,
 textarea {
   font: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--field-placeholder, var(--app-placeholder));
+  opacity: 1;
 }
 
 code,

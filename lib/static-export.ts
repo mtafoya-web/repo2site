@@ -604,12 +604,10 @@ function hasText(value?: string | null) {
 }
 
 function buildHtml(portfolio: FinalPortfolio) {
-  const visibleSections = portfolio.layout.components
-    .filter((component) => component.visible)
-    .map((component) => component.type);
+  const visibleSections = portfolio.layout.components.filter((component) => component.visible);
   const hiddenSections = new Set(
     portfolio.layout.components
-      .filter((component) => !component.visible)
+      .filter((component) => !component.visible && component.type !== "custom")
       .map((component) => component.type),
   );
   const featuredProject = portfolio.repositories[0];
@@ -989,9 +987,20 @@ function buildHtml(portfolio: FinalPortfolio) {
           </section>`
         : "",
   } as const;
-
+  const customSectionMarkup = Object.fromEntries(
+    portfolio.customSections.map((section) => [
+      section.id,
+      `<section class="card"><div class="eyebrow">Custom Section</div><h2>${escapeHtml(section.title.value || "Custom Section")}</h2>${
+        hasText(section.description.value) ? `<p class="summary">${escapeHtml(section.description.value)}</p>` : ""
+      }</section>`,
+    ]),
+  );
   const orderedContentMarkup = visibleSections
-    .map((sectionId) => sectionMarkup[sectionId] || "")
+    .map((component) =>
+      component.type === "custom"
+        ? customSectionMarkup[component.id] || ""
+        : sectionMarkup[component.type as keyof typeof sectionMarkup] || "",
+    )
     .filter(Boolean)
     .join("");
 

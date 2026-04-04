@@ -4,6 +4,8 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useAppTheme } from "@/components/app-theme-provider";
+import { buildAppThemeStyles } from "@/lib/app-theme";
 import type { CommunityTemplateRecord, TemplateReaction } from "@/lib/template-presets";
 import { getPortfolioThemeById } from "@/lib/themes";
 
@@ -57,6 +59,19 @@ function getTemplateCardStyles(template: CommunityTemplateRecord) {
     muted: {
       color: isDarkMode ? "#9fb0c8" : palette.muted,
     } satisfies CSSProperties,
+    successBadge: {
+      backgroundColor: isDarkMode ? "rgba(16, 185, 129, 0.16)" : "rgba(16, 185, 129, 0.12)",
+      borderColor: isDarkMode ? "rgba(52, 211, 153, 0.24)" : "rgba(16, 185, 129, 0.18)",
+      color: isDarkMode ? "#a7f3d0" : "#047857",
+    } satisfies CSSProperties,
+    infoBadge: {
+      backgroundColor: isDarkMode ? "rgba(59, 130, 246, 0.18)" : "rgba(59, 130, 246, 0.12)",
+      borderColor: isDarkMode ? "rgba(96, 165, 250, 0.24)" : "rgba(59, 130, 246, 0.18)",
+      color: isDarkMode ? "#bfdbfe" : "#1d4ed8",
+    } satisfies CSSProperties,
+    errorText: {
+      color: isDarkMode ? "#fda4af" : "#b91c1c",
+    } satisfies CSSProperties,
     accentButton: {
       backgroundColor: palette.accent,
       color: "#ffffff",
@@ -99,16 +114,18 @@ function SectionHeader({
   eyebrow,
   title,
   description,
+  mutedStyle,
 }: {
   eyebrow: string;
   title: string;
   description: string;
+  mutedStyle: CSSProperties;
 }) {
   return (
     <div className="max-w-3xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{eyebrow}</p>
-      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{title}</h2>
-      <p className="mt-3 text-sm leading-7 text-slate-400 sm:text-base">{description}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={mutedStyle}>{eyebrow}</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h2>
+      <p className="mt-3 text-sm leading-7 sm:text-base" style={mutedStyle}>{description}</p>
     </div>
   );
 }
@@ -208,12 +225,12 @@ function TemplateMeta({
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {template.isSystem ? (
-            <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-200">
+            <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={styles.successBadge}>
               Starter Template
             </span>
           ) : null}
           {template.isRecommended ? (
-            <span className="rounded-full border border-sky-400/25 bg-sky-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+            <span className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={styles.infoBadge}>
               Recommended
             </span>
           ) : null}
@@ -242,7 +259,7 @@ function TemplateMeta({
             className="h-10 w-10 rounded-full object-cover"
           />
         ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold" style={styles.subtleButton}>
             {template.author.displayName.slice(0, 1)}
           </div>
         )}
@@ -315,9 +332,7 @@ function TemplateMeta({
         </Link>
       </div>
 
-      {reactionError ? (
-        <p className="text-xs leading-5 text-rose-300">{reactionError}</p>
-      ) : null}
+      {reactionError ? <p className="text-xs leading-5" style={styles.errorText}>{reactionError}</p> : null}
 
       <p className="text-xs leading-5" style={styles.muted}>
         Applies layout and styling choices only. Your GitHub projects, personal profile, and documents stay intact.
@@ -364,6 +379,8 @@ function TemplateCard({
 }
 
 export function Repo2SiteTemplateGallery() {
+  const { resolvedTheme } = useAppTheme();
+  const pageStyles = buildAppThemeStyles(resolvedTheme);
   const searchParams = useSearchParams();
   const [sort, setSort] = useState<SortMode>("trending");
   const [templates, setTemplates] = useState<CommunityTemplateRecord[]>([]);
@@ -613,21 +630,21 @@ export function Repo2SiteTemplateGallery() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.15),transparent_24%),linear-gradient(180deg,#07101d,#0d1728_40%,#0a1220)] px-4 py-8 text-[#e5eefb] sm:px-6 sm:py-10">
+    <main className="min-h-screen px-4 py-8 sm:px-6 sm:py-10" style={pageStyles.page}>
       <div className="mx-auto flex w-full max-w-[84rem] flex-col gap-10">
-        <section className="rounded-[2.2rem] border border-white/10 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(9,17,31,0.82))] px-6 py-8 shadow-[0_32px_70px_-46px_rgba(15,23,42,0.8)] sm:px-8">
+        <section className="rounded-[2.2rem] border px-6 py-8 sm:px-8" style={pageStyles.navSurface}>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em]" style={pageStyles.mutedText}>
                 Community templates
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
                 Browse portfolio templates built by the Repo2Site community.
               </h1>
-              <p className="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
+              <p className="mt-3 text-sm leading-7 sm:text-base" style={pageStyles.mutedText}>
                 Starter templates are generated from the same repo2site preview pipeline used for real portfolios, then converted into safe design presets with richer example sections. Your GitHub projects, personal profile, resume content, and custom edits stay your own.
               </p>
-              <p className="mt-3 text-sm leading-6 text-slate-400">
+              <p className="mt-3 text-sm leading-6" style={pageStyles.mutedText}>
                 {authSession
                   ? `Signed in as @${authSession.username}. Likes, dislikes, ratings, and your published templates are tied to this GitHub account.`
                   : "Sign in with GitHub to publish templates and leave reactions. Browsing the gallery still works without signing in."}
@@ -641,27 +658,31 @@ export function Repo2SiteTemplateGallery() {
                     await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null);
                     setAuthSession(null);
                   }}
-                  className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                  className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                  style={pageStyles.ghostButton}
                 >
                   Sign Out
                 </button>
               ) : (
                 <a
                   href="/api/auth/github?returnTo=/templates"
-                  className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                  className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                  style={pageStyles.ghostButton}
                 >
                   Sign In with GitHub
                 </a>
               )}
               <Link
                 href="/builder"
-                className="rounded-full bg-[#2563eb] px-4 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                className="rounded-full px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                style={pageStyles.accentButton}
               >
                 Open Builder
               </Link>
               <Link
                 href="/builder"
-                className="rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5"
+                className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                style={pageStyles.ghostButton}
               >
                 Publish Your Template
               </Link>
@@ -669,7 +690,7 @@ export function Repo2SiteTemplateGallery() {
           </div>
         </section>
 
-        <section className="flex flex-wrap items-center justify-between gap-4 rounded-[1.6rem] border border-white/8 bg-[rgba(255,255,255,0.03)] px-5 py-4">
+        <section className="flex flex-wrap items-center justify-between gap-4 rounded-[1.6rem] border px-5 py-4" style={pageStyles.surface}>
           <div className="flex flex-wrap gap-2">
             {[
               { id: "trending", label: "Trending" },
@@ -680,32 +701,31 @@ export function Repo2SiteTemplateGallery() {
                 key={option.id}
                 type="button"
                 onClick={() => setSort(option.id as SortMode)}
-                className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                  sort === option.id ? "border-[#2563eb] bg-[#2563eb] text-white" : "border-white/15 text-slate-200 hover:-translate-y-0.5"
-                }`}
+                className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                style={sort === option.id ? pageStyles.accentButton : pageStyles.ghostButton}
               >
                 {option.label}
               </button>
             ))}
           </div>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm" style={pageStyles.mutedText}>
             Explore the look first, then open the builder when you are ready to remix.
           </p>
         </section>
 
         {templates.length === 0 ? (
-          <section className="rounded-[1.8rem] border border-white/10 bg-white/5 px-6 py-8 text-sm text-slate-300">
+          <section className="rounded-[1.8rem] border px-6 py-8 text-sm" style={pageStyles.surface}>
             {emptyText}
           </section>
         ) : (
           <div className="space-y-10">
             {featuredTemplate ? (
-              <section className="grid gap-6 rounded-[2.2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 shadow-[0_36px_90px_-56px_rgba(15,23,42,0.9)] lg:grid-cols-[1.15fr_0.85fr] lg:p-6">
-                <div className="rounded-[1.8rem] border border-white/8 bg-[rgba(255,255,255,0.03)] p-2">
+              <section className="grid gap-6 rounded-[2.2rem] border p-4 lg:grid-cols-[1.15fr_0.85fr] lg:p-6" style={pageStyles.surface}>
+                <div className="rounded-[1.8rem] border p-2" style={pageStyles.subtleSurface}>
                   <TemplatePreviewFrame template={featuredTemplate} />
                 </div>
-                <div className="rounded-[1.8rem] border border-white/8 bg-[rgba(255,255,255,0.03)] p-6">
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                <div className="rounded-[1.8rem] border p-6" style={pageStyles.subtleSurface}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={pageStyles.mutedText}>
                     Featured pick
                   </p>
                   <div className="mt-4">
@@ -729,6 +749,7 @@ export function Repo2SiteTemplateGallery() {
                   eyebrow="Starter templates"
                   title="Curated starting points with distinct visual directions"
                   description="These are the quickest ways to explore different portfolio moods without losing your own project and profile data."
+                  mutedStyle={pageStyles.mutedText}
                 />
                 <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                   {starterTemplates.map((template) => (
@@ -752,6 +773,7 @@ export function Repo2SiteTemplateGallery() {
                   eyebrow="Community gallery"
                   title="Remix-ready layouts from other Repo2Site users"
                   description="Browse the strongest community presets in a calmer showcase layout, then apply the one that best fits your voice and work."
+                  mutedStyle={pageStyles.mutedText}
                 />
                 <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
                   {communityTemplates.map((template) => (

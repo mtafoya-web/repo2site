@@ -62,9 +62,7 @@ function buildPublicThemeStyles(record: SharedPortfolioRecord) {
 export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord }) {
   const { portfolio } = record;
   const themeStyles = buildPublicThemeStyles(record);
-  const visibleSections = portfolio.layout.components
-    .filter((component) => component.visible)
-    .map((component) => component.type);
+  const visibleSections = portfolio.layout.components.filter((component) => component.visible);
   const featuredProject = portfolio.repositories[0] ?? null;
   const profileCompany = portfolio.professional.company || portfolio.profile?.company || "";
   const profileLocation = portfolio.professional.location || portfolio.profile?.location || "";
@@ -455,6 +453,38 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
       ) : null,
   } as const;
 
+  const customSectionMap = Object.fromEntries(
+    portfolio.customSections.map((section) => [
+      section.id,
+      <section key={section.id} className="grid gap-4 rounded-[1.8rem] border p-6 sm:p-7" style={themeStyles.surface}>
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.muted}>
+            Custom section
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight">{section.title.value || "Custom Section"}</h2>
+          {section.description.value.trim() ? (
+            <p className="text-sm leading-7 sm:text-base">{section.description.value}</p>
+          ) : null}
+        </div>
+      </section>,
+    ]),
+  );
+  const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>((rows, component) => {
+    const rowId =
+      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+        ? component.id
+        : component.rowId || component.id;
+    const row = rows.find((item) => item.id === rowId);
+
+    if (row) {
+      row.items.push(component);
+    } else {
+      rows.push({ id: rowId, items: [component] as typeof visibleSections });
+    }
+
+    return rows;
+  }, []);
+
   return (
     <main className="min-h-screen px-3 py-4 sm:px-5 sm:py-6" style={themeStyles.page}>
       <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-5">
@@ -472,7 +502,39 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
           </div>
 
           <div className="space-y-5 px-1 py-4 sm:px-2">
-            {visibleSections.map((sectionId) => sectionMap[sectionId]).filter(Boolean)}
+            {sectionRows.map((row) => (
+              <div
+                key={row.id}
+                className={`grid gap-4 ${portfolio.appearance.sectionLayout === "stacked" ? "grid-cols-1" : "lg:grid-cols-12"}`}
+              >
+                {row.items.map((component) => {
+                  const widthClass =
+                    portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
+                      ? "lg:col-span-12"
+                      : component.width === "half"
+                        ? "lg:col-span-6"
+                        : component.width === "third"
+                          ? "lg:col-span-4"
+                          : component.width === "two-thirds"
+                            ? "lg:col-span-8"
+                            : "lg:col-span-12";
+                  const markup =
+                    component.type === "custom"
+                      ? customSectionMap[component.id]
+                      : sectionMap[component.type as keyof typeof sectionMap];
+
+                  if (!markup) {
+                    return null;
+                  }
+
+                  return (
+                    <div key={component.id} className={widthClass}>
+                      {markup}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           <footer
