@@ -2,11 +2,7 @@
 
 ![Repo2Site logo](docs/assets/repo2site-logo.svg)
 
-GitHub-first portfolio builder that turns public repositories, README context, and optional resume data into an editable portfolio site.
-
-![Landing page screenshot](docs/assets/repo2site-landing-screenshot.svg)
-![Builder/editor screenshot](docs/assets/repo2site-builder-screenshot.svg)
-![Templates screenshot](docs/assets/repo2site-templates-screenshot.svg)
+GitHub-first portfolio builder that turns public repositories, README context, and optional resume data into an editable portfolio site
 
 ## Product Overview
 
@@ -46,6 +42,10 @@ This repository currently contains:
 6. Open the customize drawer from the floating launcher and change theme, density, layout style, card treatment, and colors.
 7. Reorder sections/projects and optionally remix a template from `/templates`.
 8. Export a ZIP bundle or publish a public share page.
+
+![Landing page screenshot](docs/assets/repo2site-landing-screenshot.svg)
+![Builder/editor screenshot](docs/assets/repo2site-builder-screenshot.svg)
+![Templates screenshot](docs/assets/repo2site-templates-screenshot.svg)
 
 ## Current Product Direction
 
