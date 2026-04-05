@@ -95,14 +95,16 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
     accentButton: {
       backgroundColor: "#2563eb",
       color: "#ffffff",
+      borderColor: isDark ? "rgba(96, 165, 250, 0.24)" : "rgba(29, 78, 216, 0.34)",
       boxShadow: isDark
         ? "0 18px 34px -22px rgba(37, 99, 235, 0.72)"
         : "0 18px 34px -22px rgba(37, 99, 235, 0.36)",
     } satisfies CSSProperties,
     ghostButton: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.98)",
-      borderColor: border,
-      color: foreground,
+      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(226, 232, 240, 0.82)",
+      borderColor: isDark ? border : "rgba(71, 85, 105, 0.24)",
+      color: isDark ? foreground : "#0f172a",
+      boxShadow: isDark ? "none" : "inset 0 1px 0 rgba(255,255,255,0.65)",
     } satisfies CSSProperties,
     inputSurface: {
       backgroundColor: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,1)",
