@@ -1911,15 +1911,13 @@ export function Repo2SiteShell() {
   }
 
   function toggleEditMode(nextOpen?: boolean) {
-    setIsEditMode((current) => {
-      const resolved = typeof nextOpen === "boolean" ? nextOpen : !current;
+    const resolved = typeof nextOpen === "boolean" ? nextOpen : !isEditMode;
 
-      if (resolved && !current) {
-        triggerSpriteReaction("editor-open");
-      }
+    if (resolved && !isEditMode) {
+      triggerSpriteReaction("editor-open");
+    }
 
-      return resolved;
-    });
+    setIsEditMode(resolved);
   }
 
   function cycleAppTheme() {
