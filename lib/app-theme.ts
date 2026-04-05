@@ -37,8 +37,8 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
   const foregroundStrong = isDark ? "#f8fbff" : "#020617";
   const muted = isDark ? "#9fb0c8" : "#475569";
   const helper = isDark ? "#c6d4ea" : "#334155";
-  const border = isDark ? "rgba(148,163,184,0.16)" : "rgba(148,163,184,0.22)";
-  const subtleBorder = isDark ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.18)";
+  const border = isDark ? "rgba(148,163,184,0.16)" : "rgba(100,116,139,0.28)";
+  const subtleBorder = isDark ? "rgba(148,163,184,0.12)" : "rgba(100,116,139,0.22)";
   const placeholder = isDark ? "#7f93b0" : "#64748b";
   const success = isDark ? "#86efac" : "#166534";
   const error = isDark ? "#fda4af" : "#b91c1c";
@@ -54,30 +54,30 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
     navSurface: {
       background: isDark
         ? "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(15,23,42,0.82))"
-        : "linear-gradient(135deg, rgba(255,255,255,0.94), rgba(238,245,255,0.94))",
+        : "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(232,240,255,0.98))",
       borderColor: border,
       color: foreground,
       boxShadow: isDark
         ? "0 20px 50px -36px rgba(2, 6, 23, 0.72)"
-        : "0 20px 50px -36px rgba(15, 23, 42, 0.18)",
+        : "0 24px 60px -38px rgba(15, 23, 42, 0.22)",
     } satisfies CSSProperties,
     surface: {
       background: isDark
         ? "linear-gradient(180deg, rgba(12, 19, 33, 0.92), rgba(15, 24, 41, 0.92))"
-        : "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,249,255,0.94))",
+        : "linear-gradient(180deg, rgba(255,255,255,0.99), rgba(241,245,255,0.98))",
       borderColor: subtleBorder,
       color: foreground,
       boxShadow: isDark
         ? "0 22px 54px -40px rgba(2, 6, 23, 0.72)"
-        : "0 24px 56px -42px rgba(15, 23, 42, 0.14)",
+        : "0 26px 62px -42px rgba(15, 23, 42, 0.18)",
     } satisfies CSSProperties,
     strongSurface: {
-      background: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,0.98)",
+      background: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,1)",
       borderColor: border,
       color: foregroundStrong,
     } satisfies CSSProperties,
     subtleSurface: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(37,99,235,0.06)",
+      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(37,99,235,0.09)",
       borderColor: subtleBorder,
       color: foreground,
     } satisfies CSSProperties,
@@ -100,12 +100,12 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
         : "0 18px 34px -22px rgba(37, 99, 235, 0.36)",
     } satisfies CSSProperties,
     ghostButton: {
-      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.86)",
+      backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.98)",
       borderColor: border,
       color: foreground,
     } satisfies CSSProperties,
     inputSurface: {
-      backgroundColor: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,0.98)",
+      backgroundColor: isDark ? "rgba(15, 23, 41, 0.94)" : "rgba(255,255,255,1)",
       borderColor: border,
       color: foregroundStrong,
       ["--field-placeholder" as string]: placeholder,
