@@ -7036,7 +7036,7 @@ export function Repo2SiteShell() {
         </section>
 
         <section className="rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]" style={themeStyles.surface}>
-          <div className={preview ? "xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]" : ""}>
+          <div>
           <article className="min-w-0">
             {error ? (
               <div className="border-b px-6 py-4 text-sm" style={themeStyles.accentBlock}>
@@ -7286,11 +7286,13 @@ export function Repo2SiteShell() {
           title="Open customize tool"
           className="fixed bottom-5 right-5 z-[90] flex h-20 w-20 items-center justify-center rounded-full border text-[2.5rem] font-semibold shadow-[0_26px_60px_-28px_rgba(15,23,42,0.78)] transition duration-200 hover:-translate-y-1 sm:bottom-6 sm:right-6 sm:h-24 sm:w-24"
           style={customizeLauncherStyle}
+          {...getTourHighlightProps("tour-customize-button")}
         >
           <span aria-hidden="true" className="leading-none">≡</span>
         </button>
       ) : null}
       <aside
+        {...getTourHighlightProps("tour-customize-button")}
         className={`fixed right-0 top-0 z-[89] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out sm:max-w-[30rem] ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
         style={themeStyles.strongSurface}
         aria-hidden={!isCustomizeOpen}

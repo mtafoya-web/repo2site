@@ -36,10 +36,10 @@ function TourLauncher({
           </p>
           <div className="grid gap-2">
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Take a quick tour of the core builder flow.
+              Start a clear step-by-step builder tour.
             </h2>
             <p className="max-w-2xl text-sm leading-6" style={appThemeStyles.helperText}>
-              This walkthrough covers the six actions most first-time users need: resume, GitHub, AI, editing, themes, and rearranging the layout.
+              This walkthrough points at the real controls you will use to import, edit, customize, and export your portfolio.
             </p>
           </div>
         </div>
@@ -55,7 +55,7 @@ function TourLauncher({
             </span>
             <span className="text-base font-semibold tracking-tight">Start walkthrough</span>
             <span className="text-sm leading-6" style={appThemeStyles.helperText}>
-              Short, practical guidance without locking you into the tour.
+              Short, direct guidance that highlights each tool in order.
             </span>
           </button>
         </div>
@@ -325,13 +325,18 @@ export function Repo2SiteGuidedTour({
               </button>
             </div>
           </div>
-          <div className="grid gap-2">
-            <p className="text-sm leading-6" style={appThemeStyles.helperText}>{currentStep.description}</p>
-            <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
-              Why it matters: {currentStep.rationale}
+        <div className="grid gap-2">
+          <p className="text-sm leading-6" style={appThemeStyles.helperText}>{currentStep.description}</p>
+          {currentStep.actionLabel ? (
+            <p className="text-xs font-medium leading-5" style={appThemeStyles.infoText}>
+              Try this now: {currentStep.actionLabel}
             </p>
-            {currentStep.keepTargetInteractive ? (
-              <p className="text-xs leading-5" style={appThemeStyles.infoText}>
+          ) : null}
+          <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
+            {currentStep.rationale}
+          </p>
+          {currentStep.keepTargetInteractive ? (
+            <p className="text-xs leading-5" style={appThemeStyles.infoText}>
                 The highlighted control stays usable while this step is open.
               </p>
             ) : null}

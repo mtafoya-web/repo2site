@@ -6,6 +6,7 @@ import {
   readWalkthroughSnapshot,
   resolveWalkthroughTarget,
   scrollWalkthroughTargetIntoView,
+  WALKTHROUGH_PROMPTED_STORAGE_KEY,
   type WalkthroughContext,
   type WalkthroughMode,
   type WalkthroughStatus,
@@ -63,7 +64,14 @@ export function useRepo2SiteWalkthrough({
     const snapshot = readWalkthroughSnapshot(window.localStorage);
 
     if (!snapshot) {
-      setShowChoice(true);
+      const hasPromptedBefore =
+        window.localStorage.getItem(WALKTHROUGH_PROMPTED_STORAGE_KEY) === "true";
+
+      if (!hasPromptedBefore) {
+        window.localStorage.setItem(WALKTHROUGH_PROMPTED_STORAGE_KEY, "true");
+        setShowChoice(true);
+      }
+
       return;
     }
 
@@ -292,6 +300,7 @@ export function useRepo2SiteWalkthrough({
   }
 
   function showLauncher() {
+    window.localStorage.setItem(WALKTHROUGH_PROMPTED_STORAGE_KEY, "true");
     setShowChoice(true);
     setIsOpen(false);
   }

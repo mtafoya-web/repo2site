@@ -1,4 +1,5 @@
 export const WALKTHROUGH_STORAGE_KEY = "repo2site-walkthrough-state";
+export const WALKTHROUGH_PROMPTED_STORAGE_KEY = "repo2site-walkthrough-prompted";
 export const WALKTHROUGH_TARGET_ATTRIBUTE = "data-tour-id";
 export const WALKTHROUGH_MOBILE_BREAKPOINT = 820;
 
@@ -22,6 +23,7 @@ export type WalkthroughStepDefinition = {
   title: string;
   description: string;
   rationale: string;
+  actionLabel?: string;
   modes: WalkthroughMode[];
   isRelevant: (context: WalkthroughContext) => boolean;
   isSatisfied?: (context: WalkthroughContext) => boolean;
@@ -51,9 +53,10 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "resume-upload",
     targetId: "tour-resume-upload",
-    title: "Upload a resume",
-    description: "Add a resume if you want stronger profile copy from the start.",
-    rationale: "It gives Repo2Site more context for wording and presentation.",
+    title: "Optional resume upload",
+    description: "Upload a resume if you want stronger copy and positioning.",
+    rationale: "This step is optional, and you can skip it without blocking the builder.",
+    actionLabel: "Try uploading a resume, or skip to GitHub import.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     isSatisfied: (context) => context.hasResume,
@@ -63,9 +66,10 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "github-import",
     targetId: "tour-github-import",
-    title: "Paste your GitHub link",
-    description: "Paste a public GitHub profile, then load your first draft.",
-    rationale: "This builds the initial site structure from your repos, profile, and README content.",
+    title: "Load from GitHub",
+    description: "Paste a public GitHub profile and click Load GitHub to generate the first draft.",
+    rationale: "This creates the starting portfolio from your profile, repos, and README content.",
+    actionLabel: "Paste a profile URL, then click Load GitHub.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     isSatisfied: (context) => context.hasPreview,
@@ -76,8 +80,9 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
     id: "profile-edit",
     targetId: "tour-open-editor",
     title: "Open the editor",
-    description: "Switch into Edit to change copy, details, and section content directly.",
-    rationale: "This is where you turn the generated draft into your version.",
+    description: "Use this button to switch from preview into editing mode.",
+    rationale: "The editor unlocks direct changes across your sections and project content.",
+    actionLabel: "Click Open Editor.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     isSatisfied: (context) => context.isEditMode,
@@ -87,9 +92,10 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "edit-text",
     targetId: "tour-edit-text",
-    title: "Edit the text directly",
-    description: "Use the text fields in Edit mode to rewrite headings, summaries, and details.",
-    rationale: "Manual edits give you the fastest control over tone and accuracy.",
+    title: "Edit section content",
+    description: "Click into these fields to rewrite headings, summaries, and details.",
+    rationale: "This is the fastest way to make the draft sound like you.",
+    actionLabel: "Click a field and start typing.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     keepTargetInteractive: true,
@@ -97,9 +103,10 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "project-customize",
     targetId: "tour-projects",
-    title: "Rearrange sections and projects",
-    description: "Drag cards and sections to put the strongest work first.",
-    rationale: "Order shapes the story and helps visitors find the right work faster.",
+    title: "Arrange your projects",
+    description: "Use this section to reorder projects and shape the story visitors see first.",
+    rationale: "Strong project order makes the portfolio feel intentional.",
+    actionLabel: "Drag projects or use the project controls here.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     keepTargetInteractive: true,
@@ -107,9 +114,10 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "ai-suggestions",
     targetId: "tour-ai",
-    title: "Use AI to improve the draft",
-    description: "Run AI when you want help with wording, structure, or presentation.",
-    rationale: "It is optional and stays reviewable until you accept what helps.",
+    title: "Improve with AI",
+    description: "Use this when you want help rewriting sections, summaries, or presentation.",
+    rationale: "AI suggestions stay optional until you accept them.",
+    actionLabel: "Click Enhance with AI when you want a stronger draft.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     keepTargetInteractive: true,
@@ -117,21 +125,33 @@ const WALKTHROUGH_STEP_DEFINITIONS: WalkthroughStepDefinition[] = [
   {
     id: "customize-tool",
     targetId: "tour-customize-button",
-    title: "Change themes and colors",
-    description: "Open Customize to adjust the theme, palette, and overall feel.",
-    rationale: "It is the quickest way to shift the look without reworking content.",
+    title: "Open customize",
+    description: "Use this button to change theme, palette, layout, and overall styling.",
+    rationale: "Customize changes the look live without changing the content itself.",
+    actionLabel: "Click the customize button to open the style controls.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     isSatisfied: (context) => context.isCustomizeOpen,
-    autoAdvanceOnSatisfied: true,
     keepTargetInteractive: true,
   },
   {
     id: "browse-templates",
     targetId: "tour-browse-templates",
-    title: "Browse templates for inspiration",
-    description: "Open the template gallery to compare layouts and reusable styles.",
-    rationale: "Templates help you explore stronger presentation options without starting over.",
+    title: "Browse templates",
+    description: "Open templates to compare different portfolio starting points and styles.",
+    rationale: "Templates help when you want a different presentation direction fast.",
+    actionLabel: "Open the template gallery if you want another starting point.",
+    modes: ["quick", "full"],
+    isRelevant: () => true,
+    keepTargetInteractive: true,
+  },
+  {
+    id: "export",
+    targetId: "tour-export",
+    title: "Download the site",
+    description: "Use this button to export the portfolio once the preview looks right.",
+    rationale: "Export gives you the final site files after editing and styling are done.",
+    actionLabel: "Click Download Portfolio ZIP when you're ready to publish elsewhere.",
     modes: ["quick", "full"],
     isRelevant: () => true,
     keepTargetInteractive: true,
