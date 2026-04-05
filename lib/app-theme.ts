@@ -124,6 +124,11 @@ export function buildAppThemeStyles(theme: ResolvedAppTheme) {
     errorText: {
       color: error,
     } satisfies CSSProperties,
+    errorBox: {
+      backgroundColor: isDark ? "rgba(127, 29, 29, 0.22)" : "rgba(254, 226, 226, 0.9)",
+      borderColor: isDark ? "rgba(248, 113, 113, 0.28)" : "rgba(248, 113, 113, 0.3)",
+      color: error,
+    } satisfies CSSProperties,
     heroAccent: {
       background: isDark
         ? "linear-gradient(135deg, rgba(37,99,235,0.2), rgba(14,165,233,0.06))"
