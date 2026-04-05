@@ -45,7 +45,8 @@ function selectFeaturedRepositories(
 
     return selectedRepositoryFullNames
       .map((repositoryName) => repositoriesByFullName.get(repositoryName.trim().toLowerCase()))
-      .filter((repo): repo is GitHubRepo => Boolean(repo) && selectedFullNames.has(repo.fullName.trim().toLowerCase()));
+      .filter((repo): repo is GitHubRepo => repo !== undefined)
+      .filter((repo) => selectedFullNames.has(repo.fullName.trim().toLowerCase()));
   }
 
   const ranked = repos
