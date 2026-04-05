@@ -538,7 +538,7 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
                 <p className="mt-2 break-all text-sm font-medium sm:text-base">
                   {method.value}
                 </p>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: portfolio.theme.palette.accent }}>
                   Open contact link
                 </p>
               </a>

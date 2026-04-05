@@ -8139,12 +8139,22 @@ export function Repo2SiteShell() {
                     const isSuggested = repoSelection.suggestedRepositoryFullNames.includes(
                       repository.fullName,
                     );
+                    const repoCardStyle = isSelected
+                      ? {
+                          ...themeStyles.strongSurface,
+                          borderColor: theme.palette.accent,
+                          boxShadow: `0 0 0 1px ${theme.palette.accent}, 0 18px 40px -30px ${theme.palette.accent}`,
+                        }
+                      : {
+                          ...themeStyles.surface,
+                          boxShadow: "none",
+                        };
 
                     return (
                       <label
                         key={repository.id}
                         className={`block cursor-pointer rounded-[1.35rem] border p-4 transition ${isSelected ? "shadow-[0_18px_40px_-30px_rgba(37,99,235,0.7)]" : ""}`}
-                        style={isSelected ? themeStyles.selectedCard : themeStyles.card}
+                        style={repoCardStyle}
                       >
                         <div className="flex items-start gap-3">
                           <input
