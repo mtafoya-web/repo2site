@@ -12,63 +12,17 @@ import type {
   ReactNode,
   TextareaHTMLAttributes,
 } from "react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useAppTheme } from "@/components/app-theme-provider";
-import {
-  ActionLink,
-  AutoResizeTextarea,
-  CompactActionMenu,
-  InlineActionButton,
-  PaletteFieldControl,
-  PreviewCanvasItemFrame,
-  SourceBadge,
-  TechBadge,
-} from "@/components/builder/repo2site-builder-primitives";
-import { Repo2SiteBuilderCanvas } from "@/components/builder/repo2site-builder-canvas";
-import { Repo2SiteBuilderControlPanels } from "@/components/builder/repo2site-builder-control-panels";
-import { Repo2SiteBuilderCustomizeTool } from "@/components/builder/repo2site-builder-customize-tool";
-import { Repo2SiteBuilderWorkspacePanel } from "@/components/builder/repo2site-builder-workspace-panel";
 import { useRepo2SiteCompanion } from "@/components/repo2site-companion-dock";
 import {
   Repo2SiteGuidedTour,
   Repo2SiteWalkthroughLauncher,
 } from "@/components/repo2site-guided-tour";
-import { useRepo2SiteBuilderUiState, type BuilderInspectorTab } from "@/hooks/use-repo2site-builder-ui-state";
 import { useRepo2SiteWalkthrough } from "@/hooks/use-repo2site-walkthrough";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { buildAppThemeStyles } from "@/lib/app-theme";
 import { reportClientError } from "@/lib/monitoring";
-import { buildRepo2SiteSectionModels } from "@/lib/repo2site-section-models";
-import {
-  buildShareSlug,
-  createCustomSectionBlockId,
-  createCustomProjectId,
-  createCustomSectionId,
-  createLayoutRowId,
-  createLinkId,
-  FALLBACK_ABOUT,
-  FALLBACK_CONTACT,
-  FALLBACK_HERO,
-  FALLBACK_LINKS,
-  FALLBACK_LINKS_SECTION,
-  FALLBACK_REPOSITORIES,
-  FALLBACK_TECH_STACK,
-  FALLBACK_THEME,
-  getInitialPortfolioColorMode,
-  PALETTE_FIELD_LABELS,
-  SECTION_CONTENT_HINTS,
-} from "@/lib/repo2site-builder-constants";
-import {
-  buildRepo2SiteThemeStyles,
-  type Repo2SiteThemeStyleMap,
-} from "@/lib/repo2site-builder-theme";
-import { REPO2SITE_LAYOUT_PRESETS } from "@/lib/repo2site-layout-presets";
-import {
-  buildPortfolioLayoutForMode,
-  moveSectionPlacement,
-  moveSectionRow,
-  resolvePortfolioSectionRows,
-} from "@/lib/repo2site-layout";
 import {
   SECTION_MIN_WIDTH_RATIO,
   DEFAULT_CARD_LABELS,
@@ -91,18 +45,21 @@ import {
 import type { ContentSource, ResolvedPreviewRepository } from "@/lib/portfolio";
 import { applyTemplateRecord, buildTemplatePreset } from "@/lib/template-presets";
 import { PORTFOLIO_THEMES } from "@/lib/themes";
-import { WALKTHROUGH_TARGET_ATTRIBUTE, type WalkthroughActionKind } from "@/lib/repo2site-walkthrough";
+import { WALKTHROUGH_TARGET_ATTRIBUTE } from "@/lib/repo2site-walkthrough";
 import type {
   EnrichmentSourceResult,
   EnrichmentSuggestion,
   GeneratePreviewResponse,
   PortfolioCanvasComponent,
-  PortfolioCustomSectionBlock,
-  PortfolioCustomProject,
   PortfolioEnhancement,
   PortfolioOverrides,
   PortfolioSectionId,
   PortfolioSectionType,
+  PreviewAbout,
+  PreviewHero,
+  PreviewLink,
+  PreviewRepository,
+  PreviewSection,
   PreviewTheme,
 } from "@/lib/types";
 
@@ -115,7 +72,86 @@ type AuthSummary = {
 } | null;
 
 const SAMPLE_URL = "https://github.com/vercel";
-const SECTION_LAYOUT_DRAG_TYPE = "application/x-repo2site-section-layout";
+
+const FALLBACK_THEME: PreviewTheme = {
+  id: "builder-blue",
+  name: "Builder Blue",
+  reason: "Default theme while no profile data is loaded.",
+  palette: {
+    page: "#f6f8fc",
+    pageAccent: "rgba(96, 165, 250, 0.16)",
+    surface: "rgba(255,255,255,0.88)",
+    surfaceStrong: "#ffffff",
+    border: "rgba(148, 163, 184, 0.28)",
+    text: "#0f172a",
+    muted: "#475569",
+    accent: "#2563eb",
+    accentSoft: "rgba(37, 99, 235, 0.12)",
+    chip: "#e0ecff",
+  },
+};
+
+const FALLBACK_HERO: PreviewHero = {
+  name: "Your Name",
+  headline: "A concise profile headline generated from GitHub data will appear here.",
+  subheadline:
+    "Load a public GitHub profile to generate the starting draft, then refine it manually in edit mode.",
+  ctaLabel: "View GitHub Profile",
+};
+
+const FALLBACK_ABOUT: PreviewAbout = {
+  title: "About Me",
+  description:
+    "Profile bio, focus areas, and public contribution context will appear here once a profile is generated.",
+};
+
+const FALLBACK_CONTACT: PreviewSection = {
+  title: "Contact",
+  description: "Add direct contact details and a custom note to make the portfolio feel more personal.",
+};
+
+const FALLBACK_LINKS_SECTION: PreviewSection = {
+  title: "Links",
+  description: "GitHub-derived links show up here first, and edit mode can extend them with your own links.",
+};
+
+const FALLBACK_REPOSITORIES: PreviewRepository[] = [
+  {
+    name: "featured-repo-1",
+    description: "A placeholder project summary.",
+    language: "TypeScript",
+    href: "https://github.com/username/featured-repo-1",
+    stars: 0,
+    image: null,
+    readmeImages: [],
+    readmeExcerpt: "",
+  },
+  {
+    name: "featured-repo-2",
+    description: "A placeholder project summary.",
+    language: "JavaScript",
+    href: "https://github.com/username/featured-repo-2",
+    stars: 0,
+    image: null,
+    readmeImages: [],
+    readmeExcerpt: "",
+  },
+  {
+    name: "featured-repo-3",
+    description: "A placeholder project summary.",
+    language: "Tailwind CSS",
+    href: "https://github.com/username/featured-repo-3",
+    stars: 0,
+    image: null,
+    readmeImages: [],
+    readmeExcerpt: "",
+  },
+];
+
+const SECTION_RESIZE_HANDLE_HIT_WIDTH = 22;
+
+const FALLBACK_LINKS: PreviewLink[] = [{ label: "GitHub", href: "https://github.com/username" }];
+const FALLBACK_TECH_STACK = ["TypeScript", "Next.js", "Tailwind CSS"];
 
 function toCanvasKey(value: string) {
   return value
@@ -125,34 +161,549 @@ function toCanvasKey(value: string) {
     .replace(/^-+|-+$/g, "") || "item";
 }
 
-type ThemeStyleMap = Repo2SiteThemeStyleMap;
+const TECH_ICON_ALIASES: Record<string, string> = {
+  "c#": "csharp",
+  "c++": "cplusplus",
+  css: "css3",
+  dockerfile: "docker",
+  expressjs: "express",
+  "github actions": "github",
+  golang: "go",
+  html: "html5",
+  javascript: "javascript",
+  "js": "javascript",
+  mongodb: "mongo",
+  "next": "nextjs",
+  "next.js": "nextjs",
+  "nextjs": "nextjs",
+  "node": "nodejs",
+  "node.js": "nodejs",
+  postgres: "postgresql",
+  "react.js": "react",
+  "tailwind css": "tailwind",
+  tailwindcss: "tailwind",
+  ts: "typescript",
+  typescript: "typescript",
+};
+
+const TECH_ICONS: Record<
+  string,
+  {
+    accent: string;
+    label: string;
+    shortLabel: string;
+  }
+> = {
+  aws: { accent: "#FF9900", label: "AWS", shortLabel: "AWS" },
+  cplusplus: { accent: "#00599C", label: "C++", shortLabel: "C+" },
+  csharp: { accent: "#512BD4", label: "C#", shortLabel: "C#" },
+  css3: { accent: "#1572B6", label: "CSS", shortLabel: "CSS" },
+  docker: { accent: "#2496ED", label: "Docker", shortLabel: "DK" },
+  express: { accent: "#6B7280", label: "Express", shortLabel: "EX" },
+  figma: { accent: "#A259FF", label: "Figma", shortLabel: "FG" },
+  git: { accent: "#F05032", label: "Git", shortLabel: "GT" },
+  github: { accent: "#6E5494", label: "GitHub", shortLabel: "GH" },
+  go: { accent: "#00ADD8", label: "Go", shortLabel: "GO" },
+  html5: { accent: "#E34F26", label: "HTML", shortLabel: "HTML" },
+  java: { accent: "#F89820", label: "Java", shortLabel: "JV" },
+  javascript: { accent: "#F7DF1E", label: "JavaScript", shortLabel: "JS" },
+  mongo: { accent: "#47A248", label: "MongoDB", shortLabel: "MG" },
+  nextjs: { accent: "#111827", label: "Next.js", shortLabel: "N" },
+  nodejs: { accent: "#339933", label: "Node.js", shortLabel: "ND" },
+  postgresql: { accent: "#4169E1", label: "PostgreSQL", shortLabel: "PG" },
+  prisma: { accent: "#2D3748", label: "Prisma", shortLabel: "PR" },
+  python: { accent: "#3776AB", label: "Python", shortLabel: "PY" },
+  react: { accent: "#61DAFB", label: "React", shortLabel: "RE" },
+  rust: { accent: "#DEA584", label: "Rust", shortLabel: "RS" },
+  tailwind: { accent: "#06B6D4", label: "Tailwind", shortLabel: "TW" },
+  typescript: { accent: "#3178C6", label: "TypeScript", shortLabel: "TS" },
+  vercel: { accent: "#000000", label: "Vercel", shortLabel: "VC" },
+};
+
+type ThemePreset = {
+  lightBackgroundPattern: string;
+  darkBackgroundPattern: string;
+  lightHeroOverlay: string;
+  darkHeroOverlay: string;
+  lightNavOverlay: string;
+  darkNavOverlay: string;
+  lightSectionTone: string;
+  darkSectionTone: string;
+  cardGlow: string;
+  lightProjectSurface: string;
+  darkProjectSurface: string;
+  projectInset: string;
+  headlineWeight: "600" | "700";
+};
+
+function getThemePreset(themeId: string): ThemePreset {
+  if (themeId === "systems-green") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(140deg, rgba(22, 101, 52, 0.14), transparent 45%), repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(22, 101, 52, 0.05) 28px, rgba(22, 101, 52, 0.05) 29px)",
+      darkBackgroundPattern:
+        "linear-gradient(145deg, rgba(22, 101, 52, 0.24), transparent 50%), radial-gradient(circle at 82% 16%, rgba(74, 222, 128, 0.14), transparent 26%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(22, 101, 52, 0.22), rgba(34, 197, 94, 0.08))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(22, 101, 52, 0.26), rgba(74, 222, 128, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(21, 128, 61, 0.18), rgba(74, 222, 128, 0.08))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(21, 128, 61, 0.24), rgba(74, 222, 128, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(240, 253, 244, 0.66), rgba(255, 255, 255, 0.85))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(10, 23, 17, 0.96), rgba(12, 28, 20, 0.92))",
+      cardGlow: "0 20px 48px -34px rgba(21, 128, 61, 0.72)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(240, 253, 244, 0.94), rgba(255, 255, 255, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(8, 24, 17, 0.98), rgba(13, 35, 24, 0.96))",
+      projectInset: "inset 0 1px 0 rgba(255,255,255,0.75)",
+      headlineWeight: "700",
+    };
+  }
+
+  if (themeId === "editorial-amber") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(165deg, rgba(245, 158, 11, 0.2), transparent 45%), radial-gradient(circle at 85% 15%, rgba(194, 65, 12, 0.14), transparent 32%)",
+      darkBackgroundPattern:
+        "linear-gradient(165deg, rgba(194, 65, 12, 0.24), transparent 50%), radial-gradient(circle at 84% 18%, rgba(251, 191, 36, 0.14), transparent 28%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(194, 65, 12, 0.08))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.24), rgba(251, 191, 36, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.2), rgba(251, 191, 36, 0.1))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.22), rgba(251, 191, 36, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(255, 247, 237, 0.72), rgba(255, 255, 255, 0.84))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(38, 21, 10, 0.96), rgba(31, 19, 10, 0.92))",
+      cardGlow: "0 20px 48px -34px rgba(194, 65, 12, 0.7)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(255, 247, 237, 0.96), rgba(255, 253, 248, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(40, 21, 10, 0.98), rgba(30, 19, 12, 0.95))",
+      projectInset: "inset 0 1px 0 rgba(255,255,255,0.8)",
+      headlineWeight: "600",
+    };
+  }
+
+  if (themeId === "signal-violet") {
+    return {
+      lightBackgroundPattern:
+        "radial-gradient(circle at 16% 10%, rgba(139, 92, 246, 0.24), transparent 34%), radial-gradient(circle at 84% 24%, rgba(167, 139, 250, 0.18), transparent 34%)",
+      darkBackgroundPattern:
+        "radial-gradient(circle at 18% 12%, rgba(124, 58, 237, 0.3), transparent 32%), radial-gradient(circle at 82% 20%, rgba(196, 181, 253, 0.14), transparent 28%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(139, 92, 246, 0.08))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.24), rgba(139, 92, 246, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(196, 181, 253, 0.08))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(196, 181, 253, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(245, 243, 255, 0.68), rgba(255, 255, 255, 0.86))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(20, 15, 39, 0.96), rgba(16, 12, 32, 0.92))",
+      cardGlow: "0 20px 48px -34px rgba(91, 33, 182, 0.78)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(245, 243, 255, 0.95), rgba(255, 255, 255, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(20, 15, 39, 0.98), rgba(24, 17, 44, 0.96))",
+      projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
+      headlineWeight: "700",
+    };
+  }
+
+  return {
+    lightBackgroundPattern:
+      "radial-gradient(circle at 88% 16%, rgba(59, 130, 246, 0.22), transparent 34%), radial-gradient(circle at 10% 4%, rgba(96, 165, 250, 0.16), transparent 30%)",
+    darkBackgroundPattern:
+      "radial-gradient(circle at 86% 14%, rgba(37, 99, 235, 0.26), transparent 32%), radial-gradient(circle at 12% 6%, rgba(96, 165, 250, 0.12), transparent 28%)",
+    lightHeroOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(37, 99, 235, 0.08))",
+    darkHeroOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.24), rgba(96, 165, 250, 0.08))",
+    lightNavOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(96, 165, 250, 0.08))",
+    darkNavOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(96, 165, 250, 0.08))",
+    lightSectionTone:
+      "linear-gradient(180deg, rgba(239, 246, 255, 0.72), rgba(255, 255, 255, 0.86))",
+    darkSectionTone:
+      "linear-gradient(180deg, rgba(10, 18, 34, 0.96), rgba(11, 21, 40, 0.92))",
+    cardGlow: "0 20px 48px -34px rgba(37, 99, 235, 0.78)",
+    lightProjectSurface:
+      "linear-gradient(160deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.98))",
+    darkProjectSurface:
+      "linear-gradient(160deg, rgba(10, 18, 34, 0.98), rgba(12, 23, 44, 0.96))",
+    projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
+    headlineWeight: "700",
+  };
+}
+
+function buildThemeStyles(
+  theme: PreviewTheme,
+  cardStyle: PortfolioOverrides["appearance"]["cardStyle"],
+  colorMode: PortfolioOverrides["appearance"]["colorMode"],
+) {
+  const preset = getThemePreset(theme.id);
+  const isDarkMode = colorMode === "dark";
+  const cardShadow =
+    cardStyle === "outlined"
+      ? "none"
+      : cardStyle === "elevated"
+        ? isDarkMode
+          ? "0 24px 56px -30px rgba(2, 6, 23, 0.72)"
+          : "0 26px 58px -34px rgba(15,23,42,0.4)"
+        : preset.cardGlow;
+  const pageColor = isDarkMode ? "#09111f" : theme.palette.page;
+  const surfaceColor = isDarkMode ? "rgba(13, 21, 35, 0.9)" : theme.palette.surface;
+  const surfaceStrongColor = isDarkMode ? "#0f1729" : theme.palette.surfaceStrong;
+  const subtleSurfaceColor = isDarkMode ? "rgba(15, 23, 41, 0.58)" : theme.palette.pageAccent;
+  const borderColor = isDarkMode ? "rgba(148, 163, 184, 0.2)" : theme.palette.border;
+  const textColor = isDarkMode ? "#e5eefb" : theme.palette.text;
+  const mutedColor = isDarkMode ? "#93a4bf" : theme.palette.muted;
+  const chipBackground = isDarkMode ? theme.palette.accentSoft : theme.palette.chip;
+  const chipText = isDarkMode ? "#f8fbff" : theme.palette.accent;
+  const accentBlockText = isDarkMode ? "#dbeafe" : theme.palette.accent;
+  const ghostBackground = isDarkMode ? "rgba(15, 23, 41, 0.82)" : theme.palette.surfaceStrong;
+  const placeholderColor = isDarkMode ? "#7f93b0" : "#64748b";
+  const helperColor = isDarkMode ? "#c6d4ea" : "#334155";
+  const successColor = isDarkMode ? "#86efac" : "#166534";
+  const errorColor = isDarkMode ? "#fca5a5" : "#b91c1c";
+  const infoColor = isDarkMode ? "#bfdbfe" : "#1d4ed8";
+  const userBadge = isDarkMode
+    ? {
+        backgroundColor: "rgba(16, 185, 129, 0.16)",
+        color: "#a7f3d0",
+        borderColor: "rgba(52, 211, 153, 0.24)",
+      }
+    : {
+        backgroundColor: "rgba(16, 185, 129, 0.12)",
+        color: "#047857",
+        borderColor: "rgba(16, 185, 129, 0.18)",
+      };
+  const aiBadge = isDarkMode
+    ? {
+        backgroundColor: "rgba(59, 130, 246, 0.18)",
+        color: "#bfdbfe",
+        borderColor: "rgba(96, 165, 250, 0.24)",
+      }
+    : {
+        backgroundColor: "rgba(59, 130, 246, 0.12)",
+        color: "#1d4ed8",
+        borderColor: "rgba(59, 130, 246, 0.18)",
+      };
+  const readmeBadge = isDarkMode
+    ? {
+        backgroundColor: "rgba(249, 115, 22, 0.18)",
+        color: "#fdba74",
+        borderColor: "rgba(251, 146, 60, 0.24)",
+      }
+    : {
+        backgroundColor: "rgba(249, 115, 22, 0.12)",
+        color: "#c2410c",
+        borderColor: "rgba(249, 115, 22, 0.2)",
+      };
+
+  return {
+    page: {
+      background: `${isDarkMode ? preset.darkBackgroundPattern : preset.lightBackgroundPattern}, ${pageColor}`,
+      color: textColor,
+    } satisfies CSSProperties,
+    surface: {
+      backgroundColor: surfaceColor,
+      borderColor,
+      color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
+    } satisfies CSSProperties,
+    strongSurface: {
+      backgroundColor: surfaceStrongColor,
+      borderColor,
+      color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
+    } satisfies CSSProperties,
+    subtleSurface: {
+      backgroundColor: subtleSurfaceColor,
+      borderColor,
+      color: textColor,
+      ["--field-placeholder" as string]: placeholderColor,
+    } satisfies CSSProperties,
+    heroSurface: {
+      background: `${isDarkMode ? preset.darkHeroOverlay : preset.lightHeroOverlay}, ${surfaceStrongColor}`,
+      borderColor,
+      color: textColor,
+    } satisfies CSSProperties,
+    navSurface: {
+      background: `${isDarkMode ? preset.darkNavOverlay : preset.lightNavOverlay}, ${surfaceStrongColor}`,
+      borderColor,
+      color: textColor,
+    } satisfies CSSProperties,
+    sectionSurface: {
+      background: isDarkMode ? preset.darkSectionTone : preset.lightSectionTone,
+      borderColor,
+      color: textColor,
+    } satisfies CSSProperties,
+    projectShowcase: {
+      background: isDarkMode ? preset.darkProjectSurface : preset.lightProjectSurface,
+      borderColor,
+      color: textColor,
+      boxShadow: `${preset.projectInset}, ${cardShadow}`,
+    } satisfies CSSProperties,
+    projectCard: {
+      backgroundColor: surfaceStrongColor,
+      borderColor,
+      color: textColor,
+      boxShadow: cardShadow,
+    } satisfies CSSProperties,
+    mutedText: {
+      color: mutedColor,
+    } satisfies CSSProperties,
+    helperText: {
+      color: helperColor,
+    } satisfies CSSProperties,
+    chip: {
+      backgroundColor: chipBackground,
+      color: chipText,
+      borderColor,
+    } satisfies CSSProperties,
+    accentBlock: {
+      backgroundColor: theme.palette.accentSoft,
+      color: accentBlockText,
+      borderColor,
+    } satisfies CSSProperties,
+    accentButton: {
+      backgroundColor: theme.palette.accent,
+      color: "#ffffff",
+      boxShadow: `0 18px 30px -20px ${theme.palette.accent}`,
+    } satisfies CSSProperties,
+    ghostButton: {
+      borderColor,
+      color: textColor,
+      backgroundColor: ghostBackground,
+    } satisfies CSSProperties,
+    infoText: {
+      color: infoColor,
+    } satisfies CSSProperties,
+    successText: {
+      color: successColor,
+    } satisfies CSSProperties,
+    errorText: {
+      color: errorColor,
+    } satisfies CSSProperties,
+    headline: {
+      fontWeight: preset.headlineWeight,
+    } satisfies CSSProperties,
+    githubBadge: {
+      backgroundColor: theme.palette.accentSoft,
+      color: accentBlockText,
+      borderColor,
+    } satisfies CSSProperties,
+    userBadge: userBadge satisfies CSSProperties,
+    aiBadge: aiBadge satisfies CSSProperties,
+    readmeBadge: readmeBadge satisfies CSSProperties,
+  };
+}
+
+const PALETTE_FIELD_LABELS: Record<keyof PreviewTheme["palette"], string> = {
+  accent: "Accent",
+  accentSoft: "Accent Soft",
+  border: "Border",
+  chip: "Chip",
+  muted: "Muted Text",
+  page: "Background",
+  pageAccent: "Background Accent",
+  surface: "Surface",
+  surfaceStrong: "Strong Surface",
+  text: "Text",
+};
+
+type ThemeStyleMap = ReturnType<typeof buildThemeStyles>;
+type InspectorTab = "content" | "layout" | "style" | "theme" | "section";
+const SECTION_CONTENT_HINTS: Record<PortfolioSectionType, string> = {
+  hero: "Edit the opening message, actions, and visual treatment directly in the canvas to shape the first impression.",
+  about: "Use this section for context and positioning. Keep it concise, specific, and easy to scan.",
+  professional:
+    "Fine-tune your role framing, summary, and availability here to make the portfolio feel intentional instead of auto-generated.",
+  projects:
+    "Reorder projects, swap the featured project, and rewrite summaries so the strongest work leads the story.",
+  links: "Add the links you actually want recruiters to click. Resume, LinkedIn, portfolio, and supporting docs work best here.",
+  contact: "Keep contact options clear and low-friction. A short note plus one or two reliable channels is usually enough.",
+  custom: "Use custom sections for awards, testimonials, writing, speaking, or anything that makes the portfolio feel more complete.",
+};
+
+function createLinkId() {
+  return `link-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function getInitialPortfolioColorMode(): PortfolioOverrides["appearance"]["colorMode"] {
+  return "dark";
+}
+
+function buildShareSlug(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "portfolio"
+  );
+}
+
+function createCustomSectionId() {
+  return `custom-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createLayoutRowId() {
+  return `row-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 function isBuiltInSectionType(type: PortfolioSectionType): type is PortfolioSectionId {
   return ["hero", "about", "professional", "projects", "contact", "links"].includes(type);
+}
+
+function formatSourceLabel(source: ContentSource | "github") {
+  if (source === "user") {
+    return "Edited";
+  }
+
+  if (source === "ai") {
+    return "AI";
+  }
+
+  if (source === "readme") {
+    return "README";
+  }
+
+  return "GitHub";
+}
+
+function SourceBadge({
+  source,
+  themeStyles,
+}: {
+  source: ContentSource | "github";
+  themeStyles: ThemeStyleMap;
+}) {
+  const badgeStyle =
+    source === "user"
+      ? themeStyles.userBadge
+      : source === "ai"
+        ? themeStyles.aiBadge
+      : source === "readme"
+        ? themeStyles.readmeBadge
+        : themeStyles.githubBadge;
+
+  return (
+    <span className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]" style={badgeStyle}>
+      {formatSourceLabel(source)}
+    </span>
+  );
+}
+
+function normalizeTechKey(value: string) {
+  const baseKey = value.trim().toLowerCase().replace(/[._/]+/g, " ");
+  return TECH_ICON_ALIASES[baseKey] ?? baseKey.replace(/\s+/g, "");
+}
+
+function TechBadge({
+  label,
+  themeStyles,
+  compact = false,
+}: {
+  label: string;
+  themeStyles: ThemeStyleMap;
+  compact?: boolean;
+}) {
+  const techIcon = TECH_ICONS[normalizeTechKey(label)];
+
+  if (!techIcon) {
+    return (
+      <span
+        className={`rounded-full border font-medium ${compact ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"}`}
+        style={themeStyles.chip}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border font-medium ${compact ? "px-3 py-1.5 text-xs" : "px-4 py-2.5 text-sm"}`}
+      style={themeStyles.chip}
+    >
+      <svg
+        viewBox="0 0 28 28"
+        aria-hidden="true"
+        className={compact ? "h-4 w-4 shrink-0" : "h-5 w-5 shrink-0"}
+      >
+        <rect x="1.5" y="1.5" width="25" height="25" rx="8" fill={techIcon.accent} opacity="0.16" />
+        <rect x="5" y="5" width="18" height="18" rx="6" fill={techIcon.accent} />
+        <text
+          x="14"
+          y="14.6"
+          fill="#ffffff"
+          fontSize={techIcon.shortLabel.length > 2 ? "6.5" : "8.5"}
+          fontWeight="700"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{ fontFamily: "var(--font-mono), monospace", letterSpacing: "-0.04em" }}
+        >
+          {techIcon.shortLabel}
+        </text>
+      </svg>
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function ActionLink({
+  href,
+  label,
+  themeStyles,
+  primary = false,
+}: {
+  href: string;
+  label: string;
+  themeStyles: ThemeStyleMap;
+  primary?: boolean;
+}) {
+  return (
+    <a
+      href={href}
+      target={href.startsWith("#") ? undefined : "_blank"}
+      rel={href.startsWith("#") ? undefined : "noreferrer"}
+      className="inline-flex rounded-xl border px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5"
+      style={primary ? themeStyles.accentButton : themeStyles.ghostButton}
+    >
+      {label}
+    </a>
+  );
 }
 
 function ProjectImagePreview({
   repository,
   themeStyles,
   compact = false,
-  prominent = false,
 }: {
   repository: ResolvedPreviewRepository;
   themeStyles: ThemeStyleMap;
   compact?: boolean;
-  prominent?: boolean;
 }) {
   if (!repository.resolvedImage) {
     return null;
   }
 
   return (
-    <div
-      className={`relative overflow-hidden rounded-[1.4rem] border ${
-        compact ? "h-32" : prominent ? "h-64 xl:h-72" : "h-52"
-      }`}
-      style={themeStyles.strongSurface}
-    >
+    <div className={`relative overflow-hidden rounded-[1.4rem] border ${compact ? "h-32" : "h-52"}`} style={themeStyles.strongSurface}>
       <img
         src={repository.resolvedImage.url}
         alt={repository.resolvedImage.alt}
@@ -162,6 +713,20 @@ function ProjectImagePreview({
         <SourceBadge source={repository.resolvedImage.source} themeStyles={themeStyles} />
       </div>
     </div>
+  );
+}
+
+function AutoResizeTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      {...props}
+      onInput={(event) => {
+        const element = event.currentTarget;
+        element.style.height = "auto";
+        element.style.height = `${element.scrollHeight}px`;
+        props.onInput?.(event);
+      }}
+    />
   );
 }
 
@@ -287,6 +852,403 @@ function InlineEditableField({
   );
 }
 
+function CompactActionMenu({
+  themeStyles,
+  items,
+}: {
+  themeStyles: ThemeStyleMap;
+  items: Array<{
+    label: string;
+    onSelect: () => void;
+    tone?: "default" | "danger";
+  }>;
+}) {
+  return (
+    <details className="relative">
+      <summary
+        className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border text-base font-semibold transition [&::-webkit-details-marker]:hidden"
+        style={themeStyles.ghostButton}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span aria-hidden="true">•••</span>
+      </summary>
+      <div
+        className="absolute right-0 top-[calc(100%+0.45rem)] z-40 grid min-w-[10.5rem] gap-1 rounded-[1rem] border p-1.5 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.45)]"
+        style={themeStyles.strongSurface}
+      >
+        {items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              item.onSelect();
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+            className="rounded-[0.8rem] px-3 py-2 text-left text-sm font-medium transition"
+            style={item.tone === "danger" ? { color: themeStyles.errorText.color } : themeStyles.ghostButton}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function InlineActionButton({
+  label,
+  onClick,
+  themeStyles,
+}: {
+  label: string;
+  onClick: () => void;
+  themeStyles: ThemeStyleMap;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
+      style={themeStyles.ghostButton}
+    >
+      {label}
+    </button>
+  );
+}
+
+function PaletteFieldControl({
+  label,
+  value,
+  onChange,
+  onReset,
+  themeStyles,
+}: {
+  label: string;
+  value: string;
+  onChange: (nextValue: string) => void;
+  onReset: () => void;
+  themeStyles: ThemeStyleMap;
+}) {
+  return (
+    <div className="grid gap-2 rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+          {label}
+        </p>
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+          style={themeStyles.ghostButton}
+        >
+          Reset
+        </button>
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-10 w-12 rounded border bg-transparent p-1"
+          style={themeStyles.strongSurface}
+        />
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="#000000"
+          className="h-10 flex-1 rounded-[0.85rem] border px-3 text-sm outline-none"
+          style={themeStyles.strongSurface}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PreviewSectionFrame({
+  sectionId,
+  label,
+  themeStyles,
+  theme,
+  isDragging,
+  isResizing,
+  isSelected,
+  isHovered,
+  isDropTarget,
+  dropPosition,
+  widthRatio,
+  canResize,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onRemove,
+  onSelect,
+  onHoverChange,
+  duplicateLabel,
+  onDuplicate,
+  children,
+}: {
+  sectionId: string;
+  label: string;
+  themeStyles: ThemeStyleMap;
+  theme: PreviewTheme;
+  isDragging: boolean;
+  isResizing: boolean;
+  isSelected: boolean;
+  isHovered: boolean;
+  isDropTarget: boolean;
+  dropPosition: "before" | "after" | "left" | "right" | null;
+  widthRatio: number;
+  canResize: boolean;
+  onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onDragOver: (event: DragEvent<HTMLElement>) => void;
+  onDrop: (event: DragEvent<HTMLElement>) => void;
+  onDragEnd: () => void;
+  onRemove: () => void;
+  onSelect: () => void;
+  onHoverChange: (hovered: boolean) => void;
+  duplicateLabel?: string;
+  onDuplicate?: () => void;
+  children: ReactNode;
+}) {
+  const showToolbar = isHovered || isSelected || isResizing;
+
+  return (
+    <section
+      id={sectionId}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onClick={onSelect}
+      onMouseEnter={() => onHoverChange(true)}
+      onMouseLeave={() => onHoverChange(false)}
+      className={`group/section relative h-full min-w-0 cursor-pointer transition ${isDragging ? "opacity-60" : ""}`}
+    >
+      {isDropTarget && dropPosition === "before" ? (
+        <div
+          className="absolute inset-x-4 top-0 z-20 h-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
+      {isDropTarget && dropPosition === "after" ? (
+        <div
+          className="absolute inset-x-4 bottom-0 z-20 h-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
+      {isDropTarget && dropPosition === "left" ? (
+        <div
+          className="absolute inset-y-4 left-0 z-20 w-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
+      {isDropTarget && dropPosition === "right" ? (
+        <div
+          className="absolute inset-y-4 right-0 z-20 w-1 rounded-full"
+          style={{ backgroundColor: theme.palette.accent }}
+        />
+      ) : null}
+      <div
+        className="flex h-full min-w-0 flex-col rounded-[1.75rem] border px-4 py-4 sm:px-5 sm:py-5"
+        style={{
+          ...themeStyles.surface,
+          borderColor: isDropTarget || isSelected ? theme.palette.accent : themeStyles.surface.borderColor,
+          boxShadow:
+            isDropTarget || isSelected
+              ? `0 0 0 1px ${theme.palette.accent}`
+              : isHovered
+                ? `0 0 0 1px ${themeStyles.surface.borderColor}`
+                : undefined,
+        }}
+      >
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em]" style={themeStyles.mutedText}>
+              {label}
+            </p>
+          </div>
+          <div
+            className={`flex items-center gap-2 transition ${showToolbar ? "opacity-100" : "pointer-events-none opacity-0 group-hover/section:opacity-100 group-hover/section:pointer-events-auto"}`}
+          >
+            {canResize && (isSelected || isResizing) ? (
+              <span
+                className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                style={themeStyles.mutedText}
+              >
+                {Math.round(widthRatio * 100)}%
+              </span>
+            ) : null}
+            <button
+              type="button"
+              draggable
+              onDragStart={(event) => {
+                event.stopPropagation();
+                onDragStart(event);
+              }}
+              onDragEnd={onDragEnd}
+              className="inline-flex cursor-grab items-center justify-center rounded-full border p-2 text-xs font-semibold uppercase tracking-[0.16em] active:cursor-grabbing"
+              style={themeStyles.ghostButton}
+              aria-label={`Drag ${label}`}
+              title={`Drag ${label}`}
+            >
+              <span aria-hidden="true">⋮⋮</span>
+            </button>
+            <CompactActionMenu
+              themeStyles={themeStyles}
+              items={[
+                ...(onDuplicate
+                  ? [
+                      {
+                        label: duplicateLabel || "Duplicate section",
+                        onSelect: onDuplicate,
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Remove section",
+                  onSelect: onRemove,
+                  tone: "danger" as const,
+                },
+              ]}
+            />
+          </div>
+        </div>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function PreviewRowResizeHandle({
+  themeStyles,
+  theme,
+  isActive,
+  onPointerDown,
+}: {
+  themeStyles: ThemeStyleMap;
+  theme: PreviewTheme;
+  isActive: boolean;
+  onPointerDown: (event: PointerEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <div className="hidden xl:flex xl:w-5 xl:flex-none xl:items-stretch xl:justify-center">
+      <button
+        type="button"
+        onPointerDown={onPointerDown}
+        className="group relative h-full min-h-[12rem] cursor-ew-resize touch-none"
+        aria-label="Resize sections"
+        title="Drag to resize sections"
+      >
+        <span
+          className="absolute inset-y-3 left-1/2 -translate-x-1/2 rounded-full transition"
+          style={{
+            width: "2px",
+            backgroundColor: isActive ? theme.palette.accent : themeStyles.surface.borderColor,
+          }}
+        />
+        <span
+          className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border transition"
+          style={{
+            width: `${SECTION_RESIZE_HANDLE_HIT_WIDTH}px`,
+            height: "2.75rem",
+            ...themeStyles.strongSurface,
+            borderColor: isActive ? theme.palette.accent : themeStyles.strongSurface.borderColor,
+            boxShadow: isActive ? `0 0 0 1px ${theme.palette.accent}` : undefined,
+          }}
+        >
+          <span className="flex items-center gap-1">
+            <span className="h-4 w-[2px] rounded-full" style={{ backgroundColor: theme.palette.muted }} />
+            <span className="h-4 w-[2px] rounded-full" style={{ backgroundColor: theme.palette.muted }} />
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function PreviewCanvasItemFrame({
+  label,
+  themeStyles,
+  isEditing,
+  isDragging = false,
+  isDropTarget = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onRemove,
+  children,
+}: {
+  label: string;
+  themeStyles: ThemeStyleMap;
+  isEditing: boolean;
+  isDragging?: boolean;
+  isDropTarget?: boolean;
+  onDragStart?: (event: DragEvent<HTMLElement>) => void;
+  onDragOver?: (event: DragEvent<HTMLElement>) => void;
+  onDrop?: (event: DragEvent<HTMLElement>) => void;
+  onDragEnd?: () => void;
+  onRemove?: () => void;
+  children: ReactNode;
+}) {
+  if (!isEditing) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className={`group/item relative rounded-[1.2rem] border p-3 transition ${isDragging ? "opacity-60" : ""}`}
+      style={{
+        ...themeStyles.strongSurface,
+        borderColor: isDropTarget ? themeStyles.accentButton.backgroundColor : themeStyles.strongSurface.borderColor,
+        boxShadow: isDropTarget
+          ? `0 0 0 1px ${themeStyles.accentButton.backgroundColor}`
+          : undefined,
+      }}
+    >
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.mutedText}>
+          {label}
+        </p>
+        <div className="flex items-center gap-2 opacity-0 transition group-hover/item:opacity-100 focus-within:opacity-100">
+          {onDragStart ? (
+            <button
+              type="button"
+              draggable
+              onDragStart={(event) => {
+                event.stopPropagation();
+                onDragStart(event);
+              }}
+              onDragEnd={onDragEnd}
+              className="rounded-full border p-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              style={themeStyles.ghostButton}
+              aria-label={`Drag ${label}`}
+              title={`Drag ${label}`}
+            >
+              <span aria-hidden="true">⋮⋮</span>
+            </button>
+          ) : null}
+          {onRemove ? (
+            <CompactActionMenu
+              themeStyles={themeStyles}
+              items={[
+                {
+                  label: "Hide block",
+                  onSelect: onRemove,
+                  tone: "danger",
+                },
+              ]}
+            />
+          ) : null}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function formatEnrichmentFieldLabel(field: EnrichmentSuggestion["field"]) {
   switch (field) {
     case "hero.headline":
@@ -324,114 +1286,83 @@ function formatEnrichmentFieldLabel(field: EnrichmentSuggestion["field"]) {
   }
 }
 
-function applySectionLayoutMode(
+function moveCanvasComponent(
   components: PortfolioCanvasComponent[],
-  nextLayout: PortfolioOverrides["appearance"]["sectionLayout"],
+  componentId: string,
+  direction: -1 | 1,
 ) {
-  return buildPortfolioLayoutForMode(components, nextLayout).map((component) =>
-    component.widthRatio !== 1 && component.rowId?.includes("-")
-      ? { ...component, rowId: createLayoutRowId() }
-      : component,
-  );
+  const currentIndex = components.findIndex((component) => component.id === componentId);
+
+  if (currentIndex === -1) {
+    return components;
+  }
+
+  const nextIndex = currentIndex + direction;
+
+  if (nextIndex < 0 || nextIndex >= components.length) {
+    return components;
+  }
+
+  const nextComponents = [...components];
+  const [movedComponent] = nextComponents.splice(currentIndex, 1);
+  nextComponents.splice(nextIndex, 0, movedComponent);
+  return nextComponents;
 }
 
-function getSectionContentLayout(component: PortfolioCanvasComponent) {
-  const widthRatio = getCanvasSectionWidthRatio(component);
-  const isSharedColumn = widthRatio < 0.999;
-  const isNarrow = widthRatio <= 0.45;
-  const isBalanced = widthRatio > 0.45 && widthRatio < 0.8;
-  const isWide = widthRatio >= 0.8;
-  const prefersSingleColumnCards = isNarrow || widthRatio < 0.55;
-  const supportsDualContentColumns = widthRatio >= 0.82;
-
-  return {
-    widthRatio,
-    isSharedColumn,
-    isNarrow,
-    isBalanced,
-    isWide,
-    prefersSingleColumnCards,
-    supportsDualContentColumns,
-  };
-}
-
-function buildProjectOrderBase(
-  current: PortfolioOverrides,
-  preview: GeneratePreviewResponse | null,
+function reorderCanvasComponent(
+  components: PortfolioCanvasComponent[],
+  draggedComponentId: string,
+  targetComponentId: string,
+  position: "before" | "after" | "left" | "right" = "before",
 ) {
-  const seen = new Set<string>();
-  const orderedNames: string[] = [];
-  const baseRepositories = preview?.featuredRepositories ?? FALLBACK_REPOSITORIES;
+  const draggedIndex = components.findIndex((component) => component.id === draggedComponentId);
+  const targetIndex = components.findIndex((component) => component.id === targetComponentId);
 
-  for (const repository of baseRepositories) {
-    const name = repository.name.trim();
+  if (draggedIndex === -1 || targetIndex === -1 || draggedIndex === targetIndex) {
+    return components;
+  }
 
-    if (!name || seen.has(name)) {
-      continue;
+  const nextComponents = [...components];
+  const [draggedComponent] = nextComponents.splice(draggedIndex, 1);
+  const targetComponent = nextComponents.find((component) => component.id === targetComponentId);
+  const adjustedTargetIndex = nextComponents.findIndex((component) => component.id === targetComponentId);
+
+  if (!targetComponent) {
+    return components;
+  }
+
+  if (position === "left" || position === "right") {
+    const sharedRowId =
+      canSectionsShareRow(draggedComponent, targetComponent)
+        ? targetComponent.rowId || targetComponent.id
+        : createLayoutRowId();
+
+    if (canSectionsShareRow(draggedComponent, targetComponent)) {
+      const leftComponent = position === "left" ? draggedComponent : targetComponent;
+      const rightComponent = position === "left" ? targetComponent : draggedComponent;
+      const leftRatio = getAllowedRowWidthRatios(leftComponent, rightComponent).includes(0.6) ? 0.6 : 0.5;
+
+      draggedComponent.rowId = sharedRowId;
+      targetComponent.rowId = sharedRowId;
+      draggedComponent.width = undefined;
+      targetComponent.width = undefined;
+      draggedComponent.widthRatio = position === "left" ? leftRatio : 1 - leftRatio;
+      targetComponent.widthRatio = position === "left" ? 1 - leftRatio : leftRatio;
+    } else {
+      draggedComponent.rowId = createLayoutRowId();
+      draggedComponent.width = "full";
+      draggedComponent.widthRatio = 1;
     }
-
-    seen.add(name);
-    orderedNames.push(name);
+  } else {
+    draggedComponent.rowId = createLayoutRowId();
+    draggedComponent.width = "full";
+    draggedComponent.widthRatio = 1;
   }
 
-  for (const project of current.customProjects) {
-    const name = project.name.trim();
-
-    if (!name || seen.has(name)) {
-      continue;
-    }
-
-    seen.add(name);
-    orderedNames.push(name);
-  }
-
-  return current.layout.projectOrder.length > 0
-    ? [
-        ...current.layout.projectOrder.filter((name) => seen.has(name)),
-        ...orderedNames.filter((name) => !current.layout.projectOrder.includes(name)),
-      ]
-    : orderedNames;
-}
-
-function getUniqueProjectName(
-  desiredName: string,
-  current: PortfolioOverrides,
-  preview: GeneratePreviewResponse | null,
-  excludeName?: string,
-) {
-  const normalizedBase = desiredName.trim() || "Custom Project";
-  const existing = new Set(
-    [
-      ...(preview?.featuredRepositories ?? FALLBACK_REPOSITORIES).map((repository) => repository.name),
-      ...current.customProjects.map((project) => project.name),
-    ].filter((name) => name !== excludeName),
-  );
-
-  if (!existing.has(normalizedBase)) {
-    return normalizedBase;
-  }
-
-  let suffix = 2;
-
-  while (existing.has(`${normalizedBase} ${suffix}`)) {
-    suffix += 1;
-  }
-
-  return `${normalizedBase} ${suffix}`;
-}
-
-function buildDefaultCustomSectionBlocks(): PortfolioCustomSectionBlock[] {
-  return [
-    {
-      id: createCustomSectionBlockId(),
-      type: "text",
-      width: "full",
-      label: "Overview",
-      title: "Start here",
-      text: "Add a custom story, achievement, testimonial, case study, or anything else you want this section to highlight.",
-      imageUrl: "",
-    },
-  ];
+  const insertIndex =
+    position === "after" || position === "right" ? adjustedTargetIndex + 1 : adjustedTargetIndex;
+  nextComponents.splice(insertIndex, 0, draggedComponent);
+  return nextComponents;
 }
 
 function mergeEnrichmentResults(
@@ -465,34 +1396,7 @@ export function Repo2SiteShell() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const builderUi = useRepo2SiteBuilderUiState();
-  const {
-    activeInspectorTab,
-    cancelSectionRemoval,
-    clearSectionRemoval,
-    focusSection,
-    isCustomizeOpen,
-    isEditMode,
-    isGitHubSignInHelpOpen,
-    isQuickStartExpanded,
-    isShareOpen,
-    isWorkspaceExpanded,
-    isTemplateOpen,
-    pendingSectionRemovalId,
-    requestSectionRemoval,
-    selectedSectionId,
-    setActiveInspectorTab,
-    setHoveredSectionId,
-    setSelectedSectionId,
-    toggleCustomizePanel,
-    toggleEditMode: toggleBuilderEditMode,
-    toggleGitHubHelp,
-    toggleQuickStart,
-    toggleSharePanel,
-    toggleTemplatePanel,
-    toggleWorkspace,
-    hoveredSectionId,
-  } = builderUi;
+  const [isEditMode, setIsEditMode] = useState(false);
   const [enrichmentInput, setEnrichmentInput] = useState("");
   const [uploadedResumeFiles, setUploadedResumeFiles] = useState<File[]>([]);
   const [enrichmentResults, setEnrichmentResults] = useState<EnrichmentSourceResult[]>([]);
@@ -504,7 +1408,14 @@ export function Repo2SiteShell() {
   const [dropTargetChildComponentId, setDropTargetChildComponentId] = useState<string | null>(null);
   const [draggedProjectName, setDraggedProjectName] = useState<string | null>(null);
   const [projectDropTargetName, setProjectDropTargetName] = useState<string | null>(null);
+  const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  const [hoveredSectionId, setHoveredSectionId] = useState<string | null>(null);
+  const [activeInspectorTab, setActiveInspectorTab] = useState<InspectorTab>("layout");
   const [resizingSectionIds, setResizingSectionIds] = useState<string[]>([]);
+  const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
+  const [isQuickStartExpanded, setIsQuickStartExpanded] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
   const [templateTitle, setTemplateTitle] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateCategory, setTemplateCategory] = useState("general");
@@ -530,6 +1441,7 @@ export function Repo2SiteShell() {
   const [isCheckingShareSlug, setIsCheckingShareSlug] = useState(false);
   const [authSession, setAuthSession] = useState<AuthSummary>(null);
   const [githubImportAutofillNotice, setGitHubImportAutofillNotice] = useState<string | null>(null);
+  const [isGitHubSignInHelpOpen, setIsGitHubSignInHelpOpen] = useState(false);
   const { triggerSpriteReaction } = useRepo2SiteCompanion();
   const resumeUploadInputRef = useRef<HTMLInputElement | null>(null);
   const heroImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -551,6 +1463,18 @@ export function Repo2SiteShell() {
     Boolean(overrides.documents.resumeAssetUrl) ||
     Boolean(overrides.documents.coverLetterAssetUrl);
   const pendingAiSuggestionCount = countPendingAiSuggestions(overrides);
+  const walkthrough = useRepo2SiteWalkthrough({
+    context: {
+      hasPreview: Boolean(preview),
+      hasResume: hasResumeContext,
+      hasProjects: Boolean(preview?.featuredRepositories.length),
+      hasPendingAiSuggestions: pendingAiSuggestionCount > 0,
+      isCustomizeOpen,
+      isEditMode,
+    },
+    onOpenProfileEdit: () => setIsEditMode(true),
+    onTrackEvent: trackAnalyticsEvent,
+  });
 
   useEffect(() => {
     if (!isHydrated) {
@@ -626,7 +1550,7 @@ export function Repo2SiteShell() {
   }, [authSession, profileUrl]);
 
   useEffect(() => {
-  if (!preview) {
+    if (!preview) {
       setShareSlug("");
       setSharedPortfolioUrl("");
       setShareImageUrl("");
@@ -909,26 +1833,34 @@ export function Repo2SiteShell() {
     aiAcceptedCountRef.current = acceptedCount;
   }, [overrides.aiAccepted]);
 
-  function revealInspector(nextTab?: BuilderInspectorTab) {
+  function toggleCustomizePanel(nextOpen?: boolean) {
+    setIsCustomizeOpen((current) => {
+      const resolved = typeof nextOpen === "boolean" ? nextOpen : !current;
+
+      if (resolved) {
+        trackAnalyticsEvent("Customize Panel Opened");
+      }
+
+      return resolved;
+    });
+  }
+
+  function revealInspector(nextTab?: InspectorTab) {
     if (nextTab) {
       setActiveInspectorTab(nextTab);
     }
 
-    if (!isCustomizeOpen) {
-      trackAnalyticsEvent("Customize Panel Opened");
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1279px)").matches) {
+      toggleCustomizePanel(true);
     }
-
-    toggleCustomizePanel(true);
   }
 
-  function toggleEditMode(nextOpen?: boolean) {
-    const willOpen = typeof nextOpen === "boolean" ? nextOpen : !isEditMode;
-
-    if (willOpen && !isEditMode) {
-      triggerSpriteReaction("editor-open");
+  function focusSection(sectionId: string, nextTab: InspectorTab = "section") {
+    setSelectedSectionId(sectionId);
+    if (!isEditMode) {
+      toggleEditMode(true);
     }
-
-    toggleBuilderEditMode(nextOpen);
+    revealInspector(nextTab);
   }
 
   function stopSectionResize() {
@@ -978,26 +1910,24 @@ export function Repo2SiteShell() {
     setResizingSectionIds([leftSectionId, rightSectionId]);
   }
 
+  function toggleEditMode(nextOpen?: boolean) {
+    setIsEditMode((current) => {
+      const resolved = typeof nextOpen === "boolean" ? nextOpen : !current;
+
+      if (resolved && !current) {
+        triggerSpriteReaction("editor-open");
+      }
+
+      return resolved;
+    });
+  }
+
   function cycleAppTheme() {
     const nextTheme =
       themeChoice === "system" ? "light" : themeChoice === "light" ? "dark" : "system";
 
     setThemeChoice(nextTheme);
     triggerSpriteReaction("theme-change", nextTheme);
-  }
-
-  function handleProfileUrlChange(nextValue: string) {
-    setProfileUrl(nextValue);
-
-    if (githubImportAutofillNotice) {
-      const signedInProfileUrl =
-        authSession?.profileUrl?.trim() ||
-        (authSession?.username ? `https://github.com/${authSession.username}` : "");
-
-      if (nextValue.trim() !== signedInProfileUrl.trim()) {
-        setGitHubImportAutofillNotice(null);
-      }
-    }
   }
 
   function getTourHighlightProps(targetId: string) {
@@ -1095,7 +2025,8 @@ export function Repo2SiteShell() {
     });
   }
 
-  async function loadPortfolioDraft(nextProfileUrl: string) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setIsLoading(true);
     setError(null);
     setEnhanceError(null);
@@ -1107,7 +2038,7 @@ export function Repo2SiteShell() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ profileUrl: nextProfileUrl }),
+        body: JSON.stringify({ profileUrl }),
       });
 
       const result = (await response.json()) as
@@ -1143,7 +2074,6 @@ export function Repo2SiteShell() {
           layout: {
             ...current.layout,
             projectOrder: [],
-            hiddenProjectNames: [],
           },
           appearance: current.appearance,
           linksSection: {
@@ -1154,7 +2084,7 @@ export function Repo2SiteShell() {
           documents: current.documents,
         };
       });
-      toggleEditMode(false);
+      setIsEditMode(false);
       trackAnalyticsEvent("GitHub Import Completed", {
         repositoryCount: result.featuredRepositories.length,
         techCount: result.techStack.length,
@@ -1169,15 +2099,6 @@ export function Repo2SiteShell() {
     } finally {
       setIsLoading(false);
     }
-  }
-
-  async function handleGeneratePortfolio() {
-    await loadPortfolioDraft(profileUrl);
-  }
-
-  async function handleUseSamplePortfolio() {
-    setProfileUrl(SAMPLE_URL);
-    await loadPortfolioDraft(SAMPLE_URL);
   }
 
   function updateOverrides(updater: (current: PortfolioOverrides) => PortfolioOverrides) {
@@ -1233,37 +2154,32 @@ export function Repo2SiteShell() {
     setIsExporting(true);
 
     try {
-      const iframeName = "repo2site-export-download-frame";
-      let iframe = document.querySelector(`iframe[name="${iframeName}"]`) as HTMLIFrameElement | null;
+      const response = await fetch("/api/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ preview, overrides }),
+      });
 
-      if (!iframe) {
-        iframe = document.createElement("iframe");
-        iframe.name = iframeName;
-        iframe.style.display = "none";
-        document.body.appendChild(iframe);
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(result?.error ?? "Something went wrong while exporting the portfolio ZIP.");
+        return;
       }
 
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/api/export";
-      form.target = iframeName;
-      form.style.display = "none";
-
-      const previewInput = document.createElement("input");
-      previewInput.type = "hidden";
-      previewInput.name = "preview";
-      previewInput.value = JSON.stringify(preview);
-
-      const overridesInput = document.createElement("input");
-      overridesInput.type = "hidden";
-      overridesInput.name = "overrides";
-      overridesInput.value = JSON.stringify(overrides);
-
-      form.appendChild(previewInput);
-      form.appendChild(overridesInput);
-      document.body.appendChild(form);
-      form.submit();
-      form.remove();
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = disposition.match(/filename=\"([^\"]+)\"/i);
+      const filename = filenameMatch?.[1] ?? "portfolio-export.zip";
+      const downloadUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(downloadUrl);
       triggerSpriteReaction("export");
       trackAnalyticsEvent("Portfolio Exported");
     } catch {
@@ -1810,260 +2726,6 @@ export function Repo2SiteShell() {
     }));
   }
 
-  function updateCustomSection(
-    sectionId: string,
-    key: "title" | "description",
-    value: string,
-  ) {
-    updateOverrides((current) => ({
-      ...current,
-      customSections: current.customSections.map((section) =>
-        section.id === sectionId ? { ...section, [key]: value } : section,
-      ),
-    }));
-  }
-
-  function addCustomSectionBlock(sectionId: string, type: PortfolioCustomSectionBlock["type"]) {
-    updateOverrides((current) => ({
-      ...current,
-      customSections: current.customSections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              blocks: [
-                ...section.blocks,
-                {
-                  id: createCustomSectionBlockId(),
-                  type,
-                  width: type === "image" ? "half" : "full",
-                  label: type === "image" ? "Image" : "Text",
-                  title: type === "image" ? "Visual" : "Subsection",
-                  text: type === "image" ? "" : "Add supporting text here.",
-                  imageUrl: "",
-                },
-              ],
-            }
-          : section,
-      ),
-    }));
-  }
-
-  function updateCustomSectionBlock(
-    sectionId: string,
-    blockId: string,
-    key: keyof Pick<PortfolioCustomSectionBlock, "label" | "title" | "text" | "imageUrl" | "width">,
-    value: string,
-  ) {
-    updateOverrides((current) => ({
-      ...current,
-      customSections: current.customSections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              blocks: section.blocks.map((block) =>
-                block.id === blockId ? { ...block, [key]: value } : block,
-              ),
-            }
-          : section,
-      ),
-    }));
-  }
-
-  function removeCustomSectionBlock(sectionId: string, blockId: string) {
-    updateOverrides((current) => ({
-      ...current,
-      customSections: current.customSections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              blocks:
-                section.blocks.filter((block) => block.id !== blockId).length > 0
-                  ? section.blocks.filter((block) => block.id !== blockId)
-                  : buildDefaultCustomSectionBlocks(),
-            }
-          : section,
-      ),
-    }));
-  }
-
-  function insertProjectIntoOrder(
-    current: PortfolioOverrides,
-    projectName: string,
-    secondaryIndex?: number,
-  ) {
-    const baseOrder = buildProjectOrderBase(current, preview).filter((name) => name !== projectName);
-    const insertionIndex =
-      typeof secondaryIndex === "number"
-        ? Math.max(1, Math.min(baseOrder.length, secondaryIndex + 1))
-        : baseOrder.length;
-    const nextOrder = [...baseOrder];
-    nextOrder.splice(insertionIndex, 0, projectName);
-    return nextOrder;
-  }
-
-  function addCustomProject(secondaryIndex?: number) {
-    updateOverrides((current) => {
-      const name = getUniqueProjectName("Custom Project", current, preview);
-      const nextProject: PortfolioCustomProject = {
-        id: createCustomProjectId(),
-        name,
-        description: "Describe what this project does and why it matters.",
-        language: "Project",
-        href: "",
-        imageUrl: "",
-      };
-
-      return {
-        ...current,
-        customProjects: [...current.customProjects, nextProject],
-        layout: {
-          ...current.layout,
-          projectOrder: insertProjectIntoOrder(current, name, secondaryIndex),
-          hiddenProjectNames: current.layout.hiddenProjectNames.filter((projectName) => projectName !== name),
-        },
-      };
-    });
-  }
-
-  function updateCustomProject(
-    projectId: string,
-    key: keyof Pick<PortfolioCustomProject, "name" | "description" | "language" | "href" | "imageUrl">,
-    value: string,
-  ) {
-    const currentCustomProjectName = overrides.customProjects.find((entry) => entry.id === projectId)?.name ?? null;
-
-    updateOverrides((current) => {
-      const project = current.customProjects.find((entry) => entry.id === projectId);
-
-      if (!project) {
-        return current;
-      }
-
-      if (key !== "name") {
-        return {
-          ...current,
-          customProjects: current.customProjects.map((entry) =>
-            entry.id === projectId ? { ...entry, [key]: value } : entry,
-          ),
-        };
-      }
-
-      const nextName = getUniqueProjectName(value, current, preview, project.name);
-
-      return {
-        ...current,
-        customProjects: current.customProjects.map((entry) =>
-          entry.id === projectId ? { ...entry, name: nextName } : entry,
-        ),
-        projectOverrides: Object.fromEntries(
-          Object.entries(current.projectOverrides).map(([projectName, override]) => [
-            projectName === project.name ? nextName : projectName,
-            override,
-          ]),
-        ),
-        layout: {
-          ...current.layout,
-          projectOrder: current.layout.projectOrder.map((projectName) =>
-            projectName === project.name ? nextName : projectName,
-          ),
-          hiddenProjectNames: current.layout.hiddenProjectNames.map((projectName) =>
-            projectName === project.name ? nextName : projectName,
-          ),
-        },
-        aiAccepted: {
-          ...current.aiAccepted,
-          projectDescriptions: Object.fromEntries(
-            Object.entries(current.aiAccepted.projectDescriptions).map(([projectName, accepted]) => [
-              projectName === project.name ? nextName : projectName,
-              accepted,
-            ]),
-          ),
-        },
-      };
-    });
-
-    if (key === "name" && currentCustomProjectName) {
-      setOpenProjectImports((current) => {
-        if (!(currentCustomProjectName in current)) {
-          return current;
-        }
-
-        const next = { ...current };
-        delete next[currentCustomProjectName];
-        return next;
-      });
-    }
-  }
-
-  function removeProjectFromSelectedWork(projectName: string) {
-    const customProject = overrides.customProjects.find((project) => project.name === projectName);
-
-    updateOverrides((current) => {
-      const matchingCustomProject = current.customProjects.find((project) => project.name === projectName);
-
-      if (matchingCustomProject) {
-        const nextProjectOverrides = { ...current.projectOverrides };
-        delete nextProjectOverrides[projectName];
-
-        const nextAcceptedProjectDescriptions = { ...current.aiAccepted.projectDescriptions };
-        delete nextAcceptedProjectDescriptions[projectName];
-
-        return {
-          ...current,
-          customProjects: current.customProjects.filter((project) => project.name !== projectName),
-          projectOverrides: nextProjectOverrides,
-          layout: {
-            ...current.layout,
-            projectOrder: current.layout.projectOrder.filter((name) => name !== projectName),
-            hiddenProjectNames: current.layout.hiddenProjectNames.filter((name) => name !== projectName),
-          },
-          aiAccepted: {
-            ...current.aiAccepted,
-            projectDescriptions: nextAcceptedProjectDescriptions,
-          },
-        };
-      }
-
-      if (current.layout.hiddenProjectNames.includes(projectName)) {
-        return current;
-      }
-
-      return {
-        ...current,
-        layout: {
-          ...current.layout,
-          hiddenProjectNames: [...current.layout.hiddenProjectNames, projectName],
-        },
-      };
-    });
-
-    setOpenProjectImports((current) => {
-      if (!(projectName in current)) {
-        return current;
-      }
-
-      const next = { ...current };
-      delete next[projectName];
-      return next;
-    });
-
-    if (customProject && draggedProjectName === projectName) {
-      setDraggedProjectName(null);
-      setProjectDropTargetName(null);
-    }
-  }
-
-  function restoreProjectToSelectedWork(projectName: string, secondaryIndex?: number) {
-    updateOverrides((current) => ({
-      ...current,
-      layout: {
-        ...current.layout,
-        projectOrder: insertProjectIntoOrder(current, projectName, secondaryIndex),
-        hiddenProjectNames: current.layout.hiddenProjectNames.filter((name) => name !== projectName),
-      },
-    }));
-  }
-
   function setProjectImageOverride(repositoryName: string, imageUrl: string) {
     updateOverrides((current) => {
       const nextProjectOverrides = { ...current.projectOverrides };
@@ -2249,7 +2911,10 @@ export function Repo2SiteShell() {
 
   function reorderProjects(draggedName: string, targetName: string) {
     updateOverrides((current) => {
-      const baseOrder = buildProjectOrderBase(current, preview);
+      const baseOrder =
+        current.layout.projectOrder.length > 0
+          ? current.layout.projectOrder
+          : (preview?.featuredRepositories ?? FALLBACK_REPOSITORIES).map((repository) => repository.name);
       const draggedIndex = baseOrder.indexOf(draggedName);
       const targetIndex = baseOrder.indexOf(targetName);
 
@@ -2271,21 +2936,11 @@ export function Repo2SiteShell() {
     });
   }
 
-  function insertProjectAtSecondaryIndex(projectName: string, secondaryIndex: number) {
-    updateOverrides((current) => ({
-      ...current,
-      layout: {
-        ...current.layout,
-        projectOrder: insertProjectIntoOrder(current, projectName, secondaryIndex),
-      },
-    }));
-  }
-
   function makeFeaturedProject(repositoryName: string) {
     const currentOrder =
       overrides.layout.projectOrder.length > 0
         ? overrides.layout.projectOrder
-        : buildProjectOrderBase(overrides, preview);
+        : repositories.map((repository) => repository.name);
     const remaining = currentOrder.filter((name) => name !== repositoryName);
 
     updateOverrides((current) => ({
@@ -2357,20 +3012,6 @@ export function Repo2SiteShell() {
         },
       };
     });
-  }
-
-  function setSectionLayout(nextLayout: PortfolioOverrides["appearance"]["sectionLayout"]) {
-    updateOverrides((current) => ({
-      ...current,
-      appearance: {
-        ...current.appearance,
-        sectionLayout: nextLayout,
-      },
-      layout: {
-        ...current.layout,
-        components: applySectionLayoutMode(current.layout.components, nextLayout),
-      },
-    }));
   }
 
   function updateChildComponentOrder(
@@ -2531,10 +3172,8 @@ export function Repo2SiteShell() {
     }));
   }
 
-  function updateSectionOrder(sectionId: string, direction: -1 | 1) {
-    updateLayoutComponents((components) =>
-      moveSectionRow(components, overrides.appearance.sectionLayout, sectionId, direction),
-    );
+  function updateSectionOrder(sectionId: PortfolioSectionId, direction: -1 | 1) {
+    updateLayoutComponents((components) => moveCanvasComponent(components, sectionId, direction));
   }
 
   function toggleSectionVisibility(sectionId: string) {
@@ -2553,10 +3192,7 @@ export function Repo2SiteShell() {
     );
   }
 
-  function handleSectionDragStart(sectionId: string, event: DragEvent<HTMLElement>) {
-    event.stopPropagation();
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(SECTION_LAYOUT_DRAG_TYPE, sectionId);
+  function handleSectionDragStart(sectionId: string) {
     setDraggedSectionId(sectionId);
     setDropTargetSectionId(null);
     setDropPosition(null);
@@ -2564,10 +3200,6 @@ export function Repo2SiteShell() {
   }
 
   function handleSectionDragOver(event: DragEvent<HTMLElement>, sectionId: string) {
-    if (!event.dataTransfer.types.includes(SECTION_LAYOUT_DRAG_TYPE)) {
-      return;
-    }
-
     if (!draggedSectionId || draggedSectionId === sectionId) {
       return;
     }
@@ -2596,11 +3228,7 @@ export function Repo2SiteShell() {
     setDropPosition(nextDropPosition);
   }
 
-  function handleSectionDrop(sectionId: string, event: DragEvent<HTMLElement>) {
-    if (!event.dataTransfer.types.includes(SECTION_LAYOUT_DRAG_TYPE)) {
-      return;
-    }
-
+  function handleSectionDrop(sectionId: string) {
     if (!draggedSectionId || draggedSectionId === sectionId) {
       setDraggedSectionId(null);
       setDropTargetSectionId(null);
@@ -2609,13 +3237,7 @@ export function Repo2SiteShell() {
     }
 
     updateLayoutComponents((components) =>
-      moveSectionPlacement(
-        components,
-        overrides.appearance.sectionLayout,
-        draggedSectionId,
-        sectionId,
-        dropPosition ?? "before",
-      ),
+      reorderCanvasComponent(components, draggedSectionId, sectionId, dropPosition ?? "before"),
     );
 
     setDraggedSectionId(null);
@@ -2630,170 +3252,9 @@ export function Repo2SiteShell() {
     triggerSpriteReaction("drag-end");
   }
 
-  function stackSection(sectionId: string) {
-    updateLayoutComponents((components) => {
-      const currentRows = resolvePortfolioSectionRows(
-        components.filter((component) => component.visible),
-        overrides.appearance.sectionLayout,
-      ).rows;
-      const currentRow = currentRows.find((row) => row.items.some((component) => component.id === sectionId));
-
-      if (!currentRow || !currentRow.isFlexible) {
-        return components;
-      }
-
-      const rowSectionIds = new Set(currentRow.items.map((component) => component.id));
-
-      return components.map((component) =>
-        rowSectionIds.has(component.id)
-          ? {
-              ...component,
-              rowId: component.id,
-              width: "full",
-              widthRatio: 1,
-            }
-          : component,
-      );
-    });
-  }
-
-  function adjustSectionWidth(sectionId: string, direction: "grow" | "shrink") {
-    updateLayoutComponents((components) => {
-      const visibleRows = resolvePortfolioSectionRows(
-        components.filter((component) => component.visible),
-        overrides.appearance.sectionLayout,
-      ).rows;
-      const row = visibleRows.find((candidate) => candidate.items.some((component) => component.id === sectionId));
-
-      if (!row || !row.isFlexible || row.items.length !== 2) {
-        return components;
-      }
-
-      const leftComponent = row.items[0];
-      const rightComponent = row.items[1];
-      const targetIsLeft = leftComponent.id === sectionId;
-      const currentLeftRatio = getCanvasSectionWidthRatio(leftComponent);
-      const targetRatio = targetIsLeft ? currentLeftRatio : 1 - currentLeftRatio;
-      const allowedTargetRatios = targetIsLeft
-        ? getAllowedRowWidthRatios(leftComponent, rightComponent)
-        : getAllowedRowWidthRatios(leftComponent, rightComponent).map((ratio) => 1 - ratio);
-      const sortedTargetRatios = [...allowedTargetRatios].sort((a, b) => a - b);
-      const nextTargetRatio =
-        direction === "grow"
-          ? sortedTargetRatios.find((ratio) => ratio > targetRatio)
-          : [...sortedTargetRatios].reverse().find((ratio) => ratio < targetRatio);
-
-      if (typeof nextTargetRatio !== "number") {
-        return components;
-      }
-
-      const nextLeftRatio = targetIsLeft ? nextTargetRatio : 1 - nextTargetRatio;
-
-      return components.map((component) => {
-        if ((component.rowId || component.id) !== row.id || !canSectionShareRow(component)) {
-          return component;
-        }
-
-        if (component.id === leftComponent.id) {
-          return {
-            ...component,
-            width: undefined,
-            widthRatio: nextLeftRatio,
-          };
-        }
-
-        if (component.id === rightComponent.id) {
-          return {
-            ...component,
-            width: undefined,
-            widthRatio: 1 - nextLeftRatio,
-          };
-        }
-
-        return component;
-      });
-    });
-  }
-
-  function setSectionWidthPreset(sectionId: string, targetRatio: number) {
-    updateLayoutComponents((components) => {
-      const visibleRows = resolvePortfolioSectionRows(
-        components.filter((component) => component.visible),
-        overrides.appearance.sectionLayout,
-      ).rows;
-      const row = visibleRows.find((candidate) => candidate.items.some((component) => component.id === sectionId));
-
-      if (!row || !row.isFlexible || row.items.length !== 2) {
-        return components;
-      }
-
-      const leftComponent = row.items[0];
-      const rightComponent = row.items[1];
-      const nextLeftRatio = leftComponent.id === sectionId ? targetRatio : 1 - targetRatio;
-
-      return components.map((component) => {
-        if ((component.rowId || component.id) !== row.id || !canSectionShareRow(component)) {
-          return component;
-        }
-
-        if (component.id === leftComponent.id) {
-          return {
-            ...component,
-            width: undefined,
-            widthRatio: nextLeftRatio,
-          };
-        }
-
-        if (component.id === rightComponent.id) {
-          return {
-            ...component,
-            width: undefined,
-            widthRatio: 1 - nextLeftRatio,
-          };
-        }
-
-        return component;
-      });
-    });
-  }
-
-  function placeSectionBeside(sectionId: string, direction: "previous" | "next") {
-    if (overrides.appearance.sectionLayout === "stacked") {
-      return;
-    }
-
-    updateLayoutComponents((components) => {
-      const visibleComponents = components.filter((component) => component.visible);
-      const rows = resolvePortfolioSectionRows(
-        visibleComponents,
-        overrides.appearance.sectionLayout,
-      ).rows;
-      const orderedVisibleIds = rows.flatMap((row) => row.items.map((component) => component.id));
-      const currentIndex = orderedVisibleIds.indexOf(sectionId);
-
-      if (currentIndex === -1) {
-        return components;
-      }
-
-      const targetId =
-        direction === "previous" ? orderedVisibleIds[currentIndex - 1] : orderedVisibleIds[currentIndex + 1];
-
-      if (!targetId || targetId === sectionId) {
-        return components;
-      }
-      return moveSectionPlacement(
-        components,
-        overrides.appearance.sectionLayout,
-        sectionId,
-        targetId,
-        direction === "previous" ? "left" : "right",
-      );
-    });
-  }
-
   function addBuiltInSection(sectionId: PortfolioSectionId) {
     restoreSection(sectionId);
-    focusSection(sectionId);
+    focusSection(sectionId, "section");
   }
 
   function addCustomSection() {
@@ -2808,7 +3269,6 @@ export function Repo2SiteShell() {
           id: sectionId,
           title: `Custom Section ${current.customSections.length + 1}`,
           description: "Add your own notes, skills, awards, or anything else you want to feature.",
-          blocks: buildDefaultCustomSectionBlocks(),
         },
       ],
       layout: {
@@ -2828,7 +3288,7 @@ export function Repo2SiteShell() {
       },
     }));
 
-    focusSection(sectionId);
+    focusSection(sectionId, "content");
   }
 
   function duplicateSection(sectionId: string) {
@@ -2849,10 +3309,6 @@ export function Repo2SiteShell() {
           id: nextId,
           title: `${sourceSection.title} Copy`,
           description: sourceSection.description,
-          blocks: (sourceSection.blocks ?? buildDefaultCustomSectionBlocks()).map((block) => ({
-            ...block,
-            id: createCustomSectionBlockId(),
-          })),
         },
       ],
       layout: {
@@ -2876,7 +3332,7 @@ export function Repo2SiteShell() {
       },
     }));
 
-    focusSection(nextId);
+    focusSection(nextId, "content");
   }
 
   function removeSection(sectionId: string) {
@@ -2899,7 +3355,6 @@ export function Repo2SiteShell() {
       if (selectedSectionId === sectionId) {
         setSelectedSectionId(null);
       }
-      clearSectionRemoval(sectionId);
       return;
     }
 
@@ -2908,7 +3363,6 @@ export function Repo2SiteShell() {
     if (selectedSectionId === sectionId) {
       setSelectedSectionId(null);
     }
-    clearSectionRemoval(sectionId);
   }
 
   function handleChildDragStart(componentId: string) {
@@ -2959,36 +3413,20 @@ export function Repo2SiteShell() {
     techStack: FALLBACK_TECH_STACK,
   });
   const theme = portfolio.theme;
-  const sharedSectionModels = buildRepo2SiteSectionModels(portfolio);
   const appThemeStyles = buildAppThemeStyles(renderTheme);
-  const themeStyles = buildRepo2SiteThemeStyles(
+  const themeStyles = buildThemeStyles(
     theme,
     portfolio.appearance.cardStyle,
     portfolio.appearance.colorMode,
   );
-  const isPreviewMode = Boolean(preview) && !isEditMode;
-  const modeToggleLabel = preview
-    ? isEditMode
-      ? "Preview Mode"
-      : "Editor Mode"
-    : isEditMode
-      ? "Hide Editor"
-      : "Open Editor";
   const activePalette = theme.palette;
   const repositories = portfolio.repositories;
-  const hiddenProjectNames = overrides.layout.hiddenProjectNames;
-  const hiddenProjectOptions = buildProjectOrderBase(overrides, preview).filter((name) =>
-    hiddenProjectNames.includes(name),
-  );
   const links = portfolio.linksSection.links;
   const techStack = portfolio.techStack;
   const professional = portfolio.professional;
   const featuredProject = repositories[0];
-  const secondaryProjects = repositories.slice(1);
+  const secondaryProjects = repositories.slice(1, 5);
   const featuredProjectHasImage = Boolean(featuredProject?.resolvedImage);
-  const customProjectsByName = new Map(overrides.customProjects.map((project) => [project.name, project]));
-  const projectLayoutMode = portfolio.appearance.projectsLayout;
-  const projectOverflowSize = portfolio.appearance.projectsOverflowSize;
   const heroHeadline = portfolio.hero.headline;
   const heroSubheadline = portfolio.hero.subheadline;
   const aboutTitle = portfolio.about.title;
@@ -3056,15 +3494,48 @@ export function Repo2SiteShell() {
   const contactActionButtons = primaryProfessionalActions.filter((action) =>
     ["resume", "coverLetter", "linkedIn", "handshake"].includes(action.id),
   );
-  const heroSummary = sharedSectionModels.hero.summary;
+  const heroSummary =
+    professional.summary ||
+    preview?.profile.bio ||
+    portfolio.summary ||
+    aboutDescription.value;
   const heroFocusAreas = techStack.slice(0, 6);
-  const heroHighlights = sharedSectionModels.hero.highlightItems;
+  const heroHighlights = [
+    professional.availability
+      ? { label: "Availability", value: professional.availability }
+      : null,
+    professional.company || preview?.profile.company
+      ? { label: "Company", value: professional.company || preview?.profile.company || "" }
+      : null,
+    professional.location || preview?.profile.location
+      ? {
+          label: "Location",
+          value: professional.location || preview?.profile.location || "",
+        }
+      : null,
+    featuredProject?.name ? { label: "Featured Project", value: featuredProject.name } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
   const heroIntroText =
     heroSubheadline.value.trim() ||
     professional.summary ||
     preview?.profile.bio ||
     (preview ? portfolio.summary : FALLBACK_HERO.subheadline);
-  const contactMethods = sharedSectionModels.contact.methods;
+  const contactMethods = [
+    contactEmail
+      ? {
+          label: DEFAULT_CARD_LABELS.email,
+          value: contactEmail,
+          href: contactEmailHref,
+        }
+      : null,
+    portfolio.contact.phone
+      ? {
+          label: DEFAULT_CARD_LABELS.phone,
+          value: portfolio.contact.phone,
+          href: portfolio.contact.phoneHref,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; href: string }>;
   const hasOverrides = JSON.stringify(overrides) !== JSON.stringify(buildEmptyOverrides());
   const completenessChecks = [
     Boolean(portfolio.hero.headline.value.trim() && heroIntroText.trim()),
@@ -3117,7 +3588,7 @@ export function Repo2SiteShell() {
         professional.actions.length > 1 ||
         isEditMode,
     );
-  const showProjects = !hiddenSections.has("projects") && (repositories.length > 0 || isEditMode);
+  const showProjects = !hiddenSections.has("projects") && repositories.length > 0;
   const showLinks = !hiddenSections.has("links") && links.length > 0;
   const showContact =
     !hiddenSections.has("contact") &&
@@ -3154,7 +3625,6 @@ export function Repo2SiteShell() {
       }
   });
   const hiddenCanvasComponents = canvasComponents.filter((component) => !component.visible);
-  const defaultAppearance = buildEmptyOverrides().appearance;
   const sectionLabels: Record<PortfolioSectionType, string> = {
     hero: "Hero",
     about: "About",
@@ -3164,10 +3634,24 @@ export function Repo2SiteShell() {
     contact: "Contact",
     custom: "Custom",
   };
-  const visibleSectionRows = resolvePortfolioSectionRows(
-    visibleCanvasComponents,
-    portfolio.appearance.sectionLayout,
-  ).rows;
+  const visibleSectionRows = visibleCanvasComponents.reduce<Array<{ id: string; items: PortfolioCanvasComponent[] }>>(
+    (rows, component) => {
+      const rowId =
+        portfolio.appearance.sectionLayout === "stacked" || !canSectionShareRow(component)
+          ? component.id
+          : component.rowId || component.id;
+      const existingRow = rows.find((row) => row.id === rowId);
+
+      if (existingRow) {
+        existingRow.items.push(component);
+      } else {
+        rows.push({ id: rowId, items: [component] });
+      }
+
+      return rows;
+    },
+    [],
+  );
   const selectedCanvasComponent =
     visibleCanvasComponents.find((component) => component.id === selectedSectionId) ??
     canvasComponents.find((component) => component.id === selectedSectionId) ??
@@ -3311,15 +3795,6 @@ export function Repo2SiteShell() {
     .filter((id) => !hiddenChildComponentIds.has(id))
     .map((id) => secondaryProjectItems.find((item) => item.id === id))
     .filter(Boolean) as typeof secondaryProjectItems;
-  const hybridProjectGridClass = "grid gap-4 md:grid-cols-2 md:auto-rows-fr";
-  const hybridProjectTargetSlotCount = Math.min(
-    6,
-    Math.max(2, visibleSecondaryProjectItems.length + 1),
-  );
-  const hybridProjectPlaceholderCount =
-    isEditMode && projectLayoutMode === "hybrid"
-      ? hybridProjectTargetSlotCount - visibleSecondaryProjectItems.length
-      : 0;
   const childComponentLabels: Record<string, string> = {
     "hero:image": "Hero image",
     "hero:name": "Hero name block",
@@ -3441,101 +3916,6 @@ export function Repo2SiteShell() {
   const selectedSectionHint = selectedCanvasComponent
     ? SECTION_CONTENT_HINTS[selectedCanvasComponent.type]
     : "Select a section on the canvas to adjust layout, styling, and section settings here.";
-  const customSectionTitles = Object.fromEntries(
-    overrides.customSections.map((section) => [section.id, section.title || "Custom Section"]),
-  );
-  const featureBadges = [
-    "GitHub + README aware",
-    "Resume and profile imports",
-    "Human-reviewed AI suggestions",
-  ];
-  const hasHeroEdit = Boolean(
-    overrides.hero.headline.trim() ||
-      overrides.hero.subheadline.trim() ||
-      overrides.hero.headlineSuggestion.trim(),
-  );
-  const hasAboutEdit = Boolean(overrides.about.description.trim() || overrides.aboutSuggestion.trim());
-  const hasProjectEdit = Object.values(overrides.projectOverrides).some(
-    (project) =>
-      Boolean(project.description.trim()) ||
-      Boolean(project.descriptionSuggestion.trim()) ||
-      Boolean(project.imageUrl.trim()),
-  );
-  const hasLayoutChange =
-    getHiddenSectionsFromComponents(overrides.layout.components).length > 0 ||
-    JSON.stringify(getSectionOrderFromComponents(overrides.layout.components)) !==
-      JSON.stringify(DEFAULT_SECTION_ORDER) ||
-    overrides.customSections.length > 0;
-  const hasThemeChange =
-    Boolean(overrides.appearance.themeId) ||
-    Boolean(overrides.appearance.customPalette) ||
-    overrides.appearance.density !== defaultAppearance.density ||
-    overrides.appearance.cardStyle !== defaultAppearance.cardStyle ||
-    overrides.appearance.colorMode !== defaultAppearance.colorMode;
-  const walkthrough = useRepo2SiteWalkthrough({
-    context: {
-      hasPreview: Boolean(preview),
-      hasResume: hasResumeContext,
-      hasProjects: Boolean(preview?.featuredRepositories.length),
-      hasPendingAiSuggestions: pendingAiSuggestionCount > 0,
-      isCustomizeOpen,
-      isEditMode,
-      isPreviewMode,
-      hasHeroEdit,
-      hasAboutEdit,
-      hasProjectEdit,
-      hasLayoutChange,
-      hasThemeChange,
-    },
-    onTrackEvent: trackAnalyticsEvent,
-  });
-
-  function handleWalkthroughAction(action: WalkthroughActionKind) {
-    const heroSectionId = canvasComponents.find((component) => component.type === "hero")?.id ?? null;
-    const aboutSectionId = canvasComponents.find((component) => component.type === "about")?.id ?? null;
-
-    switch (action) {
-      case "focus-github-input":
-        window.setTimeout(() => {
-          const input = document.getElementById("profile-url");
-          if (input instanceof HTMLInputElement) {
-            input.focus();
-            input.select();
-          }
-        }, 0);
-        break;
-      case "open-edit-mode":
-        toggleEditMode(true);
-        break;
-      case "focus-hero":
-        toggleEditMode(true);
-        if (heroSectionId) focusSection(heroSectionId);
-        break;
-      case "focus-about":
-        toggleEditMode(true);
-        if (aboutSectionId) focusSection(aboutSectionId);
-        break;
-      case "focus-workspace":
-        toggleEditMode(true);
-        if (selectedSectionId) {
-          focusSection(selectedSectionId);
-        }
-        break;
-      case "open-customize":
-        revealInspector("theme");
-        break;
-      case "switch-preview-mode":
-        toggleEditMode(false);
-        break;
-      case "return-to-editor":
-        toggleEditMode(true);
-        break;
-      case "open-export":
-        toggleEditMode(true);
-        toggleSharePanel(true);
-        break;
-    }
-  }
 
   function isCanvasChildVisible(componentId: string) {
     return !hiddenChildComponentIds.has(componentId);
@@ -3543,11 +3923,8 @@ export function Repo2SiteShell() {
 
 
   function renderPreviewSection(component: PortfolioCanvasComponent) {
-    const sectionContentLayout = getSectionContentLayout(component);
-
     if (component.type === "custom") {
       const customSection = overrides.customSections.find((section) => section.id === component.id);
-      const customBlocks = customSection?.blocks ?? [];
 
       return (
         <div className={`rounded-[2rem] border ${densityClasses.sectionPadding} space-y-4`} style={themeStyles.surface}>
@@ -3560,188 +3937,40 @@ export function Repo2SiteShell() {
               <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
                 {customSection?.title || component.title || "Custom Section"}
               </p>
-              {customSection?.description ? (
-                <p className="text-sm leading-7 sm:text-base">
-                  {customSection.description}
-                </p>
-              ) : null}
-              <div className="grid gap-4 md:grid-cols-2">
-                {customBlocks.map((block) => (
-                  <div
-                    key={block.id}
-                    className={`min-w-0 rounded-[1.2rem] border p-4 ${block.width === "full" ? "md:col-span-2" : ""}`}
-                    style={themeStyles.strongSurface}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.mutedText}>
-                          {block.label || (block.type === "image" ? "Image" : "Text")}
-                        </p>
-                        {block.title ? (
-                          <p className="mt-2 text-lg font-semibold tracking-tight">{block.title}</p>
-                        ) : null}
-                      </div>
-                      {isEditMode ? (
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateCustomSectionBlock(component.id, block.id, "width", block.width === "full" ? "half" : "full")
-                            }
-                            className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                            style={themeStyles.ghostButton}
-                          >
-                            {block.width === "full" ? "Half" : "Full"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeCustomSectionBlock(component.id, block.id)}
-                            className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                            style={themeStyles.ghostButton}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                    {block.type === "image" ? (
-                      <div className="mt-4 space-y-3">
-                        {block.imageUrl ? (
-                          <img
-                            src={block.imageUrl}
-                            alt={block.title || block.label || "Custom section image"}
-                            className="w-full rounded-[1rem] border object-cover"
-                            style={{ borderColor: themeStyles.surface.borderColor, maxHeight: block.width === "full" ? "24rem" : "18rem" }}
-                          />
-                        ) : (
-                          <div className="flex min-h-[12rem] items-center justify-center rounded-[1rem] border border-dashed text-sm" style={themeStyles.surface}>
-                            Add an image URL to show visual content here.
-                          </div>
-                        )}
-                        {block.text ? (
-                          <p className="break-words whitespace-pre-wrap text-sm leading-7" style={themeStyles.mutedText}>
-                            {block.text}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : block.text ? (
-                      <p className="mt-4 break-words whitespace-pre-wrap text-sm leading-7 sm:text-base">
-                        {block.text}
-                      </p>
-                    ) : (
-                      <p className="mt-4 text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>
-                        Add text here from the editor controls.
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm leading-7 sm:text-base">
+                {customSection?.description || "Add your own content here from the editor controls."}
+              </p>
               {isEditMode ? (
                 <div className="grid gap-3">
                   <input
                     value={customSection?.title || ""}
-                    onChange={(event) => updateCustomSection(component.id, "title", event.target.value)}
+                    onChange={(event) =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        customSections: current.customSections.map((section) =>
+                          section.id === component.id ? { ...section, title: event.target.value } : section,
+                        ),
+                      }))
+                    }
                     placeholder="Section title"
                     className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
                     style={themeStyles.strongSurface}
                   />
                   <textarea
                     value={customSection?.description || ""}
-                    onChange={(event) => updateCustomSection(component.id, "description", event.target.value)}
+                    onChange={(event) =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        customSections: current.customSections.map((section) =>
+                          section.id === component.id ? { ...section, description: event.target.value } : section,
+                        ),
+                      }))
+                    }
                     rows={4}
                     placeholder="Describe the content for this custom section"
                     className="min-h-[108px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
                     style={themeStyles.strongSurface}
                   />
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => addCustomSectionBlock(component.id, "text")}
-                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                      style={themeStyles.accentButton}
-                    >
-                      Add Text Block
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addCustomSectionBlock(component.id, "image")}
-                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                      style={themeStyles.ghostButton}
-                    >
-                      Add Image Block
-                    </button>
-                  </div>
-                  <div className="grid gap-3">
-                    {customBlocks.map((block, index) => (
-                      <div key={`editor-${block.id}`} className="grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                            Block {index + 1}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateCustomSectionBlock(component.id, block.id, "width", block.width === "full" ? "half" : "full")}
-                              className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              style={themeStyles.ghostButton}
-                            >
-                              {block.width === "full" ? "Half Width" : "Full Width"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeCustomSectionBlock(component.id, block.id)}
-                              className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              style={themeStyles.ghostButton}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                        <input
-                          value={block.label}
-                          onChange={(event) => updateCustomSectionBlock(component.id, block.id, "label", event.target.value)}
-                          placeholder="Block label"
-                          className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                          style={themeStyles.surface}
-                        />
-                        <input
-                          value={block.title}
-                          onChange={(event) => updateCustomSectionBlock(component.id, block.id, "title", event.target.value)}
-                          placeholder="Block title"
-                          className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                          style={themeStyles.surface}
-                        />
-                        {block.type === "image" ? (
-                          <>
-                            <input
-                              value={block.imageUrl}
-                              onChange={(event) => updateCustomSectionBlock(component.id, block.id, "imageUrl", event.target.value)}
-                              placeholder="https://example.com/image.png"
-                              className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                              style={themeStyles.surface}
-                            />
-                            <textarea
-                              value={block.text}
-                              onChange={(event) => updateCustomSectionBlock(component.id, block.id, "text", event.target.value)}
-                              rows={3}
-                              placeholder="Optional caption or supporting note"
-                              className="min-h-[88px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
-                              style={themeStyles.surface}
-                            />
-                          </>
-                        ) : (
-                          <textarea
-                            value={block.text}
-                            onChange={(event) => updateCustomSectionBlock(component.id, block.id, "text", event.target.value)}
-                            rows={4}
-                            placeholder="Write the content for this subsection"
-                            className="min-h-[108px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
-                            style={themeStyles.surface}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
               ) : null}
             </div>
@@ -3751,319 +3980,12 @@ export function Repo2SiteShell() {
     }
 
     const sectionId = component.type;
-    const renderSecondaryProjectCard = (
-      repository: ResolvedPreviewRepository,
-      id: string,
-      variant: "grid" | "stacked",
-    ) => {
-      const hasProjectImage = Boolean(repository.resolvedImage);
-
-      return (
-        <div
-          key={id}
-          className={`min-w-0 flex h-full flex-col rounded-[1.5rem] border p-5 transition ${draggedProjectName === repository.name ? "opacity-60" : ""}`}
-          style={{
-            ...themeStyles.projectCard,
-            borderColor:
-              projectDropTargetName === repository.name && draggedProjectName !== repository.name
-                ? theme.palette.accent
-                : themeStyles.projectCard.borderColor,
-            boxShadow:
-              projectDropTargetName === repository.name && draggedProjectName !== repository.name
-                ? `0 0 0 1px ${theme.palette.accent}`
-                : themeStyles.projectCard.boxShadow,
-          }}
-          onDragOver={(event) => {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-            handleProjectDragOver(repository.name);
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            handleProjectDrop(repository.name);
-          }}
-        >
-          {hasProjectImage ? (
-            <ProjectImagePreview repository={repository} themeStyles={themeStyles} compact={variant === "grid"} />
-          ) : null}
-          <div className={`mb-4 ${hasProjectImage ? "mt-5" : "mt-0"} h-1 w-14 rounded-full`} style={{ backgroundColor: theme.palette.accent }} />
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-2">
-              <p className="break-words text-lg font-semibold leading-6">{repository.name}</p>
-              <SourceBadge source={repository.descriptionSource} themeStyles={themeStyles} />
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {isEditMode ? (
-                <button
-                  type="button"
-                  onClick={() => removeProjectFromSelectedWork(repository.name)}
-                  className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  style={themeStyles.ghostButton}
-                >
-                  Remove
-                </button>
-              ) : null}
-              <button
-                type="button"
-                draggable
-                onDragStart={(event) => {
-                  event.stopPropagation();
-                  handleProjectDragStart(repository.name);
-                }}
-                onDragEnd={handleProjectDragEnd}
-                className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                style={themeStyles.ghostButton}
-                aria-label={`Drag ${repository.name}`}
-                title={`Drag ${repository.name}`}
-              >
-                <span aria-hidden="true">⋮⋮</span>
-              </button>
-              {isEditMode ? (
-                <button
-                  type="button"
-                  onClick={() => setChildComponentVisible(id, false)}
-                  className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  style={themeStyles.ghostButton}
-                >
-                  Hide
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <p className={`flex-1 break-words whitespace-pre-wrap text-sm leading-7 ${hasProjectImage ? "mt-4" : "mt-5 text-base"}`} style={themeStyles.mutedText}>
-            {repository.description}
-          </p>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <div className="min-w-0">
-              <TechBadge label={repository.language} themeStyles={themeStyles} compact />
-            </div>
-            <a href={repository.href} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
-              Open Project
-            </a>
-            <button
-              type="button"
-              onClick={() => makeFeaturedProject(repository.name)}
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-              style={themeStyles.ghostButton}
-            >
-              Make Featured
-            </button>
-          </div>
-          <InlineEditableField
-            label={`${repository.name} description`}
-            value={overrides.projectOverrides[repository.name]?.description ?? ""}
-            onChange={(nextValue) => setProjectDescriptionOverride(repository.name, nextValue)}
-            generatedValue={
-              customProjectsByName.get(repository.name)?.description ??
-              baseRepositories.find((item) => item.name === repository.name)?.description ??
-              ""
-            }
-            suggestedValue={overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? ""}
-            activeSource={overrides.projectOverrides[repository.name]?.acceptedAi ? "ai" : "user"}
-            placeholder="Shape this repository into a stronger portfolio case study"
-            themeStyles={themeStyles}
-            onApplySuggestion={() =>
-              setProjectDescriptionOverride(
-                repository.name,
-                overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? "",
-                "ai",
-              )
-            }
-            onDismissSuggestion={() => dismissProjectDescriptionSuggestion(repository.name)}
-            onReset={() => setProjectDescriptionOverride(repository.name, "")}
-            editing={isEditMode}
-            multiline
-            compact
-          />
-          {isEditMode && customProjectsByName.has(repository.name) ? (
-            <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-              <InlineEditableField
-                label="Project title"
-                value={customProjectsByName.get(repository.name)?.name ?? ""}
-                onChange={(nextValue) =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "name", nextValue)
-                }
-                generatedValue=""
-                placeholder="Custom project title"
-                themeStyles={themeStyles}
-                onReset={() =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "name", "")
-                }
-                editing={isEditMode}
-                compact
-              />
-              <InlineEditableField
-                label="Project summary"
-                value={customProjectsByName.get(repository.name)?.description ?? ""}
-                onChange={(nextValue) =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "description", nextValue)
-                }
-                generatedValue=""
-                placeholder="Describe what this project does and why it matters"
-                themeStyles={themeStyles}
-                onReset={() =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "description", "")
-                }
-                editing={isEditMode}
-                multiline
-              />
-              <InlineEditableField
-                label="Project URL"
-                value={customProjectsByName.get(repository.name)?.href ?? ""}
-                onChange={(nextValue) =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "href", nextValue)
-                }
-                generatedValue=""
-                placeholder="https://example.com/project"
-                themeStyles={themeStyles}
-                onReset={() =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "href", "")
-                }
-                editing={isEditMode}
-                compact
-              />
-              <InlineEditableField
-                label="Project language"
-                value={customProjectsByName.get(repository.name)?.language ?? ""}
-                onChange={(nextValue) =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "language", nextValue)
-                }
-                generatedValue=""
-                placeholder="TypeScript"
-                themeStyles={themeStyles}
-                onReset={() =>
-                  updateCustomProject(customProjectsByName.get(repository.name)!.id, "language", "")
-                }
-                editing={isEditMode}
-                compact
-              />
-            </div>
-          ) : null}
-          {isEditMode ? (
-            <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-              {!hasProjectImage ? (
-                <p className="text-xs leading-5" style={themeStyles.mutedText}>
-                  No image yet. This card can stay text-first, or you can upload an image when you want a more visual layout.
-                </p>
-              ) : null}
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                  <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(repository.name, event)} />
-                  Upload Image
-                </label>
-                <button type="button" onClick={() => toggleProjectImportPanel(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                  {openProjectImports[repository.name] ? "Hide Image Options" : "Image Options"}
-                </button>
-                <button type="button" onClick={() => removeProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                  Remove Image
-                </button>
-              </div>
-              {openProjectImports[repository.name] ? (
-                <div className="grid gap-3">
-                  <input
-                    value={overrides.projectOverrides[repository.name]?.imageUrl ?? ""}
-                    onChange={(event) => setProjectImageOverride(repository.name, event.target.value)}
-                    placeholder="https://example.com/project-image.png"
-                    className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                    style={themeStyles.surface}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => restoreDefaultProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                      Use Default Image
-                    </button>
-                    {repository.readmeImages.map((imageUrl) => (
-                      <button
-                        key={imageUrl}
-                        type="button"
-                        onClick={() => setProjectImageOverride(repository.name, imageUrl)}
-                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                        style={themeStyles.ghostButton}
-                      >
-                        Apply README Image
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      );
-    };
-
-    const renderProjectPlaceholder = (
-      key: string,
-      secondaryIndex: number,
-      emptyMessage: string,
-    ) => (
-      <button
-        key={key}
-        type="button"
-        onClick={() => addCustomProject(secondaryIndex)}
-        onDragOver={(event) => {
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-
-          if (!draggedProjectName) {
-            return;
-          }
-
-          insertProjectAtSecondaryIndex(draggedProjectName, secondaryIndex);
-          setDraggedProjectName(null);
-          setProjectDropTargetName(null);
-        }}
-        className="min-h-[23rem] rounded-[1.5rem] border border-dashed p-5 text-left transition hover:-translate-y-0.5"
-        style={{
-          borderColor: themeStyles.projectCard.borderColor,
-          background:
-            portfolio.appearance.colorMode === "dark"
-              ? "rgba(15, 23, 42, 0.08)"
-              : "rgba(148, 163, 184, 0.05)",
-        }}
-      >
-        <div
-          className="flex h-full flex-col rounded-[1rem] border border-dashed p-4"
-          style={{ borderColor: themeStyles.projectCard.borderColor }}
-        >
-          <div
-            className="h-1 w-14 rounded-full"
-            style={{ backgroundColor: theme.palette.accent, opacity: 0.7 }}
-          />
-          <p
-            className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em]"
-            style={themeStyles.mutedText}
-          >
-            Open project slot
-          </p>
-          <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
-            {emptyMessage}
-          </p>
-          <div className="mt-auto pt-4">
-            <span
-              className="inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-              style={themeStyles.ghostButton}
-            >
-              Add Project Here
-            </span>
-          </div>
-        </div>
-      </button>
-    );
 
     switch (sectionId) {
       case "hero":
         return (
           <div className={`rounded-[2rem] border ${densityClasses.heroPadding}`} style={themeStyles.heroSurface}>
-            <div
-              className={
-                sectionContentLayout.supportsDualContentColumns
-                  ? "grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)] xl:items-stretch"
-                  : "grid gap-6"
-              }
-            >
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)] xl:items-stretch">
               <div className="space-y-6">
                 {orderedHeroLeftIds.map((componentId) => {
                   if (!isCanvasChildVisible(componentId)) {
@@ -4164,73 +4086,72 @@ export function Repo2SiteShell() {
 
                   if (componentId === "hero:title") {
                     return (
-                      <div key={componentId} {...getTourHighlightProps("tour-hero-headline")}>
-                        <PreviewCanvasItemFrame
-                          label="Hero headline"
-                          themeStyles={themeStyles}
-                          isEditing={isEditMode}
-                          isDragging={draggedChildComponentId === componentId}
-                          isDropTarget={dropTargetChildComponentId === componentId && draggedChildComponentId !== componentId}
-                          onDragStart={() => handleChildDragStart(componentId)}
-                          onDragOver={() => handleChildDragOver(componentId)}
-                          onDrop={() => handleChildDrop("hero:left", heroLeftDefaultIds, componentId)}
-                          onDragEnd={handleChildDragEnd}
-                          onRemove={() => setChildComponentVisible(componentId, false)}
-                        >
-                          <div className="space-y-3">
-                            <div className="flex flex-wrap items-center gap-3">
-                              {isEditMode ? (
-                                <span className="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.surface}>
-                                  Edit
-                                </span>
-                              ) : null}
-                              <SourceBadge source={heroHeadline.source} themeStyles={themeStyles} />
-                            </div>
-                            <p className="max-w-4xl break-words text-3xl leading-[1.04] tracking-tight sm:text-[3.6rem]">{heroHeadline.value}</p>
-                            <InlineEditableField
-                              label="Hero headline"
-                              value={overrides.hero.headline}
-                              onChange={(nextValue) =>
-                                updateOverrides((current) => ({
-                                  ...current,
-                                  hero: { ...current.hero, headline: nextValue },
-                                  aiAccepted: { ...current.aiAccepted, heroHeadline: false },
-                                }))
-                              }
-                              generatedValue={baseHero.headline}
-                              suggestedValue={overrides.hero.headlineSuggestion}
-                              activeSource={overrides.aiAccepted.heroHeadline ? "ai" : "user"}
-                              placeholder="Add a sharper headline"
-                              themeStyles={themeStyles}
-                              onApplySuggestion={() =>
-                                updateOverrides((current) => ({
-                                  ...current,
-                                  hero: {
-                                    ...current.hero,
-                                    headline: current.hero.headlineSuggestion,
-                                    headlineSuggestion: "",
-                                  },
-                                  aiAccepted: { ...current.aiAccepted, heroHeadline: true },
-                                }))
-                              }
-                              onDismissSuggestion={() =>
-                                updateOverrides((current) => ({
-                                  ...current,
-                                  hero: { ...current.hero, headlineSuggestion: "" },
-                                }))
-                              }
-                              onReset={() =>
-                                updateOverrides((current) => ({
-                                  ...current,
-                                  hero: { ...current.hero, headline: "" },
-                                  aiAccepted: { ...current.aiAccepted, heroHeadline: false },
-                                }))
-                              }
-                              editing={isEditMode}
-                            />
+                      <PreviewCanvasItemFrame
+                        key={componentId}
+                        label="Hero headline"
+                        themeStyles={themeStyles}
+                        isEditing={isEditMode}
+                        isDragging={draggedChildComponentId === componentId}
+                        isDropTarget={dropTargetChildComponentId === componentId && draggedChildComponentId !== componentId}
+                        onDragStart={() => handleChildDragStart(componentId)}
+                        onDragOver={() => handleChildDragOver(componentId)}
+                        onDrop={() => handleChildDrop("hero:left", heroLeftDefaultIds, componentId)}
+                        onDragEnd={handleChildDragEnd}
+                        onRemove={() => setChildComponentVisible(componentId, false)}
+                      >
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            {isEditMode ? (
+                              <span className="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.surface}>
+                                Edit
+                              </span>
+                            ) : null}
+                            <SourceBadge source={heroHeadline.source} themeStyles={themeStyles} />
                           </div>
-                        </PreviewCanvasItemFrame>
-                      </div>
+                          <p className="max-w-4xl break-words text-3xl leading-[1.04] tracking-tight sm:text-[3.6rem]">{heroHeadline.value}</p>
+                          <InlineEditableField
+                            label="Hero headline"
+                            value={overrides.hero.headline}
+                            onChange={(nextValue) =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                hero: { ...current.hero, headline: nextValue },
+                                aiAccepted: { ...current.aiAccepted, heroHeadline: false },
+                              }))
+                            }
+                            generatedValue={baseHero.headline}
+                            suggestedValue={overrides.hero.headlineSuggestion}
+                            activeSource={overrides.aiAccepted.heroHeadline ? "ai" : "user"}
+                            placeholder="Add a sharper headline"
+                            themeStyles={themeStyles}
+                            onApplySuggestion={() =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                hero: {
+                                  ...current.hero,
+                                  headline: current.hero.headlineSuggestion,
+                                  headlineSuggestion: "",
+                                },
+                                aiAccepted: { ...current.aiAccepted, heroHeadline: true },
+                              }))
+                            }
+                            onDismissSuggestion={() =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                hero: { ...current.hero, headlineSuggestion: "" },
+                              }))
+                            }
+                            onReset={() =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                hero: { ...current.hero, headline: "" },
+                                aiAccepted: { ...current.aiAccepted, heroHeadline: false },
+                              }))
+                            }
+                            editing={isEditMode}
+                          />
+                        </div>
+                      </PreviewCanvasItemFrame>
                     );
                   }
 
@@ -4318,15 +4239,7 @@ export function Repo2SiteShell() {
                         onDragEnd={handleChildDragEnd}
                         onRemove={() => setChildComponentVisible(componentId, false)}
                       >
-                        <div
-                          className={
-                            sectionContentLayout.isNarrow
-                              ? "grid gap-3"
-                              : sectionContentLayout.isBalanced
-                                ? "flex flex-wrap items-center gap-3"
-                                : "flex flex-wrap items-center gap-3"
-                          }
-                        >
+                        <div className="flex flex-wrap items-center gap-3">
                           {visibleHeroActionItems.map((item, index) => (
                             <div
                               key={item.id}
@@ -4436,13 +4349,7 @@ export function Repo2SiteShell() {
                         onDragEnd={handleChildDragEnd}
                         onRemove={() => setChildComponentVisible(componentId, false)}
                       >
-                        <div
-                          className={
-                            sectionContentLayout.supportsDualContentColumns
-                              ? "grid gap-3 sm:grid-cols-2"
-                              : "grid gap-3"
-                          }
-                        >
+                        <div className="grid gap-3 sm:grid-cols-2">
                           {visibleHeroHighlightItems.map((highlight) => (
                             <div
                               key={highlight.id}
@@ -4587,7 +4494,7 @@ export function Repo2SiteShell() {
         );
       case "about":
         return (
-          <div className={sectionContentLayout.isWide ? splitAboutClass : "grid gap-6"}>
+          <div className={splitAboutClass}>
             {orderedAboutIds.map((componentId) => {
               if (!isCanvasChildVisible(componentId)) {
                 return null;
@@ -4595,7 +4502,7 @@ export function Repo2SiteShell() {
 
               if (componentId === "about:description") {
                 return (
-                  <div key={componentId} {...getTourHighlightProps("tour-about-edit")}>
+                  <div key={componentId} {...getTourHighlightProps("tour-edit-text")}>
                     <PreviewCanvasItemFrame
                       label="About text block"
                       themeStyles={themeStyles}
@@ -4810,14 +4717,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    {professional.summary ? (
-                      <p
-                        className={`break-words whitespace-pre-wrap text-sm leading-7 sm:text-base ${sectionContentLayout.isWide ? "max-w-3xl" : ""}`}
-                        style={themeStyles.mutedText}
-                      >
-                        {professional.summary}
-                      </p>
-                    ) : null}
+                    {professional.summary ? <p className="break-words whitespace-pre-wrap text-sm leading-7 sm:text-base" style={themeStyles.mutedText}>{professional.summary}</p> : null}
                     <InlineEditableField
                       label="Professional summary"
                       value={overrides.professional.summary}
@@ -4852,7 +4752,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    <div className={sectionContentLayout.supportsDualContentColumns ? "grid gap-3 md:grid-cols-2" : "grid gap-3"}>
+                    <div className="flex flex-wrap gap-3">
                       {visibleProfessionalActionItems.map((item) => (
                         <div
                           key={item.id}
@@ -4867,9 +4767,9 @@ export function Repo2SiteShell() {
                             handleChildDrop("professional:actions", professionalActionItems.map((entry) => entry.id), item.id);
                           }}
                           onDragEnd={handleChildDragEnd}
-                          className={`min-w-0 ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          className={isEditMode ? "cursor-grab active:cursor-grabbing" : ""}
                         >
-                          <div className={`flex min-w-0 ${sectionContentLayout.isNarrow ? "flex-col items-stretch gap-2" : "items-center gap-2"}`}>
+                          <div className="flex items-center gap-2">
                             <button
                               type="button"
                               draggable
@@ -4885,7 +4785,7 @@ export function Repo2SiteShell() {
                             >
                               <span aria-hidden="true">⋮⋮</span>
                             </button>
-                            <a href={item.action.href} target="_blank" rel="noreferrer" className={`inline-flex rounded-xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5 ${sectionContentLayout.isNarrow ? "w-full justify-center" : ""}`} style={themeStyles.ghostButton}>
+                            <a href={item.action.href} target="_blank" rel="noreferrer" className="inline-flex rounded-xl border px-4 py-3 text-sm font-semibold transition hover:-translate-y-0.5" style={themeStyles.ghostButton}>
                               {item.action.label}
                             </a>
                             {isEditMode ? (
@@ -5211,7 +5111,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    <div className={sectionContentLayout.supportsDualContentColumns ? "grid gap-3 md:grid-cols-2" : "grid gap-3"}>
+                    <div className="grid gap-3">
                       {visibleContactMethodItems.map((entry) => (
                         <div
                           key={entry.id}
@@ -5228,7 +5128,7 @@ export function Repo2SiteShell() {
                           onDragEnd={handleChildDragEnd}
                           className={isEditMode ? "cursor-grab active:cursor-grabbing" : ""}
                         >
-                          <a href={entry.item.href} className="block h-full rounded-[1.2rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5" style={themeStyles.surface}>
+                          <a href={entry.item.href} className="block rounded-[1.2rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5" style={themeStyles.surface}>
                             <div className="flex items-center justify-between gap-3">
                               <p className="font-medium">{entry.item.label}</p>
                               <div className="flex items-center gap-2">
@@ -5283,7 +5183,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    <div className={sectionContentLayout.supportsDualContentColumns ? "grid gap-3 md:grid-cols-2" : "flex flex-wrap gap-3"}>
+                    <div className="flex flex-wrap gap-3">
                       {visibleContactActionItems.map((item) => (
                         <div
                           key={item.id}
@@ -5298,31 +5198,29 @@ export function Repo2SiteShell() {
                             handleChildDrop("contact:actions", contactActionItems.map((entry) => entry.id), item.id);
                           }}
                           onDragEnd={handleChildDragEnd}
-                          className={`${sectionContentLayout.supportsDualContentColumns ? "min-w-0" : "flex items-center gap-2"} ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          className={`flex items-center gap-2 ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}
                         >
-                          <div className={`flex min-w-0 ${sectionContentLayout.supportsDualContentColumns ? "flex-col items-stretch gap-2" : "items-center gap-2"}`}>
-                            <button
-                              type="button"
-                              draggable
-                              onDragStart={(event) => {
-                                event.stopPropagation();
-                                handleChildDragStart(item.id);
-                              }}
-                              onDragEnd={handleChildDragEnd}
-                              className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              style={themeStyles.ghostButton}
-                              aria-label={`Drag ${item.label}`}
-                              title={`Drag ${item.label}`}
-                            >
-                              <span aria-hidden="true">⋮⋮</span>
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              handleChildDragStart(item.id);
+                            }}
+                            onDragEnd={handleChildDragEnd}
+                            className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            style={themeStyles.ghostButton}
+                            aria-label={`Drag ${item.label}`}
+                            title={`Drag ${item.label}`}
+                          >
+                            <span aria-hidden="true">⋮⋮</span>
+                          </button>
+                          <ActionLink href={item.action.href} label={item.action.label} themeStyles={themeStyles} />
+                          {isEditMode ? (
+                            <button type="button" onClick={() => setChildComponentVisible(item.id, false)} className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.ghostButton}>
+                              Hide
                             </button>
-                            <ActionLink href={item.action.href} label={item.action.label} themeStyles={themeStyles} />
-                            {isEditMode ? (
-                              <button type="button" onClick={() => setChildComponentVisible(item.id, false)} className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.ghostButton}>
-                                Hide
-                              </button>
-                            ) : null}
-                          </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -5457,15 +5355,7 @@ export function Repo2SiteShell() {
                       <InlineEditableField label="Handshake URL" value={overrides.linksSection.handshakeUrl} onChange={(nextValue) => updateOverrides((current) => ({ ...current, linksSection: { ...current.linksSection, handshakeUrl: nextValue } }))} generatedValue="" placeholder="https://app.joinhandshake.com/..." themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, linksSection: { ...current.linksSection, handshakeUrl: "" } }))} editing={isEditMode} compact />
                       <InlineEditableField label="Website URL" value={overrides.linksSection.portfolioUrl} onChange={(nextValue) => updateOverrides((current) => ({ ...current, linksSection: { ...current.linksSection, portfolioUrl: nextValue } }))} generatedValue="" placeholder="https://yourportfolio.com" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, linksSection: { ...current.linksSection, portfolioUrl: "" } }))} editing={isEditMode} compact />
                     </div>
-                    <div
-                      className={
-                        visibleLinkCardItems.length <= 1
-                          ? "grid gap-3"
-                          : sectionContentLayout.supportsDualContentColumns
-                            ? "grid gap-3 md:grid-cols-2"
-                            : "grid gap-3"
-                      }
-                    >
+                    <div className="grid gap-3">
                       {visibleLinkCardItems.map((entry) => (
                         <div
                           key={entry.id}
@@ -5480,17 +5370,9 @@ export function Repo2SiteShell() {
                             handleChildDrop("links:cards", linkCardItems.map((item) => item.id), entry.id);
                           }}
                           onDragEnd={handleChildDragEnd}
-                          className={`min-w-0 ${isEditMode ? "cursor-grab active:cursor-grabbing" : ""}`}
+                          className={isEditMode ? "cursor-grab active:cursor-grabbing" : ""}
                         >
-                          <a
-                            href={entry.link.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`block h-full rounded-[1.2rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5 ${
-                              visibleLinkCardItems.length === 1 && !sectionContentLayout.prefersSingleColumnCards ? "max-w-3xl" : ""
-                            }`}
-                            style={themeStyles.surface}
-                          >
+                          <a href={entry.link.href} target="_blank" rel="noreferrer" className="block rounded-[1.2rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5" style={themeStyles.surface}>
                             <div className="flex items-center justify-between gap-3">
                               <p className="font-medium">{entry.link.label}</p>
                               <div className="flex items-center gap-2">
@@ -5540,7 +5422,7 @@ export function Repo2SiteShell() {
         );
       case "projects":
         return (
-          <div {...getTourHighlightProps("tour-project-edit")}>
+          <div {...getTourHighlightProps("tour-projects")}>
             {isCanvasChildVisible("projects:heading") ? (
               <PreviewCanvasItemFrame
                 label="Projects heading"
@@ -5564,84 +5446,12 @@ export function Repo2SiteShell() {
                   </div>
                   {featuredProject?.language ? <TechBadge label={featuredProject.language} themeStyles={themeStyles} compact /> : null}
                 </div>
-                {isEditMode ? (
-                  <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">Manage project cards</p>
-                        <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-                          Add your own project, remove one from Selected Work, or restore a hidden project later.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => addCustomProject()}
-                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                        style={themeStyles.accentButton}
-                      >
-                        Add Project
-                      </button>
-                    </div>
-                    {hiddenProjectOptions.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {hiddenProjectOptions.map((projectName) => (
-                          <button
-                            key={projectName}
-                            type="button"
-                            onClick={() => restoreProjectToSelectedWork(projectName)}
-                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                            style={themeStyles.ghostButton}
-                          >
-                            Restore {projectName}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </PreviewCanvasItemFrame>
             ) : null}
-            {repositories.length === 0 ? (
-              <div className="mt-6 rounded-[1.6rem] border p-6" style={themeStyles.sectionSurface}>
-                <p className="text-lg font-semibold">No projects in Selected Work yet.</p>
-                <p className="mt-2 max-w-2xl text-sm leading-6" style={themeStyles.mutedText}>
-                  Add a custom project or restore one of your hidden projects to bring this section back.
-                </p>
-                {isEditMode ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => addCustomProject()}
-                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                      style={themeStyles.accentButton}
-                    >
-                      Add Project
-                    </button>
-                    {hiddenProjectOptions.map((projectName) => (
-                      <button
-                        key={projectName}
-                        type="button"
-                        onClick={() => restoreProjectToSelectedWork(projectName)}
-                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                        style={themeStyles.ghostButton}
-                      >
-                        Restore {projectName}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
             {featuredProject && (isCanvasChildVisible("projects:featured-image") || isCanvasChildVisible("projects:featured-header") || isCanvasChildVisible("projects:featured-description") || isCanvasChildVisible("projects:featured-meta")) ? (
-              <div
-                className={`mt-6 ${
-                  projectLayoutMode === "hybrid" && visibleSecondaryProjectItems.length > 0
-                    ? "grid gap-5 xl:grid-cols-[minmax(18rem,0.84fr)_minmax(24rem,1.16fr)]"
-                    : "space-y-5"
-                }`}
-              >
+              <div className="mt-6 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
                 <div
-                  className={`flex h-full flex-col rounded-[2rem] border p-6 sm:p-8 transition ${draggedProjectName === featuredProject.name ? "opacity-60" : ""}`}
+                  className={`rounded-[2rem] border p-6 sm:p-8 transition ${draggedProjectName === featuredProject.name ? "opacity-60" : ""}`}
                   style={{
                     ...themeStyles.projectShowcase,
                     borderColor:
@@ -5663,9 +5473,7 @@ export function Repo2SiteShell() {
                     handleProjectDrop(featuredProject.name);
                   }}
                 >
-                  {featuredProjectHasImage && isCanvasChildVisible("projects:featured-image") ? (
-                    <ProjectImagePreview repository={featuredProject} themeStyles={themeStyles} prominent />
-                  ) : null}
+                  {featuredProjectHasImage && isCanvasChildVisible("projects:featured-image") ? <ProjectImagePreview repository={featuredProject} themeStyles={themeStyles} /> : null}
                   {isCanvasChildVisible("projects:featured-header") ? (
                   <div className="mt-6 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
@@ -5681,16 +5489,6 @@ export function Repo2SiteShell() {
                           style={themeStyles.ghostButton}
                         >
                           Remove
-                        </button>
-                      ) : null}
-                      {isEditMode ? (
-                        <button
-                          type="button"
-                          onClick={() => removeProjectFromSelectedWork(featuredProject.name)}
-                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                          style={themeStyles.ghostButton}
-                        >
-                          Remove Project
                         </button>
                       ) : null}
                       <button
@@ -5713,13 +5511,13 @@ export function Repo2SiteShell() {
                   </div>
                   ) : null}
                   {isCanvasChildVisible("projects:featured-description") ? (
-                  <div className="mt-8 max-w-xl flex-1">
+                  <div className="mt-10 max-w-xl">
                     <p className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">{featuredProject.name}</p>
                     <p className="mt-4 break-words whitespace-pre-wrap text-base leading-8 sm:text-lg" style={themeStyles.mutedText}>{featuredProject.description}</p>
                   </div>
                   ) : null}
                   {isCanvasChildVisible("projects:featured-meta") ? (
-                  <div className="mt-auto pt-6 flex flex-wrap items-center gap-3">
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
                     <TechBadge label={featuredProject.language} themeStyles={themeStyles} compact />
                     <a href={featuredProject.href} target="_blank" rel="noreferrer" className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
                       Open Project
@@ -5730,11 +5528,7 @@ export function Repo2SiteShell() {
                     label={`${featuredProject.name} description`}
                     value={overrides.projectOverrides[featuredProject.name]?.description ?? ""}
                     onChange={(nextValue) => setProjectDescriptionOverride(featuredProject.name, nextValue)}
-                    generatedValue={
-                      customProjectsByName.get(featuredProject.name)?.description ??
-                      baseRepositories.find((item) => item.name === featuredProject.name)?.description ??
-                      ""
-                    }
+                    generatedValue={baseRepositories.find((item) => item.name === featuredProject.name)?.description ?? ""}
                     suggestedValue={overrides.projectOverrides[featuredProject.name]?.descriptionSuggestion ?? ""}
                     activeSource={overrides.projectOverrides[featuredProject.name]?.acceptedAi ? "ai" : "user"}
                     placeholder="Shape this repository into a stronger portfolio case study"
@@ -5751,70 +5545,6 @@ export function Repo2SiteShell() {
                     editing={isEditMode}
                     multiline
                   />
-                  {isEditMode && customProjectsByName.has(featuredProject.name) ? (
-                    <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-                      <InlineEditableField
-                        label="Project title"
-                        value={customProjectsByName.get(featuredProject.name)?.name ?? ""}
-                        onChange={(nextValue) =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "name", nextValue)
-                        }
-                        generatedValue=""
-                        placeholder="Custom project title"
-                        themeStyles={themeStyles}
-                        onReset={() =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "name", "")
-                        }
-                        editing={isEditMode}
-                        compact
-                      />
-                      <InlineEditableField
-                        label="Project summary"
-                        value={customProjectsByName.get(featuredProject.name)?.description ?? ""}
-                        onChange={(nextValue) =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "description", nextValue)
-                        }
-                        generatedValue=""
-                        placeholder="Describe what this project does and why it matters"
-                        themeStyles={themeStyles}
-                        onReset={() =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "description", "")
-                        }
-                        editing={isEditMode}
-                        multiline
-                      />
-                      <InlineEditableField
-                        label="Project URL"
-                        value={customProjectsByName.get(featuredProject.name)?.href ?? ""}
-                        onChange={(nextValue) =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "href", nextValue)
-                        }
-                        generatedValue=""
-                        placeholder="https://example.com/project"
-                        themeStyles={themeStyles}
-                        onReset={() =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "href", "")
-                        }
-                        editing={isEditMode}
-                        compact
-                      />
-                      <InlineEditableField
-                        label="Project language"
-                        value={customProjectsByName.get(featuredProject.name)?.language ?? ""}
-                        onChange={(nextValue) =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "language", nextValue)
-                        }
-                        generatedValue=""
-                        placeholder="TypeScript"
-                        themeStyles={themeStyles}
-                        onReset={() =>
-                          updateCustomProject(customProjectsByName.get(featuredProject.name)!.id, "language", "")
-                        }
-                        editing={isEditMode}
-                        compact
-                      />
-                    </div>
-                  ) : null}
                   {isEditMode ? (
                     <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
                       {!featuredProjectHasImage ? (
@@ -5864,50 +5594,159 @@ export function Repo2SiteShell() {
                     </div>
                   ) : null}
                 </div>
-                {projectLayoutMode === "hybrid" && visibleSecondaryProjectItems.length > 0 ? (
-                  <div className={hybridProjectGridClass}>
-                    {visibleSecondaryProjectItems.map(({ id, repository }) =>
-                      renderSecondaryProjectCard(repository, id, "grid"),
-                    )}
-                    {Array.from({ length: hybridProjectPlaceholderCount }).map((_, index) => (
-                      renderProjectPlaceholder(
-                        `project-placeholder-${index}`,
-                        visibleSecondaryProjectItems.length + index,
-                        "Drop a project here or add a new one in this position.",
-                      )
-                    ))}
-                  </div>
-                ) : null}
-                {projectLayoutMode === "hybrid" &&
-                visibleSecondaryProjectItems.length === 0 &&
-                hybridProjectPlaceholderCount > 0 ? (
-                  <div className={hybridProjectGridClass}>
-                    {Array.from({ length: hybridProjectPlaceholderCount }).map((_, index) => (
-                      renderProjectPlaceholder(
-                        `project-placeholder-empty-${index}`,
-                        index,
-                        "Add a project here to start filling this grid.",
-                      )
-                    ))}
-                  </div>
-                ) : null}
                 {isCanvasChildVisible("projects:grid") ? (
-                  <>
-                    {projectLayoutMode === "side-by-side" ? (
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {visibleSecondaryProjectItems.map(({ id, repository }) =>
-                          renderSecondaryProjectCard(repository, id, "grid"),
-                        )}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {visibleSecondaryProjectItems.map(({ id, repository }) => {
+                    const hasProjectImage = Boolean(repository.resolvedImage);
+                    return (
+                      <div
+                        key={id}
+                        className={`rounded-[1.5rem] border p-5 transition ${draggedProjectName === repository.name ? "opacity-60" : ""}`}
+                        style={{
+                          ...themeStyles.projectCard,
+                          borderColor:
+                            projectDropTargetName === repository.name && draggedProjectName !== repository.name
+                              ? theme.palette.accent
+                              : themeStyles.projectCard.borderColor,
+                          boxShadow:
+                            projectDropTargetName === repository.name && draggedProjectName !== repository.name
+                              ? `0 0 0 1px ${theme.palette.accent}`
+                              : themeStyles.projectCard.boxShadow,
+                        }}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                          handleProjectDragOver(repository.name);
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          handleProjectDrop(repository.name);
+                        }}
+                      >
+                        {hasProjectImage ? <ProjectImagePreview repository={repository} themeStyles={themeStyles} compact /> : null}
+                        <div className={`mb-4 ${hasProjectImage ? "mt-5" : "mt-0"} h-1 w-14 rounded-full`} style={{ backgroundColor: theme.palette.accent }} />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-2">
+                            <p className="break-words text-lg font-semibold leading-6">{repository.name}</p>
+                            <SourceBadge source={repository.descriptionSource} themeStyles={themeStyles} />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              draggable
+                              onDragStart={(event) => {
+                                event.stopPropagation();
+                                handleProjectDragStart(repository.name);
+                              }}
+                              onDragEnd={handleProjectDragEnd}
+                              className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              style={themeStyles.ghostButton}
+                              aria-label={`Drag ${repository.name}`}
+                              title={`Drag ${repository.name}`}
+                            >
+                              <span aria-hidden="true">⋮⋮</span>
+                            </button>
+                            {isEditMode ? (
+                              <button
+                                type="button"
+                                onClick={() => setChildComponentVisible(id, false)}
+                                className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                style={themeStyles.ghostButton}
+                              >
+                                Hide
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <p className={`break-words whitespace-pre-wrap text-sm leading-7 ${hasProjectImage ? "mt-4" : "mt-5 text-base"}`} style={themeStyles.mutedText}>{repository.description}</p>
+                        <div className="mt-5 flex flex-wrap items-center gap-3">
+                          <TechBadge label={repository.language} themeStyles={themeStyles} compact />
+                          <a href={repository.href} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
+                            Open Project
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => makeFeaturedProject(repository.name)}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Make Featured
+                          </button>
+                        </div>
+                        <InlineEditableField
+                          label={`${repository.name} description`}
+                          value={overrides.projectOverrides[repository.name]?.description ?? ""}
+                          onChange={(nextValue) => setProjectDescriptionOverride(repository.name, nextValue)}
+                          generatedValue={baseRepositories.find((item) => item.name === repository.name)?.description ?? ""}
+                          suggestedValue={overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? ""}
+                          activeSource={overrides.projectOverrides[repository.name]?.acceptedAi ? "ai" : "user"}
+                          placeholder="Shape this repository into a stronger portfolio case study"
+                          themeStyles={themeStyles}
+                          onApplySuggestion={() =>
+                            setProjectDescriptionOverride(
+                              repository.name,
+                              overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? "",
+                              "ai",
+                            )
+                          }
+                          onDismissSuggestion={() => dismissProjectDescriptionSuggestion(repository.name)}
+                          onReset={() => setProjectDescriptionOverride(repository.name, "")}
+                          editing={isEditMode}
+                          multiline
+                          compact
+                        />
+                        {isEditMode ? (
+                          <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                            {!hasProjectImage ? (
+                              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                                No image yet. This card can stay text-first, or you can upload an image when you want a more visual layout.
+                              </p>
+                            ) : null}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                                <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(repository.name, event)} />
+                                Upload Image
+                              </label>
+                              <button type="button" onClick={() => toggleProjectImportPanel(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                                {openProjectImports[repository.name] ? "Hide Image Options" : "Image Options"}
+                              </button>
+                              <button type="button" onClick={() => removeProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                                Remove Image
+                              </button>
+                            </div>
+                            {openProjectImports[repository.name] ? (
+                              <div className="grid gap-3">
+                                <input
+                                  value={overrides.projectOverrides[repository.name]?.imageUrl ?? ""}
+                                  onChange={(event) => setProjectImageOverride(repository.name, event.target.value)}
+                                  placeholder="https://example.com/project-image.png"
+                                  className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                                  style={themeStyles.surface}
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  <button type="button" onClick={() => restoreDefaultProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                                    Use Default Image
+                                  </button>
+                                  {repository.readmeImages.map((imageUrl) => (
+                                    <button
+                                      key={imageUrl}
+                                      type="button"
+                                      onClick={() => setProjectImageOverride(repository.name, imageUrl)}
+                                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                                      style={themeStyles.ghostButton}
+                                    >
+                                      Apply README Image
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {projectLayoutMode === "stacked" ? (
-                      <div className="grid gap-4">
-                        {visibleSecondaryProjectItems.map(({ id, repository }) =>
-                          renderSecondaryProjectCard(repository, id, "stacked"),
-                        )}
-                      </div>
-                    ) : null}
-                  </>
+                    );
+                  })}
+                </div>
                 ) : null}
               </div>
             ) : null}
@@ -5919,20 +5758,23 @@ export function Repo2SiteShell() {
   }
 
   function renderCustomizePanelContent() {
-    const inspectorTabs: Array<{ id: BuilderInspectorTab; label: string }> = [
-      { id: "theme", label: "Theme" },
+    const inspectorTabs: Array<{ id: InspectorTab; label: string }> = [
+      { id: "content", label: "Content" },
+      { id: "layout", label: "Layout" },
       { id: "style", label: "Style" },
+      { id: "theme", label: "Theme" },
+      { id: "section", label: "Section" },
     ];
 
     return (
       <div className="grid gap-4">
-        <div className="rounded-[1rem] border p-4" style={appThemeStyles.surface}>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={appThemeStyles.mutedText}>
-            Customize
+        <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
+            Builder Inspector
           </p>
-          <p className="mt-1 text-sm font-medium">Theme, palette, and visual style</p>
-          <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-            Use the preview for content and structure. Use this drawer only for color, style, and theme changes.
+          <p className="mt-1 text-sm font-medium">{selectedSectionLabel}</p>
+          <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+            {selectedSectionHint}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -5949,151 +5791,57 @@ export function Repo2SiteShell() {
           ))}
         </div>
         {activeInspectorTab === "theme" ? (
-          <div className="grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                Theme
-                <select
-                  value={overrides.appearance.themeId || theme.id}
-                  onChange={(event) =>
-                    updateOverrides((current) => ({
-                      ...current,
-                      appearance: {
-                        ...current.appearance,
-                        themeId: event.target.value,
-                      },
-                    }))
-                  }
-                  className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-                  style={appThemeStyles.strongSurface}
-                >
-                  <option value="">Auto ({theme.name})</option>
-                  {PORTFOLIO_THEMES.map((themeOption) => (
-                    <option key={themeOption.id} value={themeOption.id}>
-                      {themeOption.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                Color Mode
-                <select
-                  value={overrides.appearance.colorMode}
-                  onChange={(event) =>
-                    updateOverrides((current) => ({
-                      ...current,
-                      appearance: {
-                        ...current.appearance,
-                        colorMode: event.target.value as PortfolioOverrides["appearance"]["colorMode"],
-                      },
-                    }))
-                  }
-                  className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-                  style={appThemeStyles.strongSurface}
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-              </label>
-            </div>
-            <div className="grid gap-2 rounded-[1rem] border p-4" style={appThemeStyles.surface}>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                  Quick Presets
-                </p>
-                <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-                  Use a cleaner SaaS-style look when you want something more neutral than the colorful presets.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateOverrides((current) => ({
-                      ...current,
-                      appearance: {
-                        ...current.appearance,
-                        themeId: "saas-clean",
-                        colorMode: "light",
-                      },
-                    }))
-                  }
-                  className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={
-                    (overrides.appearance.themeId || theme.id) === "saas-clean" &&
-                    overrides.appearance.colorMode === "light"
-                      ? appThemeStyles.accentButton
-                      : appThemeStyles.ghostButton
-                  }
-                >
-                  SaaS Clean Light
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateOverrides((current) => ({
-                      ...current,
-                      appearance: {
-                        ...current.appearance,
-                        themeId: "saas-clean",
-                        colorMode: "dark",
-                      },
-                    }))
-                  }
-                  className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={
-                    (overrides.appearance.themeId || theme.id) === "saas-clean" &&
-                    overrides.appearance.colorMode === "dark"
-                      ? appThemeStyles.accentButton
-                      : appThemeStyles.ghostButton
-                  }
-                >
-                  SaaS Clean Dark
-                </button>
-              </div>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Theme
+              <select
+                value={overrides.appearance.themeId || theme.id}
+                onChange={(event) =>
+                  updateOverrides((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      themeId: event.target.value,
+                    },
+                  }))
+                }
+                className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                style={themeStyles.strongSurface}
+              >
+                <option value="">Auto ({theme.name})</option>
+                {PORTFOLIO_THEMES.map((themeOption) => (
+                  <option key={themeOption.id} value={themeOption.id}>
+                    {themeOption.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Color Mode
+              <select
+                value={overrides.appearance.colorMode}
+                onChange={(event) =>
+                  updateOverrides((current) => ({
+                    ...current,
+                    appearance: {
+                      ...current.appearance,
+                      colorMode: event.target.value as PortfolioOverrides["appearance"]["colorMode"],
+                    },
+                  }))
+                }
+                className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
+                style={themeStyles.strongSurface}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
           </div>
         ) : null}
         {activeInspectorTab === "style" ? (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-2 rounded-[1rem] border p-4 sm:col-span-2" style={appThemeStyles.surface}>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                    Layout Flow
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-                    Use stacked for a simple vertical page, or free flow to let sections share rows where the layout supports it.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSectionLayout("stacked")}
-                    className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                    style={
-                      overrides.appearance.sectionLayout === "stacked"
-                        ? appThemeStyles.accentButton
-                        : appThemeStyles.ghostButton
-                    }
-                  >
-                    Stacked
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSectionLayout("split")}
-                    className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                    style={
-                      overrides.appearance.sectionLayout === "split"
-                        ? appThemeStyles.accentButton
-                        : appThemeStyles.ghostButton
-                    }
-                  >
-                    Free Flow
-                  </button>
-                </div>
-              </div>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
                 Density
                 <select
                   value={overrides.appearance.density}
@@ -6107,13 +5855,13 @@ export function Repo2SiteShell() {
                     }))
                   }
                   className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-                  style={appThemeStyles.strongSurface}
+                  style={themeStyles.strongSurface}
                 >
                   <option value="compact">Compact</option>
                   <option value="spacious">Spacious</option>
                 </select>
               </label>
-              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
                 Card Style
                 <select
                   value={overrides.appearance.cardStyle}
@@ -6127,149 +5875,20 @@ export function Repo2SiteShell() {
                     }))
                   }
                   className="h-10 rounded-[0.95rem] border px-3 text-sm font-normal outline-none"
-                  style={appThemeStyles.strongSurface}
+                  style={themeStyles.strongSurface}
                 >
                   <option value="soft">Soft</option>
                   <option value="outlined">Outlined</option>
                   <option value="elevated">Elevated</option>
                 </select>
               </label>
-              <div className="grid gap-2 rounded-[1rem] border p-4 sm:col-span-2" style={appThemeStyles.surface}>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                    Safe Layout Presets
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-                    Start from polished layout defaults, then fine-tune section flow and Selected Work if you want more control.
-                  </p>
-                </div>
-                <div className="grid gap-2 lg:grid-cols-3">
-                  {REPO2SITE_LAYOUT_PRESETS.map((preset) => {
-                    const isActive =
-                      overrides.appearance.sectionLayout === preset.appearance.sectionLayout &&
-                      overrides.appearance.projectsLayout === preset.appearance.projectsLayout &&
-                      overrides.appearance.projectsOverflowSize === preset.appearance.projectsOverflowSize &&
-                      overrides.appearance.density === preset.appearance.density;
-
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() =>
-                          updateOverrides((current) => ({
-                            ...current,
-                            appearance: {
-                              ...current.appearance,
-                              sectionLayout: preset.appearance.sectionLayout,
-                              projectsLayout: preset.appearance.projectsLayout,
-                              projectsOverflowSize: preset.appearance.projectsOverflowSize,
-                              density: preset.appearance.density,
-                            },
-                          }))
-                        }
-                        className="grid gap-2 rounded-[0.95rem] border px-4 py-4 text-left transition"
-                        style={isActive ? appThemeStyles.accentButton : appThemeStyles.strongSurface}
-                      >
-                        <span className="text-xs font-semibold uppercase tracking-[0.16em]">
-                          {preset.label}
-                        </span>
-                        <span
-                          className="text-xs leading-5"
-                          style={isActive ? undefined : appThemeStyles.mutedText}
-                        >
-                          {preset.description}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="grid gap-2 rounded-[1rem] border p-4 sm:col-span-2" style={appThemeStyles.surface}>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                    Selected Work Layout
-                  </p>
-                  <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-                    Choose how the extra project cards flow under the featured project.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {([
-                    ["side-by-side", "Side by Side"],
-                    ["stacked", "Stacked"],
-                    ["hybrid", "Mixed"],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() =>
-                        updateOverrides((current) => ({
-                          ...current,
-                          appearance: {
-                            ...current.appearance,
-                            projectsLayout: value,
-                          },
-                        }))
-                      }
-                      className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                      style={
-                        overrides.appearance.projectsLayout === value
-                          ? appThemeStyles.accentButton
-                          : appThemeStyles.ghostButton
-                      }
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                {overrides.appearance.projectsLayout === "hybrid" ? (
-                  <div className="mt-2 grid gap-2 rounded-[0.95rem] border p-3" style={appThemeStyles.strongSurface}>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
-                        Overflow Card Size
-                      </p>
-                      <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
-                        Control how roomy the extra project cards feel under the top mixed row. Phones still stack cleanly.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {([
-                        ["compact", "Compact"],
-                        ["expanded", "Expanded"],
-                      ] as const).map(([value, label]) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() =>
-                            updateOverrides((current) => ({
-                              ...current,
-                              appearance: {
-                                ...current.appearance,
-                                projectsOverflowSize: value,
-                              },
-                            }))
-                          }
-                          className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
-                          style={
-                            overrides.appearance.projectsOverflowSize === value
-                              ? appThemeStyles.accentButton
-                              : appThemeStyles.ghostButton
-                          }
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border p-4" style={appThemeStyles.surface}>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border p-4" style={themeStyles.surface}>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
                   Custom Palette
                 </p>
-                <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
+                <p className="text-xs leading-5" style={themeStyles.mutedText}>
                   Fine-tune the preset theme with your own colors. These changes carry through preview, templates, public shares, and export.
                 </p>
               </div>
@@ -6277,7 +5896,7 @@ export function Repo2SiteShell() {
                 type="button"
                 onClick={clearCustomPalette}
                 className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={appThemeStyles.ghostButton}
+                style={themeStyles.ghostButton}
               >
                 Clear Palette Overrides
               </button>
@@ -6296,450 +5915,358 @@ export function Repo2SiteShell() {
             </div>
           </>
         ) : null}
+        {activeInspectorTab === "layout" ? (
+          <div className="grid gap-4">
+            <div className="grid gap-1">
+              <label className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Section Layout
+              </label>
+              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                Turn stacked layout on for a simple vertical flow, or switch it off to place non-project sections side by side.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "stacked", label: "Stacked Layout" },
+                  { id: "split", label: "Flexible Layout" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        appearance: {
+                          ...current.appearance,
+                          sectionLayout: option.id as PortfolioOverrides["appearance"]["sectionLayout"],
+                        },
+                      }))
+                    }
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={
+                      overrides.appearance.sectionLayout === option.id
+                        ? themeStyles.accentButton
+                        : themeStyles.ghostButton
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Layout Behavior
+              </p>
+              <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                Keep the editor focused on one canvas. Use drag-and-drop to place sections, then drag the divider handles between sections to resize them directly.
+              </p>
+            </div>
+          </div>
+        ) : null}
+        {activeInspectorTab === "section" ? (
+          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+            {selectedCanvasComponent ? (
+              <div className="grid gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                    Selected Section
+                  </p>
+                  <p className="mt-1 text-sm font-medium">
+                    {selectedCanvasComponent.type === "custom"
+                      ? selectedCustomSection?.title || "Custom Section"
+                      : sectionLabels[selectedCanvasComponent.type]}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removeSection(selectedCanvasComponent.id)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.ghostButton}
+                  >
+                    {selectedCanvasComponent.type === "custom" ? "Remove Section" : "Hide Section"}
+                  </button>
+                  {selectedCanvasComponent.type === "custom" ? (
+                    <button
+                      type="button"
+                      onClick={() => duplicateSection(selectedCanvasComponent.id)}
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.ghostButton}
+                    >
+                      Duplicate
+                    </button>
+                  ) : null}
+                </div>
+                {canSectionShareRow(selectedCanvasComponent) ? (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Width
+                    </p>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      Resize this section directly on the canvas. Drag the divider handle beside it to change its share of the row.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                    This section stays full-width to keep the layout readable and visually balanced.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                Select a section in the preview to adjust its settings here.
+              </p>
+            )}
+          </div>
+        ) : null}
+        {activeInspectorTab === "content" ? (
+          <div className="rounded-[1rem] border p-4" style={themeStyles.surface}>
+            {selectedCustomSection ? (
+              <div className="grid gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Custom Section Content
+                </p>
+                <input
+                  value={selectedCustomSection.title}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      customSections: current.customSections.map((section) =>
+                        section.id === selectedCustomSection.id ? { ...section, title: event.target.value } : section,
+                      ),
+                    }))
+                  }
+                  placeholder="Section title"
+                  className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                  style={themeStyles.strongSurface}
+                />
+                <textarea
+                  value={selectedCustomSection.description}
+                  onChange={(event) =>
+                    updateOverrides((current) => ({
+                      ...current,
+                      customSections: current.customSections.map((section) =>
+                        section.id === selectedCustomSection.id ? { ...section, description: event.target.value } : section,
+                      ),
+                    }))
+                  }
+                  rows={5}
+                  placeholder="Describe what this section should communicate"
+                  className="min-h-[120px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
+                  style={themeStyles.strongSurface}
+                />
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Content Editing
+                </p>
+                {selectedCanvasComponent ? (
+                  <>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      {SECTION_CONTENT_HINTS[selectedCanvasComponent.type]}
+                    </p>
+                    <div className="mt-3 rounded-[0.95rem] border p-3" style={themeStyles.strongSurface}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                        Best way to edit this section
+                      </p>
+                      <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                        Open edit mode, then work directly inside the canvas. Inline fields stay closer to the final design and make the builder feel more visual.
+                      </p>
+                      {!isEditMode ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleEditMode(true)}
+                          className="mt-3 rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          Open Edit Mode
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                    Use the live canvas to edit generated copy directly. Select a section to see the most relevant guidance here.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     );
   }
 
   function renderBuilderWorkspacePanel() {
+    if (!preview) {
+      return null;
+    }
+
     return (
-      <Repo2SiteBuilderWorkspacePanel
-        previewReady={Boolean(preview)}
-        themeStyles={themeStyles}
-        selectedSectionLabel={selectedSectionLabel}
-        selectedSectionHint={selectedSectionHint}
-        visibleCanvasCount={visibleCanvasComponents.length}
-        hiddenSectionCount={hiddenSectionCount}
-        hiddenBlockCount={hiddenBlockCount}
-        isExpanded={isWorkspaceExpanded}
-        modeToggleLabel={modeToggleLabel}
-        canvasComponents={canvasComponents}
-        availableBuiltInSections={availableBuiltInSections}
-        hiddenCanvasComponents={hiddenCanvasComponents}
-        hiddenChildComponentGroups={hiddenChildComponentGroups}
-        hiddenProjectNames={hiddenProjectOptions}
-        customProjects={overrides.customProjects}
-        projectsLayoutMode={overrides.appearance.projectsLayout}
-        projectsOverflowSize={overrides.appearance.projectsOverflowSize}
-        selectedSectionId={selectedSectionId}
-        sectionLabels={sectionLabels}
-        customSectionTitles={customSectionTitles}
-        onAddProject={addCustomProject}
-        onChangeProject={updateCustomProject}
-        onChangeProjectsLayoutMode={(mode) =>
-          updateOverrides((current) => ({
-            ...current,
-            appearance: {
-              ...current.appearance,
-              projectsLayout: mode,
-            },
-          }))
-        }
-        onChangeProjectsOverflowSize={(size) =>
-          updateOverrides((current) => ({
-            ...current,
-            appearance: {
-              ...current.appearance,
-              projectsOverflowSize: size,
-            },
-          }))
-        }
-        onRemoveProject={removeProjectFromSelectedWork}
-        onToggleEditMode={() => toggleEditMode()}
-        onToggleExpanded={() => toggleWorkspace()}
-        onResetCanvas={resetCanvasLayout}
-        onOpenCustomize={() => revealInspector("style")}
-        onFocusSection={focusSection}
-        onAddBuiltInSection={addBuiltInSection}
-        onAddCustomSection={addCustomSection}
-        onRestoreProject={restoreProjectToSelectedWork}
-        onRestoreSection={restoreSection}
-        onSetChildComponentVisible={setChildComponentVisible}
-      />
-    );
-  }
-
-  const sharePanelContent = isShareOpen ? (
-    <div className="mt-4 rounded-[1.15rem] border p-4" style={themeStyles.surface}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Share portfolio
-          </p>
-          <p className="mt-1 text-sm font-medium">Publish a clean public link you can send to anyone.</p>
-          <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-            The shared page shows only the portfolio site, not the editor or internal tools.
-          </p>
-          <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
-            {authSession
-              ? `Signed in as @${authSession.username}. This public link will be owned by your GitHub account.`
-              : "Sign in with GitHub first so the public link is tied to your account and can be updated safely later."}
-          </p>
-        </div>
-        {sharedPortfolioUrl ? (
-          <a
-            href={sharedPortfolioUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-            style={themeStyles.ghostButton}
-          >
-            Open Public Page
-          </a>
-        ) : null}
-      </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Public URL
-          </span>
-          <div className="flex items-center overflow-hidden rounded-full border" style={themeStyles.strongSurface}>
-            <span className="border-r px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ ...themeStyles.mutedText, borderColor: theme.palette.border }}>
-              /u/
+      <div className="rounded-[1.1rem] border px-4 py-4 sm:px-5" style={themeStyles.sectionSurface}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+              Builder Workspace
+            </p>
+            <p className="mt-1 text-sm font-medium">
+              {selectedCanvasComponent
+                ? `${selectedSectionLabel} selected. Drag, resize, or edit it directly on the canvas.`
+                : "Select a section, move it on the canvas, then refine content and styling in the inspector."}
+            </p>
+            <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+              Flexible layout lets non-project sections share a row. Projects always stays full width.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.chip}>
+              {visibleCanvasComponents.length} visible
             </span>
-            <input
-              type="text"
-              value={shareSlug}
-              onChange={(event) => {
-                setShareCopied(false);
-                setShareCaptionCopied(false);
-                setShareError(null);
-                setShareSlug(buildShareSlug(event.target.value));
-              }}
-              placeholder="your-name"
-              className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none"
-            />
-          </div>
-        </label>
-        <button
-          type="button"
-          onClick={handlePublishShareLink}
-          disabled={
-            !preview ||
-            isPublishingShare ||
-            shareAvailability?.reason === "invalid" ||
-            shareAvailability?.reason === "taken"
-          }
-          className="rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-          style={themeStyles.accentButton}
-        >
-          {isPublishingShare ? "Publishing..." : sharedPortfolioUrl ? "Update Public Link" : "Publish Public Link"}
-        </button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs leading-5" style={themeStyles.mutedText}>
-        {isCheckingShareSlug ? <p>Checking public URL…</p> : null}
-        {!isCheckingShareSlug && shareAvailability?.reason === "available" ? (
-          <p>This public URL is available.</p>
-        ) : null}
-        {!isCheckingShareSlug && shareAvailability?.reason === "owned" ? (
-          <p>You already control this URL, so publishing will update the existing page.</p>
-        ) : null}
-        {!isCheckingShareSlug && shareAvailability?.reason === "taken" ? (
-          <p>
-            That URL is already in use.
-            {shareAvailability.suggestedSlug ? ` Try ${shareAvailability.suggestedSlug}.` : ""}
-          </p>
-        ) : null}
-        {!isCheckingShareSlug && shareAvailability?.reason === "invalid" ? (
-          <p>Use 2-60 lowercase letters, numbers, and hyphens only.</p>
-        ) : null}
-      </div>
-      {sharedPortfolioUrl ? (
-        <div className="mt-4 grid gap-4 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                Live link
-              </p>
-              <p className="mt-1 truncate text-sm font-medium">{sharedPortfolioUrl}</p>
-              <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-                Published {sharePublishedAt ? new Date(sharePublishedAt).toLocaleString() : "just now"}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleCopyShareLink}
-                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={themeStyles.ghostButton}
-              >
-                {shareCopied ? "Copied" : "Copy Link"}
-              </button>
-              {canUseNativeShare ? (
-                <button
-                  type="button"
-                  onClick={handleShareAnywhere}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
-                >
-                  Share Anywhere
-                </button>
-              ) : null}
-              <a
-                href={sharedPortfolioUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                style={themeStyles.ghostButton}
-              >
-                Open Public Page
-              </a>
-            </div>
-          </div>
-          <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                  Share caption
-                </p>
-                <p className="mt-1 max-w-3xl text-sm leading-6">{shareText}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleCopyShareCaption}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
-                >
-                  {shareCaptionCopied ? "Caption Copied" : "Copy Caption"}
-                </button>
-                {shareImageUrl ? (
-                  <a
-                    href={shareImageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                    style={themeStyles.ghostButton}
-                  >
-                    Preview Image
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                Direct share
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {[
-                  { label: "LinkedIn", href: shareLinkedInHref },
-                  { label: "X", href: shareTwitterHref },
-                  { label: "Facebook", href: shareFacebookHref },
-                  { label: "WhatsApp", href: shareWhatsAppHref },
-                  { label: "Telegram", href: shareTelegramHref },
-                  { label: "Reddit", href: shareRedditHref },
-                  { label: "Email", href: shareEmailHref },
-                ].map((platform) => (
-                  <a
-                    key={platform.label}
-                    href={platform.href}
-                    target={platform.href.startsWith("mailto:") ? undefined : "_blank"}
-                    rel={platform.href.startsWith("mailto:") ? undefined : "noreferrer"}
-                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                    style={themeStyles.ghostButton}
-                  >
-                    {platform.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-                Copy-and-post platforms
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await handleCopyShareLink();
-                    await handleCopyShareCaption();
-                    openPlatformFallback("https://www.instagram.com/", "Portfolio Share Instagram Prep");
-                  }}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
-                >
-                  Instagram
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await handleCopyShareLink();
-                    await handleCopyShareCaption();
-                    openPlatformFallback("https://www.tiktok.com/", "Portfolio Share TikTok Prep");
-                  }}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
-                >
-                  TikTok
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await handleCopyShareLink();
-                    await handleCopyShareCaption();
-                    trackAnalyticsEvent("Portfolio Share Discord Prep");
-                  }}
-                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                  style={themeStyles.ghostButton}
-                >
-                  Discord
-                </button>
-              </div>
-              <p className="mt-3 text-xs leading-5" style={themeStyles.mutedText}>
-                Instagram, TikTok, and Discord work best as copy-and-post flows on the web, so Repo2Site prepares the link and caption for you instead of pretending there is a native one-click share.
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 rounded-[1rem] border px-4 py-3 text-sm leading-6" style={themeStyles.surface}>
-          <p className="font-medium">Publish once, then share anywhere.</p>
-          <p className="mt-1" style={themeStyles.mutedText}>
-            Repo2Site generates a standalone public page with your approved portfolio content, subtle attribution, and a call-to-action back to the app.
-          </p>
-        </div>
-      )}
-      {shareError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{shareError}</p> : null}
-    </div>
-  ) : null;
-
-  const templatePanelContent = isTemplateOpen ? (
-    <div className="mt-4 rounded-[1.15rem] border p-4" style={themeStyles.surface}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Publish template
-          </p>
-          <p className="mt-1 text-sm font-medium">Share this design as a reusable community template.</p>
-          <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
-            Templates publish theme and layout choices only. They do not replace another user’s GitHub projects, resume content, or personal profile details.
-          </p>
-          <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
-            {authSession
-              ? `Publishing as @${authSession.username}. Template ownership, reactions, and future moderation all follow this account.`
-              : "Sign in with GitHub first so your template is published under a real account instead of a browser-local identity."}
-          </p>
-        </div>
-        <Link
-          href="/templates"
-          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-          style={themeStyles.ghostButton}
-        >
-          Open Gallery
-        </Link>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Template title
-          </span>
-          <input
-            type="text"
-            value={templateTitle}
-            onChange={(event) => setTemplateTitle(event.target.value)}
-            className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
-            style={themeStyles.strongSurface}
-          />
-        </label>
-        <label className="grid gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Category
-          </span>
-          <input
-            type="text"
-            value={templateCategory}
-            onChange={(event) => setTemplateCategory(event.target.value)}
-            className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
-            style={themeStyles.strongSurface}
-          />
-        </label>
-        <label className="grid gap-2 md:col-span-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Short description
-          </span>
-          <textarea
-            value={templateDescription}
-            onChange={(event) => setTemplateDescription(event.target.value)}
-            rows={3}
-            className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
-            style={themeStyles.strongSurface}
-          />
-        </label>
-        <label className="grid gap-2 md:col-span-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Tags
-          </span>
-          <input
-            type="text"
-            value={templateTags}
-            onChange={(event) => setTemplateTags(event.target.value)}
-            placeholder="minimal, product, developer"
-            className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
-            style={themeStyles.strongSurface}
-          />
-        </label>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs leading-5" style={themeStyles.mutedText}>
-          Current preset includes theme, color mode, density, card style, section layout, section order, and section visibility.
-        </p>
-        <button
-          type="button"
-          onClick={handlePublishTemplate}
-          disabled={!preview || isPublishingTemplate}
-          className="rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-          style={themeStyles.accentButton}
-        >
-          {isPublishingTemplate ? "Publishing..." : "Publish Template"}
-        </button>
-      </div>
-      {templateMessage ? <p className="mt-3 text-sm" style={themeStyles.successText}>{templateMessage}</p> : null}
-      {templateError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{templateError}</p> : null}
-    </div>
-  ) : null;
-
-  const completenessPanelContent = preview ? (
-    <div className="mt-4 rounded-[1rem] border p-4" style={themeStyles.surface}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
-            Portfolio completeness
-          </p>
-          <p className="mt-1 text-sm font-medium">{completenessScore}% ready for review</p>
-        </div>
-        <span
-          className="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]"
-          style={themeStyles.chip}
-        >
-          {missingGuidance.length === 0 ? "Looking strong" : `${missingGuidance.length} quick wins`}
-        </span>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10">
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${completenessScore}%`, backgroundColor: theme.palette.accent }}
-        />
-      </div>
-      {missingGuidance.length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {missingGuidance.map((item) => (
-            <span
-              key={item}
-              className="rounded-full border px-3 py-1 text-xs font-medium"
+            {hiddenSectionCount > 0 ? (
+              <span className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                {hiddenSectionCount} hidden
+              </span>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => toggleEditMode()}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
               style={themeStyles.ghostButton}
             >
-              {item}
-            </span>
-          ))}
+              {isEditMode ? "Hide Editor" : "Open Editor"}
+            </button>
+            <button
+              type="button"
+              onClick={resetCanvasLayout}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={themeStyles.ghostButton}
+            >
+              Reset Canvas
+            </button>
+            <button
+              type="button"
+              onClick={() => revealInspector(selectedCanvasComponent?.type === "custom" ? "content" : "layout")}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] xl:hidden"
+              style={themeStyles.accentButton}
+            >
+              Open Inspector
+            </button>
+          </div>
         </div>
-      ) : (
-        <p className="mt-3 text-xs leading-5" style={themeStyles.mutedText}>
-          The core sections are filled in. This is a good point to fine-tune copy and export a first version.
-        </p>
-      )}
-    </div>
-  ) : null;
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div className="rounded-[1rem] border px-4 py-3" style={themeStyles.surface}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Page Structure
+                </p>
+                <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                  {selectedSectionHint}
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {canvasComponents.map((component) => {
+                const label =
+                  component.type === "custom"
+                    ? overrides.customSections.find((section) => section.id === component.id)?.title ||
+                      component.title ||
+                      "Custom Section"
+                    : sectionLabels[component.type];
+                const isSelected = selectedSectionId === component.id;
+
+                return (
+                  <button
+                    key={`navigator-${component.id}`}
+                    type="button"
+                    onClick={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]"
+                    style={
+                      isSelected
+                        ? themeStyles.accentButton
+                        : component.visible
+                          ? themeStyles.ghostButton
+                          : {
+                              ...themeStyles.ghostButton,
+                              opacity: 0.68,
+                            }
+                    }
+                  >
+                    {label}
+                    {!component.visible ? " (Hidden)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-[1rem] border px-4 py-3" style={themeStyles.surface}>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+              Manage Sections
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {availableBuiltInSections.map((component) => (
+                <button
+                  key={`add-${component.id}`}
+                  type="button"
+                  onClick={() => addBuiltInSection(component.type)}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  {sectionLabels[component.type]}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={addCustomSection}
+                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={themeStyles.accentButton}
+              >
+                Custom Section
+              </button>
+              {hiddenCanvasComponents.map((component) => (
+                <button
+                  key={`restore-${component.id}`}
+                  type="button"
+                  onClick={() => restoreSection(component.id)}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Restore {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                </button>
+              ))}
+            </div>
+            {hiddenBlockCount > 0 ? (
+              <div className="mt-3 grid gap-2">
+                {hiddenChildComponentGroups.map((group) => (
+                  <div key={group.parentId}>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={themeStyles.mutedText}>
+                      {group.label}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {group.items.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setChildComponentVisible(item.id, true)}
+                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen px-3 py-3 sm:px-4 sm:py-4 xl:px-5" style={appThemeStyles.page}>
@@ -6765,7 +6292,7 @@ export function Repo2SiteShell() {
                   {preview?.profile.username ? "Profile live" : "Waiting for source"}
                 </span>
                 <span className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]" style={isEditMode ? themeStyles.aiBadge : themeStyles.githubBadge}>
-                  {isEditMode ? "Tools on" : "Preview mode"}
+                  {isEditMode ? "Editor open" : "Preview focused"}
                 </span>
                 <button
                   type="button"
@@ -6791,59 +6318,727 @@ export function Repo2SiteShell() {
             </div>
           </div>
 
-          <Repo2SiteBuilderControlPanels
-            appThemeStyles={appThemeStyles}
-            themeStyles={themeStyles}
-            themeChoice={themeChoice}
-            walkthrough={walkthrough}
-            getTourHighlightProps={getTourHighlightProps}
-            authSession={authSession}
-            profileUrl={profileUrl}
-            githubImportAutofillNotice={githubImportAutofillNotice}
-            isGitHubSignInHelpOpen={isGitHubSignInHelpOpen}
-            isLoading={isLoading}
-            isEnhancing={isEnhancing}
-            isExporting={isExporting}
-            previewReady={Boolean(preview)}
-            modeToggleLabel={modeToggleLabel}
-            pendingAiSuggestionCount={pendingAiSuggestionCount}
-            hasOverrides={hasOverrides}
-            isQuickStartExpanded={isQuickStartExpanded}
-            featureBadges={featureBadges}
-            onCycleAppTheme={cycleAppTheme}
-            onProfileUrlChange={handleProfileUrlChange}
-            onUseSamplePortfolio={handleUseSamplePortfolio}
-            onGeneratePortfolio={handleGeneratePortfolio}
-            onResumeUploadChange={handleResumeUploadChange}
-            onToggleGitHubHelp={() => toggleGitHubHelp()}
-            onSignOut={async () => {
-              await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null);
-              setAuthSession(null);
-              setGitHubImportAutofillNotice(null);
-              setShareError(null);
-              setTemplateError(null);
-            }}
-            onEnhance={handleEnhance}
-            onAcceptAllAiSuggestions={acceptAllAiSuggestions}
-            onToggleEditMode={() => toggleEditMode()}
-            onToggleSharePanel={() => toggleSharePanel()}
-            onToggleTemplatePanel={() => toggleTemplatePanel()}
-            onExportZip={handleExportZip}
-            onResetOverrides={() => setOverrides(buildEmptyOverrides())}
-            onToggleQuickStart={() => toggleQuickStart()}
-            sharePanelContent={sharePanelContent}
-            templatePanelContent={templatePanelContent}
-            completenessPanelContent={completenessPanelContent}
-            enhanceError={enhanceError}
-          />
+          <div {...getTourHighlightProps("tour-github-import")}>
+            <div
+              className="rounded-[1.45rem] border px-4 py-4 shadow-[0_20px_50px_-36px_rgba(15,23,42,0.58)]"
+              style={appThemeStyles.strongSurface}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={appThemeStyles.mutedText}>
+                    Build From GitHub
+                  </p>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[2rem]">
+                    Turn repositories, README context, and career materials into a portfolio draft.
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6" style={appThemeStyles.mutedText}>
+                    Start with GitHub, optionally add a resume, then review the draft in the live preview before exporting the final site.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.9fr)]">
+                <div className="rounded-[1.15rem] border p-4 sm:p-5" style={appThemeStyles.surface}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                        Primary Flow
+                      </p>
+                      <p className="mt-1 text-base font-semibold">Load a public GitHub profile to generate your draft.</p>
+                      <p className="mt-1 text-sm leading-6" style={appThemeStyles.mutedText}>
+                        Paste a profile URL, create the first version, then refine it with editing, AI, and themes.
+                      </p>
+                    </div>
+                    <span
+                      className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.githubBadge}
+                    >
+                      Draft first
+                    </span>
+                  </div>
+                  <form className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center" onSubmit={handleSubmit}>
+                    <input
+                      id="profile-url"
+                      type="url"
+                      aria-label="GitHub profile URL"
+                      required
+                      value={profileUrl}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setProfileUrl(nextValue);
+
+                        if (githubImportAutofillNotice) {
+                          const signedInProfileUrl =
+                            authSession?.profileUrl?.trim() ||
+                            (authSession?.username ? `https://github.com/${authSession.username}` : "");
+
+                          if (nextValue.trim() !== signedInProfileUrl.trim()) {
+                            setGitHubImportAutofillNotice(null);
+                          }
+                        }
+                      }}
+                      placeholder="https://github.com/username"
+                      className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm outline-none transition"
+                      style={appThemeStyles.inputSurface}
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading || isEnhancing}
+                      className="h-11 shrink-0 whitespace-nowrap rounded-full px-5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                      style={themeStyles.accentButton}
+                    >
+                      {isLoading ? "Refreshing..." : "Load GitHub"}
+                    </button>
+                  </form>
+                  {githubImportAutofillNotice ? (
+                    <p className="mt-2 text-xs leading-5" style={appThemeStyles.infoText}>
+                      Signed in as @{githubImportAutofillNotice}. Profile link ready to import.
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap gap-2 text-[11px] leading-5" style={appThemeStyles.mutedText}>
+                    <p>Load GitHub creates the draft from a public profile URL.</p>
+                    <p>Upload a resume if you want stronger personalization.</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-3">
+                  <div {...getTourHighlightProps("tour-resume-upload")}>
+                    <div className="rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                        Optional Context
+                      </p>
+                      <p className="mt-1 text-sm font-medium">Add your resume before or after import.</p>
+                      <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                        Resume details help Repo2Site shape stronger positioning and project summaries.
+                      </p>
+                      <label
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={themeStyles.ghostButton}
+                      >
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          multiple
+                          onChange={handleResumeUploadChange}
+                          className="sr-only"
+                        />
+                        Upload Resume
+                      </label>
+                    </div>
+                  </div>
+
+                    <div className="rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                            Account Features
+                          </p>
+                          <p className="mt-1 text-sm font-medium">
+                            {authSession ? `Signed in as @${authSession.username}.` : "Sign in stays optional."}
+                          </p>
+                          <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                            Sign in to publish, share, and use account-backed features.
+                          </p>
+                        </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsGitHubSignInHelpOpen((current) => !current)}
+                        aria-expanded={isGitHubSignInHelpOpen}
+                        className="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Why sign in?
+                      </button>
+                    </div>
+                    {authSession ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch("/api/auth/session", { method: "DELETE" }).catch(() => null);
+                          setAuthSession(null);
+                          setGitHubImportAutofillNotice(null);
+                          setShareError(null);
+                          setTemplateError(null);
+                        }}
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Sign Out @{authSession.username}
+                      </button>
+                    ) : (
+                      <a
+                        href="/api/auth/github?returnTo=/builder"
+                        className="mt-3 inline-flex rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                        style={appThemeStyles.ghostButton}
+                      >
+                        Sign In with GitHub
+                      </a>
+                    )}
+                    {isGitHubSignInHelpOpen ? (
+                      <p className="mt-3 text-xs leading-5" style={appThemeStyles.mutedText}>
+                        GitHub import still uses a public profile URL. Sign-in only connects publishing, sharing, and template activity to your account.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-[1.1rem] border p-4" style={appThemeStyles.surface}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                      Next Actions
+                    </p>
+                    <p className="mt-1 text-sm font-medium">Once the draft is loaded, refine, publish, and export from here.</p>
+                    <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                      AI suggestions stay pending until accepted. Export downloads only the finished portfolio site.
+                    </p>
+                  </div>
+                  <span
+                    className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    style={appThemeStyles.chip}
+                  >
+                    Secondary actions
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div {...getTourHighlightProps("tour-ai")}>
+                    <button
+                      type="button"
+                      onClick={handleEnhance}
+                      disabled={!preview || isLoading || isEnhancing}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isEnhancing ? "Enhancing..." : "Enhance with AI"}
+                    </button>
+                  </div>
+                  {pendingAiSuggestionCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={acceptAllAiSuggestions}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      Accept All AI ({pendingAiSuggestionCount})
+                    </button>
+                  ) : null}
+                  <div {...getTourHighlightProps("tour-open-editor")}>
+                    <button
+                      type="button"
+                      onClick={() => toggleEditMode()}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isEditMode ? "Hide Editor" : "Open Editor"}
+                    </button>
+                  </div>
+                  <div {...getTourHighlightProps("tour-browse-templates")}>
+                    <Link
+                      href="/templates"
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                      style={themeStyles.ghostButton}
+                    >
+                      Browse Templates
+                    </Link>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsShareOpen((current) => !current)}
+                    disabled={!preview || isLoading}
+                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.ghostButton}
+                  >
+                    {isShareOpen ? "Hide Share" : "Share Portfolio"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTemplateOpen((current) => !current)}
+                    disabled={!preview || isLoading}
+                    className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.ghostButton}
+                  >
+                    {isTemplateOpen ? "Hide Templates" : "Publish Template"}
+                  </button>
+                  <div {...getTourHighlightProps("tour-export")}>
+                    <button
+                      type="button"
+                      onClick={handleExportZip}
+                      disabled={!preview || isLoading || isEnhancing || isExporting}
+                      className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={themeStyles.ghostButton}
+                    >
+                      {isExporting ? "Exporting..." : "Download Portfolio ZIP"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOverrides(buildEmptyOverrides())}
+                    disabled={!hasOverrides}
+                    className="rounded-full px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.accentButton}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            <div className="mt-4 rounded-[1rem] border" style={appThemeStyles.surface}>
+              <button
+                type="button"
+                onClick={() => setIsQuickStartExpanded((current) => !current)}
+                className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left"
+              >
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={appThemeStyles.mutedText}>
+                    How This Works
+                  </p>
+                  <p className="mt-1 text-sm font-medium">New here? See the quick setup steps.</p>
+                  <p className="mt-1 text-xs leading-5" style={appThemeStyles.mutedText}>
+                    GitHub creates the draft, your edits shape it, and AI suggestions stay pending until accepted.
+                  </p>
+                </div>
+                <span
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={appThemeStyles.ghostButton}
+                >
+                  {isQuickStartExpanded ? "Hide" : "Show"}
+                </span>
+              </button>
+              {isQuickStartExpanded ? (
+                <div className="grid gap-3 border-t px-4 py-4" style={{ borderColor: appThemeStyles.surface.borderColor }}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-medium">Follow this path if you are new to the builder.</p>
+                    <button
+                      type="button"
+                      onClick={() => walkthrough.openWalkthrough("quick", true)}
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={appThemeStyles.ghostButton}
+                    >
+                      Restart Walkthrough
+                    </button>
+                  </div>
+                  <div className="grid gap-2 text-sm" style={appThemeStyles.mutedText}>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>1.</span> Upload a resume if you want extra context for the builder.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>2.</span> Paste a public GitHub profile and click <span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>Load GitHub</span>.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>3.</span> Use AI when you want help improving wording, structure, and presentation.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>4.</span> Open Edit to adjust content and section details directly.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>5.</span> Open Customize to change themes and colors.</p>
+                    <p><span className="font-semibold" style={{ color: appThemeStyles.surface.color }}>6.</span> Rearrange sections and projects to put the strongest work first.</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full border px-3 py-1 text-xs font-medium" style={themeStyles.chip}>
+                GitHub + README aware
+              </span>
+              <span className="rounded-full border px-3 py-1 text-xs font-medium" style={themeStyles.chip}>
+                Resume and profile imports
+              </span>
+              <span className="rounded-full border px-3 py-1 text-xs font-medium" style={themeStyles.chip}>
+                Human-reviewed AI suggestions
+              </span>
+            </div>
+            <p className="mt-3 text-sm leading-6" style={themeStyles.mutedText}>
+              Resume upload is the fastest way to improve personalization. Adding a resume gives AI stronger grounding for summaries, profile content, and portfolio copy.
+            </p>
+            <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+              New here? GitHub creates the first draft, your edits shape the final version, and AI suggestions stay pending until you approve them.
+            </p>
+            {isShareOpen ? (
+              <div className="mt-4 rounded-[1.15rem] border p-4" style={themeStyles.surface}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Share portfolio
+                    </p>
+                    <p className="mt-1 text-sm font-medium">Publish a clean public link you can send to anyone.</p>
+                    <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                      The shared page shows only the portfolio site, not the editor or internal tools.
+                    </p>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      {authSession
+                        ? `Signed in as @${authSession.username}. This public link will be owned by your GitHub account.`
+                        : "Sign in with GitHub first so the public link is tied to your account and can be updated safely later."}
+                    </p>
+                  </div>
+                  {sharedPortfolioUrl ? (
+                    <a
+                      href={sharedPortfolioUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.ghostButton}
+                    >
+                      Open Public Page
+                    </a>
+                  ) : null}
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Public URL
+                    </span>
+                    <div className="flex items-center overflow-hidden rounded-full border" style={themeStyles.strongSurface}>
+                      <span className="border-r px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ ...themeStyles.mutedText, borderColor: theme.palette.border }}>
+                        /u/
+                      </span>
+                      <input
+                        type="text"
+                        value={shareSlug}
+                        onChange={(event) => {
+                          setShareCopied(false);
+                          setShareCaptionCopied(false);
+                          setShareError(null);
+                          setShareSlug(buildShareSlug(event.target.value));
+                        }}
+                        placeholder="your-name"
+                        className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm outline-none"
+                      />
+                    </div>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handlePublishShareLink}
+                    disabled={
+                      !preview ||
+                      isPublishingShare ||
+                      shareAvailability?.reason === "invalid" ||
+                      shareAvailability?.reason === "taken"
+                    }
+                    className="rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.accentButton}
+                  >
+                    {isPublishingShare ? "Publishing..." : sharedPortfolioUrl ? "Update Public Link" : "Publish Public Link"}
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs leading-5" style={themeStyles.mutedText}>
+                  {isCheckingShareSlug ? <p>Checking public URL…</p> : null}
+                  {!isCheckingShareSlug && shareAvailability?.reason === "available" ? (
+                    <p>This public URL is available.</p>
+                  ) : null}
+                  {!isCheckingShareSlug && shareAvailability?.reason === "owned" ? (
+                    <p>You already control this URL, so publishing will update the existing page.</p>
+                  ) : null}
+                  {!isCheckingShareSlug && shareAvailability?.reason === "taken" ? (
+                    <p>
+                      That URL is already in use.
+                      {shareAvailability.suggestedSlug ? ` Try ${shareAvailability.suggestedSlug}.` : ""}
+                    </p>
+                  ) : null}
+                  {!isCheckingShareSlug && shareAvailability?.reason === "invalid" ? (
+                    <p>Use 2-60 lowercase letters, numbers, and hyphens only.</p>
+                  ) : null}
+                </div>
+                {sharedPortfolioUrl ? (
+                  <div className="mt-4 grid gap-4 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Live link
+                        </p>
+                        <p className="mt-1 truncate text-sm font-medium">{sharedPortfolioUrl}</p>
+                        <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                          Published {sharePublishedAt ? new Date(sharePublishedAt).toLocaleString() : "just now"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyShareLink}
+                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          {shareCopied ? "Copied" : "Copy Link"}
+                        </button>
+                        {canUseNativeShare ? (
+                          <button
+                            type="button"
+                            onClick={handleShareAnywhere}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Share Anywhere
+                          </button>
+                        ) : null}
+                        <a
+                          href={sharedPortfolioUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          Open Public Page
+                        </a>
+                      </div>
+                    </div>
+                    <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                            Share caption
+                          </p>
+                          <p className="mt-1 max-w-3xl text-sm leading-6">{shareText}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCopyShareCaption}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            {shareCaptionCopied ? "Caption Copied" : "Copy Caption"}
+                          </button>
+                          {shareImageUrl ? (
+                            <a
+                              href={shareImageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                              style={themeStyles.ghostButton}
+                            >
+                              Preview Image
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Direct share
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {[
+                            { label: "LinkedIn", href: shareLinkedInHref },
+                            { label: "X", href: shareTwitterHref },
+                            { label: "Facebook", href: shareFacebookHref },
+                            { label: "WhatsApp", href: shareWhatsAppHref },
+                            { label: "Telegram", href: shareTelegramHref },
+                            { label: "Reddit", href: shareRedditHref },
+                            { label: "Email", href: shareEmailHref },
+                          ].map((platform) => (
+                            <a
+                              key={platform.label}
+                              href={platform.href}
+                              target={platform.href.startsWith("mailto:") ? undefined : "_blank"}
+                              rel={platform.href.startsWith("mailto:") ? undefined : "noreferrer"}
+                              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                              style={themeStyles.ghostButton}
+                            >
+                              {platform.label}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Copy-and-post platforms
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleCopyShareLink();
+                              await handleCopyShareCaption();
+                              openPlatformFallback("https://www.instagram.com/", "Portfolio Share Instagram Prep");
+                            }}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Instagram
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleCopyShareLink();
+                              await handleCopyShareCaption();
+                              openPlatformFallback("https://www.tiktok.com/", "Portfolio Share TikTok Prep");
+                            }}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            TikTok
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await handleCopyShareLink();
+                              await handleCopyShareCaption();
+                              trackAnalyticsEvent("Portfolio Share Discord Prep");
+                            }}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Discord
+                          </button>
+                        </div>
+                        <p className="mt-3 text-xs leading-5" style={themeStyles.mutedText}>
+                          Instagram, TikTok, and Discord work best as copy-and-post flows on the web, so Repo2Site prepares the link and caption for you instead of pretending there is a native one-click share.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-[1rem] border px-4 py-3 text-sm leading-6" style={themeStyles.surface}>
+                    <p className="font-medium">Publish once, then share anywhere.</p>
+                    <p className="mt-1" style={themeStyles.mutedText}>
+                      Repo2Site generates a standalone public page with your approved portfolio content, subtle attribution, and a call-to-action back to the app.
+                    </p>
+                  </div>
+                )}
+                {shareError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{shareError}</p> : null}
+              </div>
+            ) : null}
+            {isTemplateOpen ? (
+              <div className="mt-4 rounded-[1.15rem] border p-4" style={themeStyles.surface}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Publish template
+                    </p>
+                    <p className="mt-1 text-sm font-medium">Share this design as a reusable community template.</p>
+                    <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                      Templates publish theme and layout choices only. They do not replace another user’s GitHub projects, resume content, or personal profile details.
+                    </p>
+                    <p className="mt-2 text-xs leading-5" style={themeStyles.mutedText}>
+                      {authSession
+                        ? `Publishing as @${authSession.username}. Template ownership, reactions, and future moderation all follow this account.`
+                        : "Sign in with GitHub first so your template is published under a real account instead of a browser-local identity."}
+                    </p>
+                  </div>
+                  <Link
+                    href="/templates"
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.ghostButton}
+                  >
+                    Open Gallery
+                  </Link>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Template title
+                    </span>
+                    <input
+                      type="text"
+                      value={templateTitle}
+                      onChange={(event) => setTemplateTitle(event.target.value)}
+                      className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
+                      style={themeStyles.strongSurface}
+                    />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Category
+                    </span>
+                    <input
+                      type="text"
+                      value={templateCategory}
+                      onChange={(event) => setTemplateCategory(event.target.value)}
+                      className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
+                      style={themeStyles.strongSurface}
+                    />
+                  </label>
+                  <label className="grid gap-2 md:col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Short description
+                    </span>
+                    <textarea
+                      value={templateDescription}
+                      onChange={(event) => setTemplateDescription(event.target.value)}
+                      rows={3}
+                      className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
+                      style={themeStyles.strongSurface}
+                    />
+                  </label>
+                  <label className="grid gap-2 md:col-span-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Tags
+                    </span>
+                    <input
+                      type="text"
+                      value={templateTags}
+                      onChange={(event) => setTemplateTags(event.target.value)}
+                      placeholder="minimal, product, developer"
+                      className="rounded-[1rem] border px-4 py-3 text-sm outline-none"
+                      style={themeStyles.strongSurface}
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                    Current preset includes theme, color mode, density, card style, section layout, section order, and section visibility.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handlePublishTemplate}
+                    disabled={!preview || isPublishingTemplate}
+                    className="rounded-full px-5 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                    style={themeStyles.accentButton}
+                  >
+                    {isPublishingTemplate ? "Publishing..." : "Publish Template"}
+                  </button>
+                </div>
+                {templateMessage ? <p className="mt-3 text-sm" style={themeStyles.successText}>{templateMessage}</p> : null}
+                {templateError ? <p className="mt-3 text-sm" style={themeStyles.errorText}>{templateError}</p> : null}
+              </div>
+            ) : null}
+            {preview ? (
+              <div className="mt-4 rounded-[1rem] border p-4" style={themeStyles.surface}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Portfolio completeness
+                    </p>
+                    <p className="mt-1 text-sm font-medium">
+                      {completenessScore}% ready for review
+                    </p>
+                  </div>
+                  <span
+                    className="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.chip}
+                  >
+                    {missingGuidance.length === 0 ? "Looking strong" : `${missingGuidance.length} quick wins`}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${completenessScore}%`, backgroundColor: theme.palette.accent }}
+                  />
+                </div>
+                {missingGuidance.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {missingGuidance.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full border px-3 py-1 text-xs font-medium"
+                        style={themeStyles.ghostButton}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs leading-5" style={themeStyles.mutedText}>
+                    The core sections are filled in. This is a good point to fine-tune copy and export a first version.
+                  </p>
+                )}
+              </div>
+            ) : null}
+            {enhanceError ? (
+              <div className="mt-3 rounded-[1rem] border px-4 py-3 text-sm" style={themeStyles.accentBlock}>
+                {enhanceError}
+              </div>
+            ) : null}
+            </div>
+          </div>
+
         </section>
 
-        <section
-          className="rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]"
-          style={themeStyles.surface}
-          {...getTourHighlightProps("tour-generated-preview")}
-        >
-          <div>
+        <section className="rounded-[1.9rem] border shadow-[0_26px_80px_-42px_rgba(15,23,42,0.48)]" style={themeStyles.surface}>
+          <div className={preview ? "xl:grid xl:grid-cols-[minmax(0,1fr)_21rem]" : ""}>
           <article className="min-w-0">
             {error ? (
               <div className="border-b px-6 py-4 text-sm" style={themeStyles.accentBlock}>
@@ -6860,7 +7055,7 @@ export function Repo2SiteShell() {
                     {preview?.profile.name || "Portfolio Preview"}
                   </p>
                   <p className="mt-1 text-xs" style={themeStyles.mutedText}>
-                    {isEditMode && selectedCanvasComponent
+                    {selectedCanvasComponent
                       ? `${selectedSectionLabel} selected. Click, drag, and refine the page directly on the canvas.`
                       : preview?.profile.username
                         ? `@${preview.profile.username}`
@@ -6868,7 +7063,7 @@ export function Repo2SiteShell() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  {isEditMode && selectedCanvasComponent ? (
+                  {selectedCanvasComponent ? (
                     <span
                       className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
                       style={themeStyles.chip}
@@ -6876,160 +7071,268 @@ export function Repo2SiteShell() {
                       {selectedSectionLabel}
                     </span>
                   ) : null}
-                  {!isPreviewMode ? (
-                    <button
-                      type="button"
-                      onClick={() => revealInspector("style")}
-                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] xl:hidden"
-                      style={themeStyles.ghostButton}
-                    >
-                      Customize
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => revealInspector(selectedCanvasComponent?.type === "custom" ? "content" : "layout")}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] xl:hidden"
+                    style={themeStyles.ghostButton}
+                  >
+                    Inspector
+                  </button>
                 </div>
               </div>
             </header>
 
-            <Repo2SiteBuilderCanvas
-              previewReady={Boolean(preview)}
-              isEditing={isEditMode}
-              themeStyles={themeStyles}
-              theme={theme}
-              densityStackGapClassName={densityClasses.stackGap}
-              selectedSectionId={selectedSectionId}
-              visibleSectionRows={visibleSectionRows}
-              sectionLabels={sectionLabels}
-              customSectionTitles={customSectionTitles}
-              rowLayoutMode={portfolio.appearance.sectionLayout}
-              draggedSectionId={draggedSectionId}
-              dropTargetSectionId={dropTargetSectionId}
-              hoveredSectionId={hoveredSectionId}
-              pendingSectionRemovalId={pendingSectionRemovalId}
-              dropPosition={dropPosition}
-              resizingSectionIds={resizingSectionIds}
-              workspacePanel={renderBuilderWorkspacePanel()}
-              firstStepContent={
-                  <div className="rounded-[1.6rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
-                    <div className="flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border" style={themeStyles.strongSurface}>
-                        <span className="text-lg">↗</span>
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
-                          First Step
-                        </p>
-                        <h2 className="mt-2 text-2xl font-semibold tracking-tight">Load a GitHub profile to generate your first portfolio draft.</h2>
-                        <p className="mt-3 max-w-3xl text-sm leading-7" style={themeStyles.mutedText}>
-                          Repo2Site uses public GitHub details and repository descriptions to build a starting website. After that, you can upload a resume, edit the copy, reorder projects, review AI suggestions, and export the final result.
-                        </p>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => walkthrough.openWalkthrough("quick", true)}
-                            className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                            style={themeStyles.ghostButton}
-                          >
-                            Start Walkthrough
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => resumeUploadInputRef.current?.click()}
-                            className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                            style={themeStyles.ghostButton}
-                          >
-                            Upload Resume First
-                          </button>
-                        </div>
-                      </div>
+            <div
+              className={`grid w-full min-w-0 ${densityClasses.stackGap} px-4 py-4 sm:px-5 sm:py-5 bg-[linear-gradient(to_right,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:24px_24px]`}
+            >
+              {!preview ? (
+                <div className="rounded-[1.6rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border" style={themeStyles.strongSurface}>
+                      <span className="text-lg">↗</span>
                     </div>
-                  </div>
-              }
-              emptyCanvasActions={
-                  <div className="rounded-[1.5rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
-                      Empty Canvas
-                    </p>
-                    <p className="mt-2 text-lg font-semibold">There are no visible sections right now.</p>
-                    <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
-                      Add a section or restore a hidden one to keep building.
-                    </p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {hiddenCanvasComponents.slice(0, 4).map((component) => (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
+                        First Step
+                      </p>
+                      <h2 className="mt-2 text-2xl font-semibold tracking-tight">Load a GitHub profile to generate your first portfolio draft.</h2>
+                      <p className="mt-3 max-w-3xl text-sm leading-7" style={themeStyles.mutedText}>
+                    Repo2Site uses public GitHub details and repository descriptions to build a starting website. After that, you can upload a resume, edit the copy, reorder projects, review AI suggestions, and export the final result.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
                         <button
-                          key={`empty-restore-${component.id}`}
                           type="button"
-                          onClick={() => restoreSection(component.id)}
-                          className="rounded-full border px-4 py-2 text-sm font-medium"
+                          onClick={() => walkthrough.openWalkthrough("quick", true)}
+                          className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
                           style={themeStyles.ghostButton}
                         >
-                          Restore {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                          Start Walkthrough
                         </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={addCustomSection}
-                        className="rounded-full border px-4 py-2 text-sm font-medium"
-                        style={themeStyles.accentButton}
-                      >
-                        Add Custom Section
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => resumeUploadInputRef.current?.click()}
+                          className="rounded-full border px-4 py-2 text-sm font-medium transition hover:-translate-y-0.5"
+                          style={themeStyles.ghostButton}
+                        >
+                          Upload Resume First
+                        </button>
+                      </div>
                     </div>
                   </div>
-              }
-              renderSectionContent={renderPreviewSection}
-              onFocusSection={focusSection}
-              onHoverSection={setHoveredSectionId}
-              onSectionDragStart={(sectionId, event) => {
-                handleSectionDragStart(sectionId, event);
-              }}
-              onSectionDragOver={(sectionId, event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                handleSectionDragOver(event, sectionId);
-              }}
-              onSectionDrop={(sectionId, event) => {
-                event.preventDefault();
-                handleSectionDrop(sectionId, event);
-              }}
-              onSectionDragEnd={handleSectionDragEnd}
-              onRequestRemoveSection={requestSectionRemoval}
-              onCancelRemoveSection={cancelSectionRemoval}
-              onMoveSectionRow={updateSectionOrder}
-              onRemoveSection={removeSection}
-              onPlaceSectionBeside={placeSectionBeside}
-              onStackSection={stackSection}
-              onAdjustSectionWidth={adjustSectionWidth}
-              onSetSectionWidthPreset={setSectionWidthPreset}
-              onDuplicateSection={duplicateSection}
-              onStartSectionResize={(rowId, leftSectionId, rightSectionId, event) =>
-                startSectionResize(rowId, leftSectionId, rightSectionId, event as PointerEvent<HTMLButtonElement>)
-              }
-            />
+                </div>
+              ) : null}
+              {renderBuilderWorkspacePanel()}
+              {preview && visibleSectionRows.length === 0 ? (
+                <div className="rounded-[1.5rem] border p-5 sm:p-6" style={themeStyles.sectionSurface}>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.mutedText}>
+                    Empty Canvas
+                  </p>
+                  <p className="mt-2 text-lg font-semibold">There are no visible sections right now.</p>
+                  <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
+                    Restore a hidden section or add a custom one to keep building.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {hiddenCanvasComponents.slice(0, 4).map((component) => (
+                      <button
+                        key={`empty-restore-${component.id}`}
+                        type="button"
+                        onClick={() => restoreSection(component.id)}
+                        className="rounded-full border px-4 py-2 text-sm font-medium"
+                        style={themeStyles.ghostButton}
+                      >
+                        Restore {component.type === "custom" ? component.title || "Custom Section" : sectionLabels[component.type]}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addCustomSection}
+                      className="rounded-full border px-4 py-2 text-sm font-medium"
+                      style={themeStyles.accentButton}
+                    >
+                      Add Custom Section
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {visibleSectionRows.map((row) => (
+                <div
+                  key={row.id}
+                  data-layout-row-id={row.id}
+                  className={`grid gap-4 ${
+                    portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1
+                      ? "grid-cols-1"
+                      : "grid-cols-1 rounded-[1.6rem] border p-3 xl:grid xl:items-stretch xl:gap-4 xl:p-4"
+                  }`}
+                  style={(() => {
+                    if (portfolio.appearance.sectionLayout === "stacked" || row.items.length === 1) {
+                      return undefined;
+                    }
+
+                    const leftRatio = getCanvasSectionWidthRatio(row.items[0] ?? row.items[1]);
+                    const rightRatio = getCanvasSectionWidthRatio(row.items[1] ?? row.items[0]);
+
+                    return {
+                      ...themeStyles.subtleSurface,
+                      gridTemplateColumns:
+                        row.items.length === 2
+                          ? `minmax(0, calc(${Math.round(leftRatio * 100)}% - 1.625rem)) 1.25rem minmax(0, calc(${Math.round(rightRatio * 100)}% - 1.625rem))`
+                          : undefined,
+                    } as CSSProperties;
+                  })()}
+                >
+                  {row.items.map((component, index) => {
+                    const isDragging = draggedSectionId === component.id;
+                    const isDropTarget = dropTargetSectionId === component.id && draggedSectionId !== component.id;
+                    const widthRatio =
+                      portfolio.appearance.sectionLayout === "stacked" || !canSectionShareRow(component)
+                        ? 1
+                        : getCanvasSectionWidthRatio(component);
+                    const nextComponent = row.items[index + 1];
+                    const canShowResizeHandle =
+                      portfolio.appearance.sectionLayout !== "stacked" &&
+                      Boolean(nextComponent) &&
+                      canSectionsShareRow(component, nextComponent);
+                    const resizeHandleIsActive =
+                      Boolean(nextComponent) &&
+                      resizingSectionIds.includes(component.id) &&
+                      resizingSectionIds.includes(nextComponent.id);
+
+                    return (
+                      <Fragment key={component.id}>
+                        <div
+                          className={`min-w-0 w-full ${row.items.length > 1 ? "xl:self-stretch" : "xl:shrink-0 xl:self-stretch xl:basis-[var(--section-width)] xl:max-w-[var(--section-width)]"}`}
+                          style={
+                            row.items.length > 1
+                              ? undefined
+                              : ({ ["--section-width" as string]: `${Math.round(widthRatio * 100)}%` } as CSSProperties)
+                          }
+                        >
+                          <PreviewSectionFrame
+                            sectionId={component.id}
+                            label={
+                              component.type === "custom"
+                                ? overrides.customSections.find((section) => section.id === component.id)?.title || component.title || "Custom Section"
+                                : sectionLabels[component.type]
+                            }
+                            themeStyles={themeStyles}
+                            theme={theme}
+                            isDragging={isDragging}
+                            isResizing={resizingSectionIds.includes(component.id)}
+                            isSelected={selectedSectionId === component.id}
+                            isHovered={hoveredSectionId === component.id}
+                            isDropTarget={isDropTarget}
+                            dropPosition={isDropTarget ? dropPosition : null}
+                            widthRatio={widthRatio}
+                            canResize={
+                              portfolio.appearance.sectionLayout !== "stacked" &&
+                              row.items.length > 1 &&
+                              canSectionShareRow(component)
+                            }
+                            duplicateLabel={component.type === "custom" ? "Duplicate" : undefined}
+                            onDuplicate={component.type === "custom" ? () => duplicateSection(component.id) : undefined}
+                            onSelect={() => focusSection(component.id, component.type === "custom" ? "content" : "section")}
+                            onHoverChange={(hovered) => setHoveredSectionId(hovered ? component.id : null)}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "move";
+                              handleSectionDragStart(component.id);
+                            }}
+                            onDragOver={(event) => {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              handleSectionDragOver(event, component.id);
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              handleSectionDrop(component.id);
+                            }}
+                            onDragEnd={handleSectionDragEnd}
+                            onRemove={() => removeSection(component.id)}
+                          >
+                            {renderPreviewSection(component)}
+                          </PreviewSectionFrame>
+                        </div>
+                        {canShowResizeHandle && nextComponent ? (
+                          <PreviewRowResizeHandle
+                            themeStyles={themeStyles}
+                            theme={theme}
+                            isActive={resizeHandleIsActive}
+                            onPointerDown={(event) =>
+                              startSectionResize(row.id, component.id, nextComponent.id, event)
+                            }
+                          />
+                        ) : null}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </article>
           </div>
         </section>
       </div>
-      <Repo2SiteBuilderCustomizeTool
-        isOpen={isCustomizeOpen}
-        appThemeStyles={appThemeStyles}
-        launcherStyle={customizeLauncherStyle}
-        onToggle={toggleCustomizePanel}
+      {isCustomizeOpen ? (
+        <button
+          type="button"
+          aria-label="Close customize panel"
+          onClick={() => toggleCustomizePanel(false)}
+          className="fixed inset-0 z-[58] bg-slate-950/28 backdrop-blur-[2px]"
+        />
+      ) : null}
+      {!isCustomizeOpen ? (
+        <button
+          type="button"
+          onClick={() => toggleCustomizePanel(true)}
+          aria-label="Open customize tool"
+          title="Open customize tool"
+          className="fixed bottom-5 right-5 z-[90] flex h-20 w-20 items-center justify-center rounded-full border text-[2.5rem] font-semibold shadow-[0_26px_60px_-28px_rgba(15,23,42,0.78)] transition duration-200 hover:-translate-y-1 sm:bottom-6 sm:right-6 sm:h-24 sm:w-24"
+          style={customizeLauncherStyle}
+        >
+          <span aria-hidden="true" className="leading-none">≡</span>
+        </button>
+      ) : null}
+      <aside
+        className={`fixed right-0 top-0 z-[89] h-screen w-full max-w-[28rem] transform border-l shadow-[0_28px_80px_-34px_rgba(15,23,42,0.72)] transition duration-300 ease-out sm:max-w-[30rem] ${isCustomizeOpen ? "translate-x-0" : "translate-x-full"}`}
+        style={themeStyles.strongSurface}
+        aria-hidden={!isCustomizeOpen}
       >
-        {renderCustomizePanelContent()}
-      </Repo2SiteBuilderCustomizeTool>
+        <div className="flex h-full flex-col">
+          <div className="flex items-start justify-between gap-4 border-b px-5 py-5" style={{ borderColor: theme.palette.border }}>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
+                Customize Tool
+              </p>
+              <h2 className="mt-1 text-xl font-semibold tracking-tight">Adjust the site without leaving the preview.</h2>
+              <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                Theme, palette, density, layout style, and card treatment all update live as you change them.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => toggleCustomizePanel(false)}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={themeStyles.ghostButton}
+            >
+              Close
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            {renderCustomizePanelContent()}
+          </div>
+        </div>
+      </aside>
       <Repo2SiteWalkthroughLauncher
         isOpen={walkthrough.showChoice}
         onStart={() => walkthrough.openWalkthrough("quick", true)}
-        onSkip={walkthrough.skipTour}
+        onExplore={walkthrough.skipTour}
       />
       <Repo2SiteGuidedTour
         isOpen={walkthrough.isOpen}
         steps={walkthrough.activeSteps}
-        completedStepIds={walkthrough.completedStepIds}
         currentStep={walkthrough.currentStep}
         currentStepIndex={walkthrough.currentStepIndex}
         anchorRect={walkthrough.anchorRect}
-        onAction={handleWalkthroughAction}
         prefersReducedMotion={walkthrough.prefersReducedMotion}
         onNext={walkthrough.goToNextStep}
         onBack={walkthrough.goToPreviousStep}

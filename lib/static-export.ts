@@ -1,9 +1,5 @@
 import { getCanvasSectionWidthRatio, orderCanvasChildIds } from "@/lib/portfolio";
 import type { FinalPortfolio } from "@/lib/portfolio";
-import { buildRepo2SitePublicLayoutModel } from "@/lib/repo2site-public-layout";
-import { buildRepo2SiteSectionModels } from "@/lib/repo2site-section-models";
-import { resolvePortfolioSectionRows } from "@/lib/repo2site-layout";
-import { buildRepo2SitePublicTheme } from "@/lib/repo2site-public-theme";
 import type { GeneratePreviewResponse, PortfolioOverrides, PreviewTheme } from "@/lib/types";
 
 type ExportFile = {
@@ -237,20 +233,8 @@ function getThemePreset(themeId: string): ThemePreset {
   };
 }
 
-function asText(value: unknown) {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  return String(value);
-}
-
-function escapeHtml(value: unknown) {
-  return asText(value)
+function escapeHtml(value: string) {
+  return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -258,8 +242,8 @@ function escapeHtml(value: unknown) {
     .replaceAll("'", "&#39;");
 }
 
-function slugify(value: unknown) {
-  const normalized = asText(value)
+function slugify(value: string) {
+  const normalized = value
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/^-+|-+$/g, "");
@@ -267,65 +251,44 @@ function slugify(value: unknown) {
   return normalized || "portfolio";
 }
 
-function normalizeTechKey(value: unknown) {
-  const baseKey = asText(value).trim().toLowerCase().replace(/[._/]+/g, " ");
+function normalizeTechKey(value: string) {
+  const baseKey = value.trim().toLowerCase().replace(/[._/]+/g, " ");
   return TECH_ICON_ALIASES[baseKey] ?? baseKey.replace(/\s+/g, "");
 }
 
-function renderTechBadge(value: unknown) {
-  const label = asText(value);
+function renderTechBadge(value: string) {
   const icon = TECH_ICONS[normalizeTechKey(value)];
 
   if (!icon) {
-    return `<span class="chip">${escapeHtml(label)}</span>`;
+    return `<span class="chip">${escapeHtml(value)}</span>`;
   }
 
   return `<span class="tech-badge chip">
     <span class="tech-mark" style="--tech-accent:${icon.accent}">
       <span>${escapeHtml(icon.shortLabel)}</span>
     </span>
-    <span>${escapeHtml(label)}</span>
+    <span>${escapeHtml(value)}</span>
   </span>`;
-}
-
-function renderSourceBadge(source: string | undefined | null) {
-  const label =
-    source === "readme"
-      ? "README"
-      : source === "ai"
-        ? "AI"
-        : source === "user"
-          ? "User"
-          : "GitHub";
-
-  return `<span class="chip source-chip">${escapeHtml(label)}</span>`;
 }
 
 function buildCss(theme: PreviewTheme, portfolio: FinalPortfolio) {
   const preset = getThemePreset(theme.id);
   const isDarkMode = portfolio.appearance.colorMode === "dark";
-  const sharedTheme = buildRepo2SitePublicTheme(portfolio);
-  const page = sharedTheme.pageBackground;
-  const surface = sharedTheme.shellBackground;
-  const surfaceStrong = sharedTheme.surfaceBackground;
-  const border = sharedTheme.surfaceBorder;
-  const text = sharedTheme.surfaceColor;
-  const muted = sharedTheme.mutedColor;
-  const chip = sharedTheme.chipBackground;
-  const heroOverlay = sharedTheme.surfaceBackground;
-  const navOverlay = sharedTheme.shellBackground;
-  const sectionTone = sharedTheme.surfaceBackground;
-  const projectSurface = sharedTheme.surfaceBackground;
+  const page = isDarkMode ? "#09111f" : theme.palette.page;
+  const surface = isDarkMode ? "rgba(13, 21, 35, 0.9)" : theme.palette.surface;
+  const surfaceStrong = isDarkMode ? "#0f1729" : theme.palette.surfaceStrong;
+  const border = isDarkMode ? "rgba(148, 163, 184, 0.2)" : theme.palette.border;
+  const text = isDarkMode ? "#e5eefb" : theme.palette.text;
+  const muted = isDarkMode ? "#93a4bf" : theme.palette.muted;
+  const chip = isDarkMode ? theme.palette.accentSoft : theme.palette.chip;
   const cardShadow =
     portfolio.appearance.cardStyle === "outlined"
       ? "none"
       : portfolio.appearance.cardStyle === "elevated"
         ? isDarkMode
-          ? sharedTheme.shellShadow
+          ? "0 24px 56px -30px rgba(2, 6, 23, 0.72)"
           : "0 26px 58px -34px rgba(15,23,42,0.4)"
-        : isDarkMode
-          ? sharedTheme.shellShadow
-          : preset.cardGlow;
+        : preset.cardGlow;
   const heroColumns =
     portfolio.appearance.sectionLayout === "stacked" ? "1fr" : "1.15fr 0.85fr";
   const aboutColumns =
@@ -341,34 +304,31 @@ function buildCss(theme: PreviewTheme, portfolio: FinalPortfolio) {
   --accent: ${theme.palette.accent};
   --accent-soft: ${theme.palette.accentSoft};
   --chip: ${chip};
-  --hero-overlay: ${heroOverlay};
-  --nav-overlay: ${navOverlay};
-  --section-tone: ${sectionTone};
-  --project-surface: ${projectSurface};
-  --project-shadow: ${isDarkMode ? cardShadow : `${preset.projectInset}, ${cardShadow}`};
-  --page-pattern: none;
-  --chip-border: ${sharedTheme.chipBorder};
-  --chip-color: ${sharedTheme.chipColor};
+  --hero-overlay: ${preset.heroOverlay};
+  --nav-overlay: ${preset.navOverlay};
+  --section-tone: ${preset.sectionTone};
+  --project-surface: ${preset.projectSurface};
+  --project-shadow: ${preset.projectInset}, ${cardShadow};
+  --page-pattern: ${preset.backgroundPattern};
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  padding: 1rem 0.75rem;
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
-  background: var(--page);
+  background: var(--page-pattern), var(--page);
 }
 a { color: inherit; text-decoration: none; }
 img { display: block; max-width: 100%; }
 .shell {
-  width: min(72rem, calc(100vw - 1.5rem));
-  margin: 0 auto;
+  width: min(112rem, calc(100vw - 2rem));
+  margin: 1rem auto;
   border: 1px solid var(--border);
   border-radius: 2rem;
   overflow: hidden;
   background: var(--surface);
-  box-shadow: ${sharedTheme.shellShadow};
+  box-shadow: 0 28px 70px -40px rgba(15,23,42,0.38);
 }
 .topbar, .footer {
   display: flex;
@@ -412,12 +372,6 @@ img { display: block; max-width: 100%; }
   gap: 2rem;
   grid-template-columns: ${heroColumns};
 }
-.hero-preview-left,
-.hero-preview-right {
-  display: grid;
-  gap: 1rem;
-  align-content: start;
-}
 .hero-profile {
   display: flex;
   gap: 1rem;
@@ -451,11 +405,6 @@ img { display: block; max-width: 100%; }
   margin: 1.25rem 0 0;
   font-size: clamp(2rem, 5vw, 3.5rem);
   line-height: 1.08;
-}
-.hero-name {
-  margin: 0;
-  font-size: clamp(2.2rem, 5.5vw, 4rem);
-  line-height: 0.95;
 }
 .lede { margin: 1rem 0 0; max-width: 42rem; line-height: 1.9; }
 .actions, .chips, .stats, .link-grid, .stack-list, .project-meta {
@@ -499,9 +448,9 @@ img { display: block; max-width: 100%; }
   gap: 0.55rem;
   padding: 0.5rem 0.85rem;
   border-radius: 999px;
-  border: 1px solid var(--chip-border);
+  border: 1px solid var(--border);
   background: var(--chip);
-  color: var(--chip-color);
+  color: ${isDarkMode ? "#f8fbff" : theme.palette.accent};
   font-size: 0.95rem;
 }
 .tech-badge { line-height: 1; }
@@ -557,66 +506,17 @@ img { display: block; max-width: 100%; }
   gap: 1.5rem;
   grid-template-columns: ${aboutColumns};
 }
-.builder-surface {
-  border: 1px solid var(--border);
-  border-radius: 1.8rem;
-  padding: 1.5rem;
-  background: var(--section-tone);
-}
-.builder-surface-strong {
-  border: 1px solid var(--border);
-  border-radius: 1.2rem;
-  padding: 1rem 1.1rem;
-  background: var(--surface-strong);
-}
-.hero-highlight-grid {
-  display: grid;
-  gap: 0.75rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.hero-highlight-card p {
-  margin: 0;
-}
-.hero-stack-tools {
-  margin-top: 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.625rem;
-}
 .card, .panel, .project-featured, .project-card {
   border: 1px solid var(--border);
   border-radius: 1.8rem;
   padding: 1.5rem;
   background: var(--section-tone);
 }
-.custom-block-grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 1rem;
-}
-.custom-block {
-  border: 1px solid var(--border);
-  border-radius: 1.2rem;
-  padding: 1rem;
-  background: var(--surface-strong);
-}
-.custom-block-full {
-  grid-column: 1 / -1;
-}
-.custom-block-image {
-  width: 100%;
-  max-height: 24rem;
-  object-fit: cover;
-  border-radius: 1rem;
-  border: 1px solid var(--border);
-  margin-top: 0.75rem;
-}
 .panel { background: var(--surface-strong); }
 .panel h2, .card h2, .project-featured h3, .project-card h3 {
   margin: 0.75rem 0 0;
 }
-.mini-grid, .detail-grid, .project-grid, .project-grid-three, .contact-grid {
+.mini-grid, .detail-grid, .project-grid, .contact-grid {
   display: grid;
   gap: 1.5rem;
 }
@@ -638,56 +538,19 @@ img { display: block; max-width: 100%; }
 .project-layout {
   display: grid;
   gap: 1.25rem;
+  grid-template-columns: 1.05fr 0.95fr;
   margin-top: 1.5rem;
-}
-.project-layout.hybrid {
-  gap: 1.25rem;
 }
 .project-featured {
   background: var(--project-surface);
   box-shadow: var(--project-shadow);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 .project-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-}
-.project-grid-three {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: stretch;
 }
 .project-card {
   background: var(--surface-strong);
   box-shadow: 0 20px 48px -34px rgba(15,23,42,0.3);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-.project-card-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-.project-card-title {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
-}
-.project-card-title.compact {
-  font-size: 1.45rem;
-  line-height: 1.2;
-}
-.project-accent-bar {
-  margin: 1.25rem 0 1rem;
-  width: 3.5rem;
-  height: 0.25rem;
-  border-radius: 999px;
-  background: var(--accent);
 }
 .project-image {
   overflow: hidden;
@@ -699,24 +562,6 @@ img { display: block; max-width: 100%; }
 .project-image img { width: 100%; height: 100%; object-fit: cover; }
 .project-image.tall { height: 18rem; }
 .project-image.compact { height: 8rem; }
-.project-featured .project-image.tall { height: 20rem; }
-.project-card .summary {
-  flex: 1;
-}
-.project-featured .summary {
-  flex: 1;
-}
-.project-actions {
-  margin-top: 1.25rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.85rem;
-}
-.project-featured .project-actions {
-  margin-top: auto;
-  padding-top: 1.25rem;
-}
 .kicker {
   display: inline-flex;
   border-radius: 999px;
@@ -757,52 +602,51 @@ img { display: block; max-width: 100%; }
   color: var(--muted);
 }
 @media (max-width: 980px) {
-  .hero-grid, .two-col, .contact-grid { grid-template-columns: 1fr; }
-  .hero-highlight-grid { grid-template-columns: 1fr; }
+  .hero-grid, .two-col, .project-layout, .contact-grid { grid-template-columns: 1fr; }
   .layout-row.flexible { display: grid; }
   .layout-row.flexible .layout-cell { flex: none; max-width: 100%; }
-  .project-layout.hybrid { grid-template-columns: 1fr; }
-}
-@media (min-width: 1280px) {
-  .project-layout.hybrid {
-    grid-template-columns: minmax(18rem, 0.84fr) minmax(24rem, 1.16fr);
-    align-items: stretch;
-  }
 }
 @media (max-width: 720px) {
-  body { padding: 0.5rem; }
-  .shell { width: calc(100vw - 1rem); margin: 0 auto; border-radius: 1.4rem; }
+  .shell { width: calc(100vw - 1rem); margin: 0.5rem auto; border-radius: 1.4rem; }
   .topbar, .footer, .hero, .content { padding: 1rem; }
-  .detail-grid, .project-grid, .project-grid-three, .custom-block-grid { grid-template-columns: 1fr; }
+  .detail-grid, .project-grid { grid-template-columns: 1fr; }
 }`;
 }
 
 function renderImage(url: string, alt: string, compact = false) {
   return `<div class="project-image ${compact ? "compact" : "tall"}"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}"></div>`;
 }
-function hasText(value?: unknown) {
-  return Boolean(asText(value).trim());
+function hasText(value?: string | null) {
+  return Boolean(value && value.trim());
 }
 
 function buildHtml(portfolio: FinalPortfolio) {
-  const layoutModel = buildRepo2SitePublicLayoutModel(portfolio);
-  const {
-    visibleSections,
-    sectionRows,
-    hiddenSections,
-    hiddenChildIds,
-    orderedHeroLeftIds,
-    orderedAboutIds,
-    showAbout,
-    showProfileDetails,
-    showContact,
-    showLinks,
-    showProjects,
-    showHero,
-    showProfessional,
-  } = layoutModel;
-  const sectionModels = buildRepo2SiteSectionModels(portfolio, layoutModel);
-  const { hero, about, professional, projects, links, contact } = sectionModels;
+  const visibleSections = portfolio.layout.components.filter((component) => component.visible);
+  const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>(
+    (rows, component) => {
+      const rowId =
+        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects" || component.type === "hero"
+          ? component.id
+          : component.rowId || component.id;
+      const existingRow = rows.find((row) => row.id === rowId);
+
+      if (existingRow) {
+        existingRow.items.push(component);
+      } else {
+        rows.push({ id: rowId, items: [component] });
+      }
+
+      return rows;
+    },
+    [],
+  );
+  const hiddenSections = new Set(
+    portfolio.layout.components
+      .filter((component) => !component.visible && component.type !== "custom")
+      .map((component) => component.type),
+  );
+  const featuredProject = portfolio.repositories[0];
+  const secondaryProjects = portfolio.repositories.slice(1, 5);
   const displayName = portfolio.hero.name || portfolio.profile?.username || "Portfolio";
   const pageTitle = `${displayName} | Portfolio`;
   const description = portfolio.hero.subheadline.value || portfolio.about.description.value;
@@ -813,111 +657,176 @@ function buildHtml(portfolio: FinalPortfolio) {
     ? `@${escapeHtml(portfolio.profile.username)}`
     : "@username";
 
-  const hybridProjectGridClass =
-    portfolio.appearance.projectsOverflowSize === "expanded"
-      ? "project-grid"
-      : "project-grid";
+  const profileMeta = [
+    portfolio.professional.company || portfolio.profile?.company,
+    portfolio.professional.location || portfolio.profile?.location,
+  ].filter(
+    (item): item is string => hasText(item),
+  );
+  const heroActions = portfolio.professional.actions
+    .filter((action) => ["resume", "coverLetter", "linkedIn", "handshake", "portfolio", "github"].includes(action.id))
+    .slice(0, 4);
+  const contactActions = portfolio.professional.actions.filter((action) =>
+    ["resume", "coverLetter", "linkedIn", "handshake", "portfolio"].includes(action.id),
+  );
+  const hiddenChildIds = new Set(portfolio.layout.hiddenComponentIds);
 
-  const renderExportProjectCard = (
-    repository: (typeof projects.secondaryProjects)[number] | NonNullable<typeof projects.featuredProject>,
-    options?: { featured?: boolean; compact?: boolean },
-  ) => {
-    const featured = options?.featured ?? false;
-    const compact = options?.compact ?? false;
+  const validLinks = portfolio.linksSection.links.filter(
+    (link) => hasText(link.label) && hasText(link.href),
+  );
+  const orderedLinks = orderCanvasChildIds(
+    validLinks.map((link, index) => `link-card:${slugify(`${link.label}-${index}`)}`),
+    portfolio.layout.componentOrder["links:cards"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) => validLinks.find((link, index) => `link-card:${slugify(`${link.label}-${index}`)}` === id))
+    .filter(Boolean) as typeof validLinks;
+  const contactMethods = [
+    hasText(portfolio.contact.email) && hasText(portfolio.contact.emailHref)
+      ? { id: "contact-method:email", label: "Email", value: portfolio.contact.email, href: portfolio.contact.emailHref }
+      : null,
+    hasText(portfolio.contact.phone) && hasText(portfolio.contact.phoneHref)
+      ? { id: "contact-method:phone", label: "Phone", value: portfolio.contact.phone, href: portfolio.contact.phoneHref }
+      : null,
+  ].filter(Boolean) as Array<{ id: string; label: string; value: string; href: string }>;
+  const orderedContactMethods = orderCanvasChildIds(
+    contactMethods.map((item) => item.id),
+    portfolio.layout.componentOrder["contact:methods"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) => contactMethods.find((item) => item.id === id))
+    .filter(Boolean) as typeof contactMethods;
+  const orderedContactActions = orderCanvasChildIds(
+    contactActions.map((action) => `contact-action:${action.id}`),
+    portfolio.layout.componentOrder["contact:actions"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) => contactActions.find((action) => `contact-action:${action.id}` === id))
+    .filter(Boolean) as typeof contactActions;
+  const orderedSecondaryProjects = orderCanvasChildIds(
+    secondaryProjects.map((repository) => `project-card:${slugify(repository.name)}`),
+    portfolio.layout.componentOrder["projects:grid"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) =>
+      secondaryProjects.find((repository) => `project-card:${slugify(repository.name)}` === id),
+    )
+    .filter(Boolean) as typeof secondaryProjects;
+  const orderedHeroStack = orderCanvasChildIds(
+    portfolio.techStack.slice(0, 8).map((tech) => `hero-stack:${slugify(tech)}`),
+    portfolio.layout.componentOrder["hero:stack:items"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) =>
+      portfolio.techStack.slice(0, 8).find((tech) => `hero-stack:${slugify(tech)}` === id),
+    )
+    .filter(Boolean) as string[];
+  const orderedHeroLeftIds = orderCanvasChildIds(
+    ["hero:image", "hero:name", "hero:title", "hero:intro", "hero:actions"],
+    portfolio.layout.componentOrder["hero:left"],
+  ).filter((id) => !hiddenChildIds.has(id));
+  const orderedAboutIds = orderCanvasChildIds(
+    ["about:description"],
+    portfolio.layout.componentOrder.about,
+  ).filter((id) => !hiddenChildIds.has(id));
 
-    return `<article class="${featured ? "project-featured" : "project-card"}">
-      ${
-        repository.resolvedImage
-          ? renderImage(repository.resolvedImage.url, repository.resolvedImage.alt, compact)
-          : ""
-      }
-      <div class="project-accent-bar"></div>
-      <div class="project-card-header">
-        <div>
-          ${
-            featured
-              ? `<div class="chips"><span class="chip">Featured</span>${renderSourceBadge(repository.descriptionSource)}</div>`
-              : renderSourceBadge(repository.descriptionSource)
-          }
-          <h3 class="project-card-title ${compact ? "compact" : ""}">${escapeHtml(repository.name)}</h3>
-        </div>
-      </div>
-      <p class="summary">${escapeHtml(repository.description)}</p>
-      <div class="project-actions">
-        ${hasText(repository.language) ? renderTechBadge(repository.language) : ""}
-        <a href="${escapeHtml(repository.href)}" target="_blank" rel="noreferrer" class="eyebrow" style="color:var(--accent)">Open Project</a>
-      </div>
-    </article>`;
-  };
+  const showAbout =
+    !hiddenSections.has("about") &&
+    (hasText(portfolio.about.title.value) || hasText(portfolio.about.description.value));
+  const showProfileDetails = profileMeta.length > 0;
+  const showContact =
+    !hiddenSections.has("contact") &&
+    (
+      hasText(portfolio.contact.title.value) ||
+      hasText(portfolio.contact.description.value) ||
+      hasText(portfolio.contact.customText) ||
+      hasText(portfolio.contact.email) ||
+      contactActions.length > 0
+    );
+  const showLinks = !hiddenSections.has("links") && orderedLinks.length > 0;
+  const showProjects = !hiddenSections.has("projects") && portfolio.repositories.length > 0;
+  const showHero = !hiddenSections.has("hero");
+  const showProfessional =
+    !hiddenSections.has("professional") &&
+    (
+      hasText(portfolio.professional.title) ||
+      hasText(portfolio.professional.summary) ||
+      hasText(portfolio.professional.company) ||
+      hasText(portfolio.professional.location) ||
+      hasText(portfolio.professional.availability)
+    );
 
   const sectionMarkup = {
     hero: showHero
       ? `<section class="hero" id="hero">
           <div class="hero-grid">
-            <div class="hero-preview-left">
+            <div>
+              ${orderedHeroLeftIds
+                .map((componentId) => {
+                  if (componentId === "hero:name") {
+                    return `<div class="hero-profile">
+                      <div>
+                        <div class="eyebrow">Personal Portfolio</div>
+                        <h1>${escapeHtml(displayName)}</h1>
+                        <div class="username">${escapeHtml(profileLinkLabel)}</div>
+                      </div>
+                    </div>`;
+                  }
+
+                  if (componentId === "hero:title") {
+                    return `<div class="headline">${escapeHtml(portfolio.hero.headline.value)}</div>`;
+                  }
+
+                  if (componentId === "hero:intro") {
+                    return hasText(portfolio.hero.subheadline.value)
+                      ? `<p class="lede">${escapeHtml(portfolio.hero.subheadline.value)}</p>`
+                      : "";
+                  }
+
+                  if (componentId === "hero:actions") {
+                    return `<div class="actions">
+                      ${heroActions.length > 0
+                        ? heroActions
+                            .map(
+                              (action, index) =>
+                                `<a class="button ${index === 0 ? "primary" : "secondary"}" href="${escapeHtml(action.href)}" target="_blank" rel="noreferrer">${escapeHtml(action.label)}</a>`,
+                            )
+                            .join("")
+                        : `<a class="button primary" href="${escapeHtml(portfolio.hero.profileLink)}" target="_blank" rel="noreferrer">${escapeHtml(portfolio.hero.ctaLabel)}</a>`}
+                    </div>`;
+                  }
+
+                  return "";
+                })
+                .join("")}
+
+              ${
+                profileMeta.length > 0 || portfolio.profile?.blog
+                  ? `<div class="chips">
+                      ${profileMeta.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}
+                      ${
+                        portfolio.profile?.blog
+                          ? `<a class="chip" href="${escapeHtml(
+                              validLinks.find((link) => link.label === "Website")?.href || portfolio.profile.blog,
+                            )}" target="_blank" rel="noreferrer">Personal site</a>`
+                          : ""
+                      }
+                    </div>`
+                  : ""
+              }
+              ${
+                !hiddenChildIds.has("hero:stack") && orderedHeroStack.length > 0
+                  ? `<div class="stack-list chips">
+                      ${orderedHeroStack.map((item) => renderTechBadge(item)).join("")}
+                    </div>`
+                  : ""
+              }
+            </div>
+            <div>
               ${
                 orderedHeroLeftIds.includes("hero:image")
-                  ? `<div class="avatar">${avatarMarkup}</div>`
-                  : ""
-              }
-              <div>
-                <div class="eyebrow">Personal Portfolio</div>
-                <h1 class="hero-name">${escapeHtml(displayName)}</h1>
-                <div class="username">${escapeHtml(profileLinkLabel)}</div>
-              </div>
-              <div>${renderSourceBadge(hero.headline.source)}</div>
-              <div class="headline">${escapeHtml(hero.headline.value)}</div>
-              ${
-                hasText(hero.intro.value)
-                  ? `<div>${renderSourceBadge(hero.intro.source)}</div>
-                    <p class="lede">${escapeHtml(hero.intro.value)}</p>`
-                  : ""
-              }
-              <div class="actions">
-                ${hero.actions.length > 0
-                  ? hero.actions
-                      .map(
-                        (action, index) =>
-                          `<a class="button ${index === 0 ? "primary" : "secondary"}" href="${escapeHtml(action.href)}" target="_blank" rel="noreferrer">${escapeHtml(action.label)}</a>`,
-                      )
-                      .join("")
-                  : `<a class="button primary" href="${escapeHtml(portfolio.hero.profileLink)}" target="_blank" rel="noreferrer">${escapeHtml(portfolio.hero.ctaLabel)}</a>`}
-                <a class="button secondary" href="#projects">Explore Featured Projects</a>
-              </div>
-            </div>
-            <div class="hero-preview-right">
-              ${
-                hasText(hero.summary)
-                  ? `<div class="builder-surface">
-                      <div class="eyebrow">Professional Snapshot</div>
-                      <p class="summary">${escapeHtml(hero.summary)}</p>
-                    </div>`
-                  : ""
-              }
-              ${
-                hero.highlightItems.length > 0
-                  ? `<div class="hero-highlight-grid">
-                      ${hero.highlightItems
-                        .map(
-                          (item) => `<div class="builder-surface-strong hero-highlight-card">
-                            <p class="eyebrow">${escapeHtml(item.label)}</p>
-                            <p style="margin-top:0.5rem;font-weight:600;">${escapeHtml(item.value)}</p>
-                          </div>`,
-                        )
-                        .join("")}
-                    </div>`
-                  : ""
-              }
-              ${
-                !hiddenChildIds.has("hero:stack") && hero.stackItems.length > 0
-                  ? `<div class="builder-surface">
-                      <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-                        <div class="eyebrow">Stack</div>
-                        <span class="chip">${hero.stackItems.length} tools</span>
-                      </div>
-                      <div class="hero-stack-tools">
-                        ${hero.stackItems.map((item) => renderTechBadge(item)).join("")}
-                      </div>
+                  ? `<div class="hero-profile">
+                      <div class="avatar">${avatarMarkup}</div>
                     </div>`
                   : ""
               }
@@ -935,8 +844,8 @@ function buildHtml(portfolio: FinalPortfolio) {
                     ${orderedAboutIds
                       .map((componentId) => {
                         if (componentId === "about:description") {
-                          return hasText(about.description)
-                            ? `<h2>${escapeHtml(about.heading)}</h2><p class="summary">${escapeHtml(about.description)}</p>`
+                          return hasText(portfolio.about.description.value)
+                            ? `<h2>About Me</h2><p class="summary">${escapeHtml(portfolio.about.description.value)}</p>`
                             : "";
                         }
 
@@ -953,18 +862,18 @@ function buildHtml(portfolio: FinalPortfolio) {
                       <div class="eyebrow">Profile Details</div>
                       <div class="detail-grid">
                         ${
-                          about.profileDetails.find((item) => item.label === "Company")
+                          hasText(portfolio.professional.company || portfolio.profile?.company)
                             ? `<div>
                                 <div class="eyebrow">Company</div>
-                                <p>${escapeHtml(about.profileDetails.find((item) => item.label === "Company")?.value || "")}</p>
+                                <p>${escapeHtml(portfolio.professional.company || portfolio.profile?.company || "")}</p>
                               </div>`
                             : ""
                         }
                         ${
-                          about.profileDetails.find((item) => item.label === "Location")
+                          hasText(portfolio.professional.location || portfolio.profile?.location)
                             ? `<div>
                                 <div class="eyebrow">Location</div>
-                                <p>${escapeHtml(about.profileDetails.find((item) => item.label === "Location")?.value || "")}</p>
+                                <p>${escapeHtml(portfolio.professional.location || portfolio.profile?.location || "")}</p>
                               </div>`
                             : ""
                         }
@@ -978,14 +887,30 @@ function buildHtml(portfolio: FinalPortfolio) {
     professional:
       showProfessional
         ? `<section id="professional" class="card">
-            <div class="eyebrow">${escapeHtml(professional.eyebrow)}</div>
-            <h2>${escapeHtml(professional.heading)}</h2>
+            <div class="eyebrow">${escapeHtml(portfolio.professional.title || "Professional")}</div>
+            <h2>Professional Snapshot</h2>
             ${
-              hasText(professional.summary)
-                ? `<p class="summary">${escapeHtml(professional.summary)}</p>`
+              hasText(portfolio.professional.summary)
+                ? `<p class="summary">${escapeHtml(portfolio.professional.summary)}</p>`
                 : ""
             }
-            <div class="chips">${professional.chips.map((chip) => `<span class="chip">${escapeHtml(chip)}</span>`).join("")}</div>
+            <div class="chips">
+              ${
+                hasText(portfolio.professional.company)
+                  ? `<span class="chip">${escapeHtml(portfolio.professional.company)}</span>`
+                  : ""
+              }
+              ${
+                hasText(portfolio.professional.location)
+                  ? `<span class="chip">${escapeHtml(portfolio.professional.location)}</span>`
+                  : ""
+              }
+              ${
+                hasText(portfolio.professional.availability)
+                  ? `<span class="chip">${escapeHtml(portfolio.professional.availability)}</span>`
+                  : ""
+              }
+            </div>
           </section>`
         : "",
     projects:
@@ -993,41 +918,52 @@ function buildHtml(portfolio: FinalPortfolio) {
         ? `<section id="projects">
             <div class="project-section-header">
               <div>
-                <div class="eyebrow">Featured Projects</div>
-                <h2>${escapeHtml(projects.heading)}</h2>
-                <p class="muted" style="margin:0.5rem 0 0;max-width:42rem;">${escapeHtml(projects.description)}</p>
+                <div class="eyebrow">Projects</div>
+                <h2>Selected Work</h2>
               </div>
-              ${
-                projects.featuredProject && hasText(projects.featuredProject.language)
-                  ? renderTechBadge(projects.featuredProject.language)
-                  : ""
-              }
             </div>
 
             ${
-              projects.featuredProject
-                ? projects.layoutMode === "hybrid" && projects.secondaryProjects.length > 0
-                  ? `<div class="project-layout hybrid">
-                      ${renderExportProjectCard(projects.featuredProject, { featured: true })}
-                      <div class="${hybridProjectGridClass}">
-                        ${projects.secondaryProjects.map((repository) => renderExportProjectCard(repository, { compact: true })).join("")}
-                      </div>
-                    </div>`
-                  : projects.layoutMode === "side-by-side" && projects.secondaryProjects.length > 0
-                    ? `<div class="project-layout">
-                        ${renderExportProjectCard(projects.featuredProject, { featured: true })}
-                      </div>
-                      <div class="project-grid">
-                        ${projects.secondaryProjects.map((repository) => renderExportProjectCard(repository, { compact: true })).join("")}
-                      </div>`
-                    : projects.layoutMode === "stacked" && projects.secondaryProjects.length > 0
-                      ? `<div class="project-layout">
-                          ${renderExportProjectCard(projects.featuredProject, { featured: true })}
-                          ${projects.secondaryProjects.map((repository) => renderExportProjectCard(repository)).join("")}
-                        </div>`
-                      : `<div class="project-layout">
-                          ${renderExportProjectCard(projects.featuredProject, { featured: true })}
-                        </div>`
+              featuredProject
+                ? `<div class="project-layout">
+                    <a class="project-featured" href="${escapeHtml(featuredProject.href)}" target="_blank" rel="noreferrer">
+                      ${
+                        featuredProject.resolvedImage
+                          ? renderImage(featuredProject.resolvedImage.url, featuredProject.resolvedImage.alt)
+                          : ""
+                      }
+                      <h3>${escapeHtml(featuredProject.name)}</h3>
+                      <p class="summary">${escapeHtml(featuredProject.description)}</p>
+                      ${
+                        hasText(featuredProject.language)
+                          ? `<div class="chips">${renderTechBadge(featuredProject.language)}</div>`
+                          : ""
+                      }
+                    </a>
+
+                    <div class="project-grid">
+                      ${orderedSecondaryProjects
+                        .map(
+                          (repository) => `<a class="project-card" href="${escapeHtml(repository.href)}" target="_blank" rel="noreferrer">
+                              ${
+                                repository.resolvedImage
+                                  ? renderImage(repository.resolvedImage.url, repository.resolvedImage.alt, true)
+                                  : ""
+                              }
+                              <h3>${escapeHtml(repository.name)}</h3>
+                              <p class="summary">${escapeHtml(repository.description)}</p>
+                              ${
+                                hasText(repository.language)
+                                  ? `<div class="project-meta">
+                                      ${renderTechBadge(repository.language)}
+                                    </div>`
+                                  : ""
+                              }
+                            </a>`,
+                        )
+                        .join("")}
+                    </div>
+                  </div>`
                 : ""
             }
           </section>`
@@ -1036,16 +972,16 @@ function buildHtml(portfolio: FinalPortfolio) {
       showLinks
         ? `<section id="links" class="card">
             <div class="eyebrow">Links</div>
-            <h2>${escapeHtml(links.eyebrow)}</h2>
+            <h2>${escapeHtml(portfolio.linksSection.title.value || "Links")}</h2>
             ${
-              hasText(links.description)
-                ? `<p class="summary">${escapeHtml(links.description)}</p>`
+              hasText(portfolio.linksSection.description.value)
+                ? `<p class="summary">${escapeHtml(portfolio.linksSection.description.value)}</p>`
                 : ""
             }
             <div class="link-grid">
-              ${links.items
+              ${orderedLinks
                 .map(
-                  (entry) => `<a class="link-item" href="${escapeHtml(entry.href)}" target="_blank" rel="noreferrer"><strong>${escapeHtml(entry.label)}</strong><div class="muted">${escapeHtml(entry.href)}</div></a>`,
+                  (link) => `<a class="link-item" href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer"><strong>${escapeHtml(link.label)}</strong><div class="muted">${escapeHtml(link.href)}</div></a>`,
                 )
                 .join("")}
             </div>
@@ -1055,26 +991,26 @@ function buildHtml(portfolio: FinalPortfolio) {
       showContact
         ? `<section class="card" id="contact">
             <div class="eyebrow">Contact</div>
-            <h2>${escapeHtml(contact.eyebrow)}</h2>
+            <h2>${escapeHtml(portfolio.contact.title.value || "Contact")}</h2>
             ${
-              hasText(contact.description)
-                ? `<p class="summary">${escapeHtml(contact.description)}</p>`
+              hasText(portfolio.contact.description.value)
+                ? `<p class="summary">${escapeHtml(portfolio.contact.description.value)}</p>`
                 : ""
             }
             ${
-              hasText(contact.customNote)
-                ? `<div class="inline-note"><p>${escapeHtml(contact.customNote)}</p></div>`
+              hasText(portfolio.contact.customText)
+                ? `<div class="inline-note"><p>${escapeHtml(portfolio.contact.customText)}</p></div>`
                 : ""
             }
-            ${contact.methods
+            ${orderedContactMethods
               .map(
                 (item) => `<a class="link-item" href="${escapeHtml(item.href)}"><strong>${escapeHtml(item.label)}</strong><div class="muted">${escapeHtml(item.value)}</div></a>`,
               )
               .join("")}
             ${
-              contact.actions.length > 0
+              orderedContactActions.length > 0
                 ? `<div class="cta-grid">
-                    ${contact.actions
+                    ${orderedContactActions
                       .map(
                         (action) =>
                           `<a class="button secondary" href="${escapeHtml(action.href)}" target="_blank" rel="noreferrer">${escapeHtml(action.label)}</a>`,
@@ -1091,34 +1027,15 @@ function buildHtml(portfolio: FinalPortfolio) {
       section.id,
       `<section class="card"><div class="eyebrow">Custom Section</div><h2>${escapeHtml(section.title.value || "Custom Section")}</h2>${
         hasText(section.description.value) ? `<p class="summary">${escapeHtml(section.description.value)}</p>` : ""
-      }${
-        (section.blocks ?? []).length > 0
-          ? `<div class="custom-block-grid">${(section.blocks ?? [])
-              .map(
-                (block) =>
-                  `<div class="custom-block ${block.width === "full" ? "custom-block-full" : ""}">
-                    <div class="eyebrow">${escapeHtml(block.label || (block.type === "image" ? "Image" : "Text"))}</div>
-                    ${hasText(block.title) ? `<h3>${escapeHtml(block.title)}</h3>` : ""}
-                    ${
-                      block.type === "image" && hasText(block.imageUrl)
-                        ? `<img class="custom-block-image" src="${escapeHtml(block.imageUrl)}" alt="${escapeHtml(block.title || block.label || "Custom section image")}">`
-                        : ""
-                    }
-                    ${
-                      hasText(block.text)
-                        ? `<p class="summary">${escapeHtml(block.text)}</p>`
-                        : ""
-                    }
-                  </div>`,
-              )
-              .join("")}</div>`
-          : ""
       }</section>`,
     ]),
   );
   const orderedContentMarkup = sectionRows
     .map((row) => {
-      const isFlexibleRow = row.isFlexible && row.items.length > 1;
+      const isFlexibleRow =
+        portfolio.appearance.sectionLayout !== "stacked" &&
+        row.items.some((component) => component.type !== "projects" && component.type !== "hero") &&
+        row.items.length > 1;
 
       const rowMarkup = row.items
         .map((component) => {
@@ -1175,14 +1092,14 @@ function buildHtml(portfolio: FinalPortfolio) {
       <div class="content">
         ${orderedContentMarkup}
       </div>
-      ${contact.actions.length > 0
+      ${contactActions.length > 0
         ? `<footer class="footer">
             <div>
               <div class="eyebrow">Next Step</div>
               <div>Open the documents and profiles that support this portfolio.</div>
             </div>
             <div class="cta-grid">
-              ${contact.actions
+              ${contactActions
                 .map(
                   (action) =>
                     `<a class="button secondary" href="${escapeHtml(action.href)}" target="_blank" rel="noreferrer">${escapeHtml(action.label)}</a>`,

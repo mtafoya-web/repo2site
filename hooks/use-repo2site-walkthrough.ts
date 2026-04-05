@@ -14,6 +14,7 @@ import {
 
 type UseRepo2SiteWalkthroughOptions = {
   context: WalkthroughContext;
+  onOpenProfileEdit?: () => void;
   onTrackEvent?: (event: string, payload?: Record<string, string | number | boolean>) => void;
 };
 
@@ -37,6 +38,7 @@ function useMediaQuery(query: string) {
 
 export function useRepo2SiteWalkthrough({
   context,
+  onOpenProfileEdit,
   onTrackEvent,
 }: UseRepo2SiteWalkthroughOptions) {
   const [showChoice, setShowChoice] = useState(false);
@@ -44,13 +46,12 @@ export function useRepo2SiteWalkthrough({
   const [mode, setMode] = useState<WalkthroughMode>("quick");
   const [status, setStatus] = useState<WalkthroughStatus>("new");
   const [currentStepId, setCurrentStepId] = useState<string | null>(null);
-  const [completedStepIds, setCompletedStepIds] = useState<string[]>([]);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const isMobile = useMediaQuery("(max-width: 820px)");
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const activeSteps = getWalkthroughSteps(mode, context);
   const currentStep = getWalkthroughStepById(currentStepId, activeSteps);
-  const currentStepIndex = currentStep ? activeSteps.findIndex((step) => step.id === currentStep.id) : 0;
+  const currentStepIndex = currentStep?.order ?? 0;
   const activeTargetId = currentStep?.targetId ?? null;
   const skipInFlightRef = useRef(false);
   const autoAdvanceBaselineRef = useRef<{ stepId: string | null; satisfied: boolean }>({
@@ -69,7 +70,6 @@ export function useRepo2SiteWalkthrough({
     setMode(snapshot.mode);
     setStatus(snapshot.status);
     setCurrentStepId(snapshot.stepId);
-    setCompletedStepIds(snapshot.completedStepIds);
   }, []);
 
   useEffect(() => {
@@ -123,30 +123,32 @@ export function useRepo2SiteWalkthrough({
     };
 
     if (!nextStep) {
-      const nextCompletedStepIds = [...new Set([...completedStepIds, currentStep.id])];
-      setCompletedStepIds(nextCompletedStepIds);
       setIsOpen(false);
       setStatus("completed");
       writeWalkthroughSnapshot(window.localStorage, {
         status: "completed",
         mode,
         stepId: currentStep.id,
-        completedStepIds: nextCompletedStepIds,
       });
       onTrackEvent?.("Walkthrough Completed", { mode });
       return;
     }
 
-    const nextCompletedStepIds = [...new Set([...completedStepIds, currentStep.id])];
-    setCompletedStepIds(nextCompletedStepIds);
     setCurrentStepId(nextStep.id);
     writeWalkthroughSnapshot(window.localStorage, {
       status: "in_progress",
       mode,
       stepId: nextStep.id,
-      completedStepIds: nextCompletedStepIds,
     });
-  }, [activeSteps, completedStepIds, context, currentStep, currentStepIndex, isOpen, mode, onTrackEvent]);
+  }, [activeSteps, context, currentStep, currentStepIndex, isOpen, mode, onTrackEvent]);
+
+  useEffect(() => {
+    if (!isOpen || currentStep?.id !== "profile-edit" || context.isEditMode) {
+      return;
+    }
+
+    onOpenProfileEdit?.();
+  }, [context.isEditMode, currentStep?.id, isOpen, onOpenProfileEdit]);
 
   useEffect(() => {
     if (!isOpen || !activeTargetId) {
@@ -180,7 +182,6 @@ export function useRepo2SiteWalkthrough({
                 status: "in_progress",
                 mode,
                 stepId: nextStep.id,
-                completedStepIds,
               });
             } else {
               setIsOpen(false);
@@ -189,7 +190,6 @@ export function useRepo2SiteWalkthrough({
                 status: "completed",
                 mode,
                 stepId: currentStep?.id ?? null,
-                completedStepIds,
               });
             }
           }, 0);
@@ -234,7 +234,6 @@ export function useRepo2SiteWalkthrough({
   }, [
     activeSteps,
     activeTargetId,
-    completedStepIds,
     currentStep?.id,
     currentStepIndex,
     isOpen,
@@ -243,29 +242,13 @@ export function useRepo2SiteWalkthrough({
     prefersReducedMotion,
   ]);
 
-  function persist(
-    nextStatus: WalkthroughStatus,
-    nextStepId: string | null,
-    nextMode = mode,
-    nextCompletedStepIds = completedStepIds,
-  ) {
+  function persist(nextStatus: WalkthroughStatus, nextStepId: string | null, nextMode = mode) {
     setStatus(nextStatus);
     writeWalkthroughSnapshot(window.localStorage, {
       status: nextStatus,
       mode: nextMode,
       stepId: nextStepId,
-      completedStepIds: nextCompletedStepIds,
     });
-  }
-
-  function markStepComplete(stepId: string | null) {
-    if (!stepId) {
-      return completedStepIds;
-    }
-
-    const nextCompleted = [...new Set([...completedStepIds, stepId])];
-    setCompletedStepIds(nextCompleted);
-    return nextCompleted;
   }
 
   function openWalkthrough(nextMode: WalkthroughMode, fromBeginning = false) {
@@ -276,13 +259,10 @@ export function useRepo2SiteWalkthrough({
 
     setMode(nextMode);
     setCurrentStepId(stepId);
-    if (fromBeginning) {
-      setCompletedStepIds([]);
-    }
     autoAdvanceBaselineRef.current = { stepId: null, satisfied: false };
     setShowChoice(false);
     setIsOpen(true);
-    persist("in_progress", stepId, nextMode, fromBeginning ? [] : completedStepIds);
+    persist("in_progress", stepId, nextMode);
     onTrackEvent?.("Walkthrough Started", {
       mode: nextMode,
       resumed: !fromBeginning,
@@ -300,14 +280,14 @@ export function useRepo2SiteWalkthrough({
   function skipTour() {
     setShowChoice(false);
     setIsOpen(false);
-    persist("skipped", currentStep?.id ?? currentStepId, mode, markStepComplete(currentStep?.id ?? currentStepId));
+    persist("skipped", currentStep?.id ?? currentStepId);
     onTrackEvent?.("Walkthrough Skipped", { mode, step: currentStepIndex + 1 });
   }
 
   function finishTour() {
     setShowChoice(false);
     setIsOpen(false);
-    persist("completed", currentStep?.id ?? currentStepId, mode, markStepComplete(currentStep?.id ?? currentStepId));
+    persist("completed", currentStep?.id ?? currentStepId);
     onTrackEvent?.("Walkthrough Completed", { mode });
   }
 
@@ -324,10 +304,9 @@ export function useRepo2SiteWalkthrough({
       return;
     }
 
-    const nextCompleted = markStepComplete(currentStep?.id ?? currentStepId);
     setCurrentStepId(nextStep.id);
     autoAdvanceBaselineRef.current = { stepId: null, satisfied: false };
-    persist("in_progress", nextStep.id, mode, nextCompleted);
+    persist("in_progress", nextStep.id);
   }
 
   function goToPreviousStep() {
@@ -357,7 +336,6 @@ export function useRepo2SiteWalkthrough({
   return {
     activeSteps,
     anchorRect,
-    completedStepIds,
     currentStep,
     currentStepIndex,
     isOpen,

@@ -1,17 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { JetBrains_Mono, Manrope } from "next/font/google";
 import Script from "next/script";
-import { AppRouteTransition } from "@/components/app-route-transition";
 import { Repo2SiteCompanionProvider } from "@/components/repo2site-companion-dock";
 import { AppThemeProvider } from "@/components/app-theme-provider";
-import {
-  APP_THEME_RESOLVED_COOKIE,
-  APP_THEME_SOURCE_COOKIE,
-  APP_THEME_STORAGE_KEY,
-  type AppThemeChoice,
-  type ResolvedAppTheme,
-} from "@/lib/app-theme";
+import { APP_THEME_STORAGE_KEY } from "@/lib/app-theme";
 import { assertProductionAppRuntimeEnv } from "@/lib/runtime-env";
 import "./globals.css";
 
@@ -37,18 +29,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const cookieThemeChoice = cookieStore.get(APP_THEME_SOURCE_COOKIE)?.value;
-  const cookieResolvedTheme = cookieStore.get(APP_THEME_RESOLVED_COOKIE)?.value;
-  const initialThemeChoice: AppThemeChoice =
-    cookieThemeChoice === "light" || cookieThemeChoice === "dark" ? cookieThemeChoice : "system";
-  const initialResolvedTheme: ResolvedAppTheme =
-    cookieResolvedTheme === "light" || cookieResolvedTheme === "dark" ? cookieResolvedTheme : "dark";
   const plausibleDomain = process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN?.trim();
   const plausibleScriptUrl =
     process.env.NEXT_PUBLIC_PLAUSIBLE_SCRIPT_URL?.trim() || "https://plausible.io/js/script.js";
@@ -62,14 +47,10 @@ export default async function RootLayout({
         document.documentElement.dataset.uiTheme = resolved;
         document.documentElement.dataset.uiThemeSource = stored === "light" || stored === "dark" ? stored : "system";
         document.documentElement.style.colorScheme = resolved;
-        document.cookie = ${JSON.stringify(APP_THEME_RESOLVED_COOKIE)} + "=" + resolved + "; path=/; max-age=31536000; samesite=lax";
-        document.cookie = ${JSON.stringify(APP_THEME_SOURCE_COOKIE)} + "=" + (stored === "light" || stored === "dark" ? stored : "system") + "; path=/; max-age=31536000; samesite=lax";
       } catch (error) {
         document.documentElement.dataset.uiTheme = "dark";
         document.documentElement.dataset.uiThemeSource = "system";
         document.documentElement.style.colorScheme = "dark";
-        document.cookie = ${JSON.stringify(APP_THEME_RESOLVED_COOKIE)} + "=dark; path=/; max-age=31536000; samesite=lax";
-        document.cookie = ${JSON.stringify(APP_THEME_SOURCE_COOKIE)} + "=system; path=/; max-age=31536000; samesite=lax";
       }
     })();
   `;
@@ -79,8 +60,6 @@ export default async function RootLayout({
       lang="en"
       className={`${manrope.variable} ${jetBrainsMono.variable}`}
       data-scroll-behavior="smooth"
-      data-ui-theme={initialResolvedTheme}
-      data-ui-theme-source={initialThemeChoice}
       suppressHydrationWarning
     >
       <head>
@@ -95,14 +74,9 @@ export default async function RootLayout({
             strategy="afterInteractive"
           />
         ) : null}
-        <AppThemeProvider
-          initialThemeChoice={initialThemeChoice}
-          initialResolvedTheme={initialResolvedTheme}
-        >
+        <AppThemeProvider>
           <Repo2SiteCompanionProvider>
-            <AppRouteTransition>
-              <div className="min-h-screen">{children}</div>
-            </AppRouteTransition>
+            <div className="min-h-screen">{children}</div>
           </Repo2SiteCompanionProvider>
         </AppThemeProvider>
       </body>

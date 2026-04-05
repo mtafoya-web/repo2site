@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildFinalPortfolio, buildLayoutComponents, createEmptyOverrides } from "@/lib/portfolio";
+import { generatePortfolioPreview } from "@/lib/preview-generator";
 import {
   assertProductionStorageBackend,
   getConfiguredStorageBackend,
   isProductionDeployment,
 } from "@/lib/runtime-env";
-import { portfolioPreviewService } from "@/lib/services/portfolio-preview-service";
 import { logServerEvent } from "@/lib/server-logger";
 import type {
   CommunityTemplateRecord,
@@ -170,7 +170,7 @@ function hydrateStoredTemplateRecord(
 }
 
 function buildTemplatePreviewSnapshot(
-  preview: Awaited<ReturnType<typeof portfolioPreviewService.generateFromProfileUrl>>,
+  preview: Awaited<ReturnType<typeof generatePortfolioPreview>>,
   overrides: ReturnType<typeof createEmptyOverrides>,
 ): TemplatePreviewSnapshot {
   return buildFinalPortfolio(preview, overrides, {
@@ -237,7 +237,7 @@ function joinTemplateList(values: string[]) {
 
 function buildSystemTemplateExampleContent(
   definition: (typeof SYSTEM_TEMPLATE_DEFINITIONS)[number],
-  preview: Awaited<ReturnType<typeof portfolioPreviewService.generateFromProfileUrl>>,
+  preview: Awaited<ReturnType<typeof generatePortfolioPreview>>,
 ): TemplateExampleContent {
   const topRepositories = preview.featuredRepositories.slice(0, 3).map((repository) => repository.name);
   const techHighlights = preview.techStack.slice(0, 4);
@@ -299,7 +299,7 @@ function buildSystemTemplateExampleContent(
 }
 
 async function generateSystemTemplateRecord(definition: (typeof SYSTEM_TEMPLATE_DEFINITIONS)[number]) {
-  const preview = await portfolioPreviewService.generateFromProfileUrl(definition.profileUrl);
+  const preview = await generatePortfolioPreview(definition.profileUrl);
   const overrides = createEmptyOverrides();
   overrides.appearance = {
     ...overrides.appearance,

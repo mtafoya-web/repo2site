@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseGitHubProfileUrl, isGitHubApiError } from "@/lib/github";
 import { captureServerException } from "@/lib/monitoring";
-import { portfolioPreviewService } from "@/lib/services/portfolio-preview-service";
+import { generatePortfolioPreview } from "@/lib/preview-generator";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { profileUrl?: string };
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const preview = await portfolioPreviewService.generateFromProfileUrl(profileUrl);
+    const preview = await generatePortfolioPreview(profileUrl);
     return NextResponse.json(preview);
   } catch (error) {
     if (isGitHubApiError(error)) {

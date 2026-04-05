@@ -8,18 +8,17 @@ import {
   computeWalkthroughLayout,
   getWalkthroughSpotlightStyle,
   type WalkthroughPlacement,
-  type WalkthroughActionKind,
   type WalkthroughStep,
 } from "@/lib/repo2site-walkthrough";
 
 function TourLauncher({
   isOpen,
   onStart,
-  onSkip,
+  onExplore,
 }: {
   isOpen: boolean;
   onStart: () => void;
-  onSkip: () => void;
+  onExplore: () => void;
 }) {
   if (!isOpen) {
     return null;
@@ -37,10 +36,10 @@ function TourLauncher({
           </p>
           <div className="grid gap-2">
             <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Learn the builder with a simple step-by-step guide.
+              Take a quick tour of the core builder flow.
             </h2>
             <p className="max-w-2xl text-sm leading-6" style={appThemeStyles.helperText}>
-              We will keep it simple: generate, edit, customize, and publish when you are ready.
+              This walkthrough covers the six actions most first-time users need: resume, GitHub, AI, editing, themes, and rearranging the layout.
             </p>
           </div>
         </div>
@@ -52,25 +51,25 @@ function TourLauncher({
             style={appThemeStyles.heroAccent}
           >
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={appThemeStyles.infoText}>
-              Builder guide
+              Beginner friendly
             </span>
             <span className="text-base font-semibold tracking-tight">Start walkthrough</span>
             <span className="text-sm leading-6" style={appThemeStyles.helperText}>
-              One short step at a time, focused on the core builder workflow.
+              Short, practical guidance without locking you into the tour.
             </span>
           </button>
         </div>
         <div className="flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6" style={{ borderColor: appThemeStyles.surface.borderColor }}>
           <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
-            You can skip now, exit later, or resume from where you left off.
+            You can restart the tour later from the builder help actions.
           </p>
           <button
             type="button"
-            onClick={onSkip}
+            onClick={onExplore}
             className="rounded-full border px-4 py-2 text-sm font-medium transition"
             style={appThemeStyles.ghostButton}
           >
-            Skip
+            Explore on my own
           </button>
         </div>
       </div>
@@ -133,11 +132,9 @@ function TourPlacementArrow({
 
 export function Repo2SiteGuidedTour({
   anchorRect,
-  completedStepIds,
   currentStep,
   currentStepIndex,
   isOpen,
-  onAction,
   prefersReducedMotion,
   steps,
   onBack,
@@ -148,11 +145,9 @@ export function Repo2SiteGuidedTour({
   onSkip,
 }: {
   anchorRect: DOMRect | null;
-  completedStepIds: string[];
   currentStep: WalkthroughStep | null;
   currentStepIndex: number;
   isOpen: boolean;
-  onAction: (action: WalkthroughActionKind) => void;
   prefersReducedMotion: boolean;
   steps: WalkthroughStep[];
   onBack: () => void;
@@ -243,7 +238,6 @@ export function Repo2SiteGuidedTour({
     viewportWidth: window.innerWidth,
     viewportHeight: window.innerHeight,
     isMobile: window.innerWidth < 820,
-    preferredPlacement: currentStep.preferredPlacement,
   });
   const spotlightStyle = getWalkthroughSpotlightStyle(anchorRect);
   const showArrow = layout.mode === "floating" && layout.placement !== "center";
@@ -327,54 +321,23 @@ export function Repo2SiteGuidedTour({
                 className="rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition"
                 style={appThemeStyles.ghostButton}
               >
-                Exit for now
+                Resume later
               </button>
             </div>
           </div>
           <div className="grid gap-2">
             <p className="text-sm leading-6" style={appThemeStyles.helperText}>{currentStep.description}</p>
+            <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
+              Why it matters: {currentStep.rationale}
+            </p>
             {currentStep.keepTargetInteractive ? (
               <p className="text-xs leading-5" style={appThemeStyles.infoText}>
-                Use the highlighted UI directly while this step stays open.
-              </p>
-            ) : null}
-            {currentStep.interactionHint ? (
-              <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
-                {currentStep.interactionHint}
-              </p>
-            ) : null}
-            {currentStep.completionText ? (
-              <p className="text-xs leading-5" style={appThemeStyles.mutedText}>
-                {currentStep.completionText}
+                The highlighted control stays usable while this step is open.
               </p>
             ) : null}
           </div>
         </div>
         <div className="grid gap-4 px-5 py-4">
-          {currentStep.primaryAction || currentStep.secondaryAction ? (
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              {currentStep.primaryAction ? (
-                <button
-                  type="button"
-                  onClick={() => onAction(currentStep.primaryAction!.kind)}
-                  className="rounded-full px-4 py-2 text-sm font-semibold transition"
-                  style={appThemeStyles.accentButton}
-                >
-                  {currentStep.primaryAction.label}
-                </button>
-              ) : null}
-              {currentStep.secondaryAction ? (
-                <button
-                  type="button"
-                  onClick={() => onAction(currentStep.secondaryAction!.kind)}
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition"
-                  style={appThemeStyles.ghostButton}
-                >
-                  {currentStep.secondaryAction.label}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
           <div className="flex items-center gap-2">
             {steps.map((step, index) => (
               <button
@@ -391,10 +354,6 @@ export function Repo2SiteGuidedTour({
                   backgroundColor:
                     index === currentStepIndex
                       ? String(appThemeStyles.accentButton.backgroundColor)
-                      : completedStepIds.includes(step.id)
-                        ? renderTheme === "dark"
-                          ? "rgba(96,165,250,0.78)"
-                          : "rgba(37,99,235,0.62)"
                       : renderTheme === "dark"
                         ? "rgba(148,163,184,0.32)"
                         : "rgba(100,116,139,0.34)",
@@ -430,7 +389,7 @@ export function Repo2SiteGuidedTour({
 
 export function Repo2SiteWalkthroughLauncher(props: {
   isOpen: boolean;
-  onSkip: () => void;
+  onExplore: () => void;
   onStart: () => void;
 }) {
   return <TourLauncher {...props} />;

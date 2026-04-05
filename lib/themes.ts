@@ -87,23 +87,6 @@ export const PORTFOLIO_THEMES: PreviewTheme[] = [
     },
   },
   {
-    id: "saas-clean",
-    name: "SaaS Clean",
-    reason: "Restrained product styling for teams and builders who want a polished look without strong color treatment.",
-    palette: {
-      page: "#f5f7fb",
-      pageAccent: "rgba(71, 85, 105, 0.08)",
-      surface: "rgba(255,255,255,0.92)",
-      surfaceStrong: "#ffffff",
-      border: "rgba(148, 163, 184, 0.2)",
-      text: "#111827",
-      muted: "#667085",
-      accent: "#334155",
-      accentSoft: "rgba(51, 65, 85, 0.08)",
-      chip: "#eef2f7",
-    },
-  },
-  {
     id: "neon-coral",
     name: "Neon Coral",
     reason: "Bold and vibrant for product launches and standout frontend portfolios.",

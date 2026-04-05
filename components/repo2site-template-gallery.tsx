@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAppTheme } from "@/components/app-theme-provider";
 import { buildAppThemeStyles } from "@/lib/app-theme";
-import { getRepo2SiteDarkThemeMood } from "@/lib/repo2site-theme";
 import type { CommunityTemplateRecord, TemplateReaction } from "@/lib/template-presets";
 import { getPortfolioThemeById } from "@/lib/themes";
 
@@ -25,45 +24,40 @@ function getTemplateCardStyles(template: CommunityTemplateRecord) {
   const theme = snapshot?.theme ?? getPortfolioThemeById(appearance.themeId);
   const palette = theme.palette;
   const isDarkMode = appearance.colorMode === "dark";
-  const darkMood = getRepo2SiteDarkThemeMood(theme.id);
 
   return {
     article: {
       background: isDarkMode
-        ? `radial-gradient(circle at top right, ${palette.pageAccent}, transparent 34%), ${darkMood.shell}`
+        ? "linear-gradient(180deg, rgba(8, 15, 28, 0.96), rgba(13, 22, 38, 0.96))"
         : "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))",
-      borderColor: isDarkMode ? darkMood.border : "rgba(148, 163, 184, 0.18)",
-      color: isDarkMode ? darkMood.text : palette.text,
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.16)" : "rgba(148, 163, 184, 0.18)",
+      color: isDarkMode ? "#e5eefb" : palette.text,
       boxShadow: isDarkMode
-        ? darkMood.shadow
+        ? "0 34px 80px -46px rgba(2, 6, 23, 0.78)"
         : "0 28px 60px -40px rgba(15, 23, 42, 0.22)",
     } satisfies CSSProperties,
     frame: {
-      background: isDarkMode
-        ? darkMood.hover
-        : "rgba(255,255,255,0.8)",
-      borderColor: isDarkMode ? darkMood.chipBorder : "rgba(148, 163, 184, 0.14)",
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.8)",
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.1)" : "rgba(148, 163, 184, 0.14)",
     } satisfies CSSProperties,
     preview: {
       background: isDarkMode
-        ? `radial-gradient(circle at top right, ${palette.accentSoft}, transparent 34%), ${darkMood.page}`
+        ? `radial-gradient(circle at top right, ${palette.accentSoft}, transparent 34%), linear-gradient(160deg, #09111f, #0f172a)`
         : `radial-gradient(circle at top right, ${palette.pageAccent}, transparent 34%), ${palette.page}`,
-      color: isDarkMode ? darkMood.text : palette.text,
-      borderColor: isDarkMode ? darkMood.border : palette.border,
+      color: isDarkMode ? "#e5eefb" : palette.text,
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.16)" : palette.border,
     } satisfies CSSProperties,
     previewSurface: {
-      background: isDarkMode
-        ? `radial-gradient(circle at top right, ${palette.accentSoft}, transparent 24%), ${darkMood.card}`
-        : palette.surfaceStrong,
-      borderColor: isDarkMode ? darkMood.border : palette.border,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : palette.surfaceStrong,
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.14)" : palette.border,
     } satisfies CSSProperties,
     chip: {
       backgroundColor: isDarkMode ? palette.accentSoft : palette.chip,
-      borderColor: isDarkMode ? darkMood.chipBorder : palette.border,
-      color: isDarkMode ? darkMood.text : palette.accent,
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.16)" : palette.border,
+      color: isDarkMode ? "#eff6ff" : palette.accent,
     } satisfies CSSProperties,
     muted: {
-      color: isDarkMode ? darkMood.mutedText : palette.muted,
+      color: isDarkMode ? "#9fb0c8" : palette.muted,
     } satisfies CSSProperties,
     successBadge: {
       backgroundColor: isDarkMode ? "rgba(16, 185, 129, 0.16)" : "rgba(16, 185, 129, 0.12)",
@@ -83,11 +77,9 @@ function getTemplateCardStyles(template: CommunityTemplateRecord) {
       color: "#ffffff",
     } satisfies CSSProperties,
     subtleButton: {
-      background: isDarkMode
-        ? darkMood.interactive
-        : "rgba(255,255,255,0.78)",
-      borderColor: isDarkMode ? darkMood.chipBorder : palette.border,
-      color: isDarkMode ? darkMood.text : palette.text,
+      backgroundColor: isDarkMode ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.78)",
+      borderColor: isDarkMode ? "rgba(148, 163, 184, 0.16)" : palette.border,
+      color: isDarkMode ? "#e5eefb" : palette.text,
     } satisfies CSSProperties,
   };
 }
@@ -151,7 +143,7 @@ function TemplatePreviewFrame({
 
   return (
     <div
-      className={`motion-surface overflow-hidden rounded-[1.55rem] border p-3 ${compact ? "aspect-[5/4]" : "aspect-[16/11]"}`}
+      className={`overflow-hidden rounded-[1.55rem] border p-3 ${compact ? "aspect-[5/4]" : "aspect-[16/11]"}`}
       style={styles.preview}
     >
       <div className="flex h-full flex-col rounded-[1.2rem] border p-4" style={styles.previewSurface}>

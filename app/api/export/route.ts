@@ -74,37 +74,10 @@ const FALLBACK_LINKS: PreviewLink[] = [{ label: "GitHub", href: "https://github.
 const FALLBACK_TECH_STACK = ["TypeScript", "Next.js", "Tailwind CSS"];
 
 export async function POST(request: Request) {
-  let body: {
+  const body = (await request.json()) as {
     preview?: GeneratePreviewResponse;
     overrides?: PortfolioOverrides;
-  } = {};
-
-  const contentType = request.headers.get("content-type") ?? "";
-
-  if (contentType.includes("application/json")) {
-    body = (await request.json()) as {
-      preview?: GeneratePreviewResponse;
-      overrides?: PortfolioOverrides;
-    };
-  } else if (
-    contentType.includes("application/x-www-form-urlencoded") ||
-    contentType.includes("multipart/form-data")
-  ) {
-    const formData = await request.formData();
-    const previewRaw = formData.get("preview");
-    const overridesRaw = formData.get("overrides");
-
-    body = {
-      preview:
-        typeof previewRaw === "string" && previewRaw.trim()
-          ? (JSON.parse(previewRaw) as GeneratePreviewResponse)
-          : undefined,
-      overrides:
-        typeof overridesRaw === "string" && overridesRaw.trim()
-          ? (JSON.parse(overridesRaw) as PortfolioOverrides)
-          : undefined,
-    };
-  }
+  };
 
   if (!body.preview) {
     return NextResponse.json(
@@ -144,8 +117,6 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("[repo2site][export]", error);
-
     await captureServerException(error, {
       area: "export",
       action: "build-zip",
@@ -156,12 +127,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      {
-        error:
-          process.env.NODE_ENV === "development"
-            ? `Export failed: ${error instanceof Error ? error.message : String(error)}`
-            : "Something went wrong while exporting the portfolio ZIP. Please try again.",
-      },
+      { error: "Something went wrong while exporting the portfolio ZIP. Please try again." },
       { status: 502 },
     );
   }
