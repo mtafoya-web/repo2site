@@ -50,6 +50,7 @@ import type {
   EnrichmentSourceResult,
   EnrichmentSuggestion,
   GeneratePreviewResponse,
+  GenerateRepoSelectionResponse,
   PortfolioCanvasComponent,
   PortfolioEnhancement,
   PortfolioOverrides,
@@ -59,6 +60,7 @@ import type {
   PreviewHero,
   PreviewLink,
   PreviewRepository,
+  PreviewRepositorySelectionOption,
   PreviewSection,
   PreviewTheme,
 } from "@/lib/types";
@@ -70,6 +72,11 @@ type AuthSummary = {
   avatarUrl: string;
   profileUrl: string;
 } | null;
+
+type RepoSelectionState = {
+  repositories: PreviewRepositorySelectionOption[];
+  suggestedRepositoryFullNames: string[];
+};
 
 const SAMPLE_URL = "https://github.com/vercel";
 
@@ -237,6 +244,62 @@ type ThemePreset = {
 };
 
 function getThemePreset(themeId: string): ThemePreset {
+  if (themeId === "saas-light") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(180deg, rgba(226, 232, 240, 0.24), transparent 28%), radial-gradient(circle at 84% 12%, rgba(59, 130, 246, 0.08), transparent 28%)",
+      darkBackgroundPattern:
+        "linear-gradient(180deg, rgba(37, 99, 235, 0.08), transparent 26%), radial-gradient(circle at 82% 14%, rgba(96, 165, 250, 0.12), transparent 28%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(37, 99, 235, 0.04))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(96, 165, 250, 0.06))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(148, 163, 184, 0.06))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.76), rgba(51, 65, 85, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.98))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(17, 24, 39, 0.98))",
+      cardGlow: "0 18px 42px -34px rgba(15, 23, 42, 0.22)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.98))",
+      projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
+      headlineWeight: "700",
+    };
+  }
+
+  if (themeId === "saas-dark") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(180deg, rgba(15, 23, 42, 0.08), transparent 26%), radial-gradient(circle at 84% 10%, rgba(96, 165, 250, 0.08), transparent 28%)",
+      darkBackgroundPattern:
+        "linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent 24%), radial-gradient(circle at 82% 12%, rgba(96, 165, 250, 0.14), transparent 30%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(96, 165, 250, 0.04))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(96, 165, 250, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.1), rgba(148, 163, 184, 0.04))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.84), rgba(51, 65, 85, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.98))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(15, 23, 42, 0.98))",
+      cardGlow: "0 24px 56px -36px rgba(2, 6, 23, 0.72)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(11, 18, 32, 0.98), rgba(15, 23, 42, 0.98))",
+      projectInset: "inset 0 1px 0 rgba(148,163,184,0.08)",
+      headlineWeight: "700",
+    };
+  }
+
   if (themeId === "systems-green") {
     return {
       lightBackgroundPattern:
@@ -1378,6 +1441,24 @@ function mergeEnrichmentResults(
   return Array.from(merged.values());
 }
 
+function formatRepositoryUpdatedAt(updatedAt: string) {
+  const value = Date.parse(updatedAt);
+
+  if (Number.isNaN(value)) {
+    return "Unknown update";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function createCustomSectionCardId() {
+  return `custom-card-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function Repo2SiteShell() {
   const { renderTheme, themeChoice, setThemeChoice, isHydrated } = useAppTheme();
   const searchParams = useSearchParams();
@@ -1442,6 +1523,10 @@ export function Repo2SiteShell() {
   const [authSession, setAuthSession] = useState<AuthSummary>(null);
   const [githubImportAutofillNotice, setGitHubImportAutofillNotice] = useState<string | null>(null);
   const [isGitHubSignInHelpOpen, setIsGitHubSignInHelpOpen] = useState(false);
+  const [repoSelection, setRepoSelection] = useState<RepoSelectionState | null>(null);
+  const [selectedRepositoryFullNames, setSelectedRepositoryFullNames] = useState<string[]>([]);
+  const [isRepoSelectionOpen, setIsRepoSelectionOpen] = useState(false);
+  const [repoSelectionError, setRepoSelectionError] = useState<string | null>(null);
   const { triggerSpriteReaction } = useRepo2SiteCompanion();
   const resumeUploadInputRef = useRef<HTMLInputElement | null>(null);
   const heroImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -2023,12 +2108,12 @@ export function Repo2SiteShell() {
     });
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function generatePreviewWithSelections(selectedRepositories?: string[]) {
     setIsLoading(true);
     setError(null);
     setEnhanceError(null);
     setEnrichError(null);
+    setRepoSelectionError(null);
 
     try {
       const response = await fetch("/api/generate", {
@@ -2036,7 +2121,10 @@ export function Repo2SiteShell() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ profileUrl }),
+        body: JSON.stringify({
+          profileUrl,
+          selectedRepositoryFullNames: selectedRepositories,
+        }),
       });
 
       const result = (await response.json()) as
@@ -2064,6 +2152,7 @@ export function Repo2SiteShell() {
       }
 
       setPreview(result);
+      setIsRepoSelectionOpen(false);
       setOverrides((current) => {
         const reset = buildEmptyOverrides();
 
@@ -2097,6 +2186,97 @@ export function Repo2SiteShell() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setEnhanceError(null);
+    setEnrichError(null);
+    setRepoSelectionError(null);
+
+    try {
+      const response = await fetch("/api/generate/repositories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ profileUrl }),
+      });
+
+      const result = (await response.json()) as
+        | GenerateRepoSelectionResponse
+        | { error: string };
+
+      if (!response.ok) {
+        setRepoSelection(null);
+        setSelectedRepositoryFullNames([]);
+        setIsRepoSelectionOpen(false);
+        setError("error" in result ? result.error : "Something went wrong.");
+        trackAnalyticsEvent("GitHub Import Failed", {
+          stage: "response",
+        });
+        return;
+      }
+
+      if ("error" in result) {
+        setRepoSelection(null);
+        setSelectedRepositoryFullNames([]);
+        setIsRepoSelectionOpen(false);
+        setError(result.error);
+        trackAnalyticsEvent("GitHub Import Failed", {
+          stage: "payload",
+        });
+        return;
+      }
+
+      const initialSelection =
+        result.suggestedRepositoryFullNames.length > 0
+          ? result.suggestedRepositoryFullNames
+          : result.repositories.slice(0, 6).map((repository) => repository.fullName);
+
+      if (result.repositories.length === 0) {
+        await generatePreviewWithSelections([]);
+        return;
+      }
+
+      setRepoSelection(result);
+      setSelectedRepositoryFullNames(initialSelection);
+      setIsRepoSelectionOpen(true);
+      trackAnalyticsEvent("GitHub Repo Selection Opened", {
+        repositoryCount: result.repositories.length,
+        suggestedCount: initialSelection.length,
+      });
+    } catch {
+      setRepoSelection(null);
+      setSelectedRepositoryFullNames([]);
+      setIsRepoSelectionOpen(false);
+      setError("Something went wrong while loading public repositories.");
+      trackAnalyticsEvent("GitHub Import Failed", {
+        stage: "network",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function toggleRepositorySelection(repositoryFullName: string) {
+    setRepoSelectionError(null);
+    setSelectedRepositoryFullNames((current) =>
+      current.includes(repositoryFullName)
+        ? current.filter((name) => name !== repositoryFullName)
+        : [...current, repositoryFullName],
+    );
+  }
+
+  async function handleConfirmRepositorySelection() {
+    if (repoSelection && repoSelection.repositories.length > 0 && selectedRepositoryFullNames.length === 0) {
+      setRepoSelectionError("Choose at least one repository to add to the canvas.");
+      return;
+    }
+
+    await generatePreviewWithSelections(selectedRepositoryFullNames);
   }
 
   function updateOverrides(updater: (current: PortfolioOverrides) => PortfolioOverrides) {
@@ -2597,6 +2777,27 @@ export function Repo2SiteShell() {
           ...current.hero,
           imageUrl: dataUrl,
         },
+      }));
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleCustomSectionImageUpload(sectionId: string, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file || !file.type.startsWith("image/")) {
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      updateOverrides((current) => ({
+        ...current,
+        customSections: current.customSections.map((section) =>
+          section.id === sectionId ? { ...section, imageUrl: dataUrl } : section,
+        ),
       }));
     } finally {
       event.target.value = "";
@@ -3267,6 +3468,8 @@ export function Repo2SiteShell() {
           id: sectionId,
           title: `Custom Section ${current.customSections.length + 1}`,
           description: "Add your own notes, skills, awards, or anything else you want to feature.",
+          imageUrl: "",
+          cards: [],
         },
       ],
       layout: {
@@ -3307,6 +3510,12 @@ export function Repo2SiteShell() {
           id: nextId,
           title: `${sourceSection.title} Copy`,
           description: sourceSection.description,
+          imageUrl: sourceSection.imageUrl,
+          cards: sourceSection.cards.map((card) => ({
+            id: createCustomSectionCardId(),
+            title: card.title,
+            description: card.description,
+          })),
         },
       ],
       layout: {
@@ -3423,7 +3632,7 @@ export function Repo2SiteShell() {
   const techStack = portfolio.techStack;
   const professional = portfolio.professional;
   const featuredProject = repositories[0];
-  const secondaryProjects = repositories.slice(1, 5);
+  const secondaryProjects = repositories.slice(1);
   const featuredProjectHasImage = Boolean(featuredProject?.resolvedImage);
   const heroHeadline = portfolio.hero.headline;
   const heroSubheadline = portfolio.hero.subheadline;
@@ -3793,6 +4002,10 @@ export function Repo2SiteShell() {
     .filter((id) => !hiddenChildComponentIds.has(id))
     .map((id) => secondaryProjectItems.find((item) => item.id === id))
     .filter(Boolean) as typeof secondaryProjectItems;
+  const visibleProjectList = [
+    featuredProject ? { id: `project-card:${toCanvasKey(featuredProject.name)}`, repository: featuredProject } : null,
+    ...visibleSecondaryProjectItems.map((item) => ({ id: item.id, repository: item.repository })),
+  ].filter(Boolean) as Array<{ id: string; repository: ResolvedPreviewRepository }>;
   const childComponentLabels: Record<string, string> = {
     "hero:image": "Hero image",
     "hero:name": "Hero name block",
@@ -3923,6 +4136,9 @@ export function Repo2SiteShell() {
   function renderPreviewSection(component: PortfolioCanvasComponent) {
     if (component.type === "custom") {
       const customSection = overrides.customSections.find((section) => section.id === component.id);
+      const visibleCards = customSection?.cards.filter(
+        (card) => card.title.trim() || card.description.trim() || isEditMode,
+      ) ?? [];
 
       return (
         <div className={`rounded-[2rem] border ${densityClasses.sectionPadding} space-y-4`} style={themeStyles.surface}>
@@ -3938,6 +4154,27 @@ export function Repo2SiteShell() {
               <p className="text-sm leading-7 sm:text-base">
                 {customSection?.description || "Add your own content here from the editor controls."}
               </p>
+              {customSection?.imageUrl ? (
+                <div className="overflow-hidden rounded-[1.4rem] border" style={themeStyles.strongSurface}>
+                  <img
+                    src={customSection.imageUrl}
+                    alt={customSection.title || "Custom section image"}
+                    className="h-auto w-full object-cover"
+                  />
+                </div>
+              ) : null}
+              {visibleCards.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {visibleCards.map((card) => (
+                    <div key={card.id} className="rounded-[1.2rem] border p-4" style={themeStyles.strongSurface}>
+                      <p className="text-sm font-semibold">{card.title || "Subsection"}</p>
+                      <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
+                        {card.description || "Add supporting details for this box."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {isEditMode ? (
                 <div className="grid gap-3">
                   <input
@@ -3969,6 +4206,161 @@ export function Repo2SiteShell() {
                     className="min-h-[108px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
                     style={themeStyles.strongSurface}
                   />
+                  <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Section Image
+                        </p>
+                        <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                          Upload an image from your computer to make this custom section more visual.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="sr-only"
+                            onChange={(event) => handleCustomSectionImageUpload(component.id, event)}
+                          />
+                          Upload Image
+                        </label>
+                        {customSection?.imageUrl ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                customSections: current.customSections.map((section) =>
+                                  section.id === component.id ? { ...section, imageUrl: "" } : section,
+                                ),
+                              }))
+                            }
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Remove Image
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Subsection Boxes
+                        </p>
+                        <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                          Use cards for highlights, stats, awards, testimonials, steps, or grouped details.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateOverrides((current) => ({
+                            ...current,
+                            customSections: current.customSections.map((section) =>
+                              section.id === component.id
+                                ? {
+                                    ...section,
+                                    cards: [
+                                      ...section.cards,
+                                      {
+                                        id: createCustomSectionCardId(),
+                                        title: `Subsection ${section.cards.length + 1}`,
+                                        description: "",
+                                      },
+                                    ],
+                                  }
+                                : section,
+                            ),
+                          }))
+                        }
+                        className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                        style={themeStyles.ghostButton}
+                      >
+                        Add Box
+                      </button>
+                    </div>
+                    {customSection?.cards.length ? (
+                      <div className="mt-4 grid gap-3">
+                        {customSection.cards.map((card, index) => (
+                          <div key={card.id} className="grid gap-3 rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                                Box {index + 1}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateOverrides((current) => ({
+                                    ...current,
+                                    customSections: current.customSections.map((section) =>
+                                      section.id === component.id
+                                        ? {
+                                            ...section,
+                                            cards: section.cards.filter((entry) => entry.id !== card.id),
+                                          }
+                                        : section,
+                                    ),
+                                  }))
+                                }
+                                className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                style={themeStyles.ghostButton}
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <input
+                              value={card.title}
+                              onChange={(event) =>
+                                updateOverrides((current) => ({
+                                  ...current,
+                                  customSections: current.customSections.map((section) =>
+                                    section.id === component.id
+                                      ? {
+                                          ...section,
+                                          cards: section.cards.map((entry) =>
+                                            entry.id === card.id ? { ...entry, title: event.target.value } : entry,
+                                          ),
+                                        }
+                                      : section,
+                                  ),
+                                }))
+                              }
+                              placeholder="Box title"
+                              className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                              style={themeStyles.strongSurface}
+                            />
+                            <textarea
+                              value={card.description}
+                              onChange={(event) =>
+                                updateOverrides((current) => ({
+                                  ...current,
+                                  customSections: current.customSections.map((section) =>
+                                    section.id === component.id
+                                      ? {
+                                          ...section,
+                                          cards: section.cards.map((entry) =>
+                                            entry.id === card.id ? { ...entry, description: event.target.value } : entry,
+                                          ),
+                                        }
+                                      : section,
+                                  ),
+                                }))
+                              }
+                              rows={3}
+                              placeholder="Box description"
+                              className="min-h-[92px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
+                              style={themeStyles.strongSurface}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -5094,7 +5486,7 @@ export function Repo2SiteShell() {
                 );
               }
 
-              if (componentId === "contact:methods" && visibleContactMethodItems.length > 0) {
+              if (componentId === "contact:methods" && (isEditMode || visibleContactMethodItems.length > 0)) {
                 return (
                   <PreviewCanvasItemFrame
                     key={componentId}
@@ -5109,7 +5501,7 @@ export function Repo2SiteShell() {
                     onDragEnd={handleChildDragEnd}
                     onRemove={() => setChildComponentVisible(componentId, false)}
                   >
-                    <div className="grid gap-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       {visibleContactMethodItems.map((entry) => (
                         <div
                           key={entry.id}
@@ -5126,9 +5518,20 @@ export function Repo2SiteShell() {
                           onDragEnd={handleChildDragEnd}
                           className={isEditMode ? "cursor-grab active:cursor-grabbing" : ""}
                         >
-                          <a href={entry.item.href} className="block rounded-[1.2rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5" style={themeStyles.surface}>
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="font-medium">{entry.item.label}</p>
+                          <a
+                            href={entry.item.href}
+                            className="block min-w-0 rounded-[1.35rem] border px-4 py-4 text-sm transition hover:-translate-y-0.5"
+                            style={themeStyles.surface}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.mutedText}>
+                                  {entry.item.label}
+                                </p>
+                                <p className="mt-2 break-all text-sm font-medium sm:text-base">
+                                  {entry.item.value}
+                                </p>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
@@ -5153,14 +5556,36 @@ export function Repo2SiteShell() {
                                 ) : null}
                               </div>
                             </div>
-                            <p className="mt-1 break-words" style={themeStyles.mutedText}>{entry.item.value}</p>
+                            <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
+                              Open contact link
+                            </p>
                           </a>
                         </div>
                       ))}
                     </div>
                     <div className={`${isEditMode ? "mt-3 grid gap-3 sm:grid-cols-2" : "hidden"}`}>
-                      <InlineEditableField label="Email" value={overrides.contact.email} onChange={(nextValue) => updateOverrides((current) => ({ ...current, contact: { ...current.contact, email: nextValue } }))} generatedValue="" placeholder="name@example.com" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, contact: { ...current.contact, email: "" } }))} editing={isEditMode} compact />
-                      <InlineEditableField label="Phone" value={overrides.contact.phone} onChange={(nextValue) => updateOverrides((current) => ({ ...current, contact: { ...current.contact, phone: nextValue } }))} generatedValue="" placeholder="+1 (555) 555-5555" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, contact: { ...current.contact, phone: "" } }))} editing={isEditMode} compact />
+                      <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Email Subsection
+                        </p>
+                        <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                          Add the email address you want visitors to click from this contact area.
+                        </p>
+                        <div className="mt-3">
+                          <InlineEditableField label="Email" value={overrides.contact.email} onChange={(nextValue) => updateOverrides((current) => ({ ...current, contact: { ...current.contact, email: nextValue } }))} generatedValue="" placeholder="name@example.com" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, contact: { ...current.contact, email: "" } }))} editing={isEditMode} compact />
+                        </div>
+                      </div>
+                      <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                          Phone Subsection
+                        </p>
+                        <p className="mt-1 text-xs leading-5" style={themeStyles.mutedText}>
+                          Add the phone number you want to expose as a tap-to-call contact box.
+                        </p>
+                        <div className="mt-3">
+                          <InlineEditableField label="Phone" value={overrides.contact.phone} onChange={(nextValue) => updateOverrides((current) => ({ ...current, contact: { ...current.contact, phone: nextValue } }))} generatedValue="" placeholder="+1 (555) 555-5555" themeStyles={themeStyles} onReset={() => updateOverrides((current) => ({ ...current, contact: { ...current.contact, phone: "" } }))} editing={isEditMode} compact />
+                        </div>
+                      </div>
                     </div>
                   </PreviewCanvasItemFrame>
                 );
@@ -5418,7 +5843,205 @@ export function Repo2SiteShell() {
             })}
           </div>
         );
-      case "projects":
+      case "projects": {
+        const projectCards =
+          overrides.appearance.projectLayout === "mixed"
+            ? visibleSecondaryProjectItems.map((item) => ({ id: item.id, repository: item.repository }))
+            : visibleProjectList;
+
+        const renderProjectCard = (
+          id: string,
+          repository: ResolvedPreviewRepository,
+        ) => {
+          const hasProjectImage = Boolean(repository.resolvedImage);
+          const useCompactImage =
+            overrides.appearance.projectLayout !== "stacked" || repository !== featuredProject;
+
+          return (
+            <div
+              key={id}
+              className={`rounded-[1.5rem] border p-5 transition ${draggedProjectName === repository.name ? "opacity-60" : ""} ${
+                overrides.appearance.projectLayout === "stacked" ? "sm:p-6" : ""
+              }`}
+              style={{
+                ...themeStyles.projectCard,
+                borderColor:
+                  projectDropTargetName === repository.name && draggedProjectName !== repository.name
+                    ? theme.palette.accent
+                    : themeStyles.projectCard.borderColor,
+                boxShadow:
+                  projectDropTargetName === repository.name && draggedProjectName !== repository.name
+                    ? `0 0 0 1px ${theme.palette.accent}`
+                    : themeStyles.projectCard.boxShadow,
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+                handleProjectDragOver(repository.name);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleProjectDrop(repository.name);
+              }}
+            >
+              {hasProjectImage ? (
+                <ProjectImagePreview
+                  repository={repository}
+                  themeStyles={themeStyles}
+                  compact={useCompactImage}
+                />
+              ) : null}
+              <div
+                className={`mb-4 ${hasProjectImage ? "mt-5" : "mt-0"} h-1 w-14 rounded-full`}
+                style={{ backgroundColor: theme.palette.accent }}
+              />
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-2">
+                  <p
+                    className={
+                      repository === featuredProject && overrides.appearance.projectLayout === "stacked"
+                        ? "break-words text-2xl font-semibold leading-7 sm:text-3xl"
+                        : "break-words text-lg font-semibold leading-6"
+                    }
+                  >
+                    {repository.name}
+                  </p>
+                  <SourceBadge source={repository.descriptionSource} themeStyles={themeStyles} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    draggable
+                    onDragStart={(event) => {
+                      event.stopPropagation();
+                      handleProjectDragStart(repository.name);
+                    }}
+                    onDragEnd={handleProjectDragEnd}
+                    className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    style={themeStyles.ghostButton}
+                    aria-label={`Drag ${repository.name}`}
+                    title={`Drag ${repository.name}`}
+                  >
+                    <span aria-hidden="true">⋮⋮</span>
+                  </button>
+                  {isEditMode && id !== `project-card:${toCanvasKey(featuredProject?.name ?? "")}` ? (
+                    <button
+                      type="button"
+                      onClick={() => setChildComponentVisible(id, false)}
+                      className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      style={themeStyles.ghostButton}
+                    >
+                      Hide
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <p
+                className={`break-words whitespace-pre-wrap ${
+                  repository === featuredProject && overrides.appearance.projectLayout === "stacked"
+                    ? "mt-4 text-base leading-8 sm:text-lg"
+                    : `text-sm leading-7 ${hasProjectImage ? "mt-4" : "mt-5 text-base"}`
+                }`}
+                style={themeStyles.mutedText}
+              >
+                {repository.description}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <TechBadge label={repository.language} themeStyles={themeStyles} compact />
+                <a
+                  href={repository.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={{ color: theme.palette.accent }}
+                >
+                  Open Project
+                </a>
+                {repository !== featuredProject ? (
+                  <button
+                    type="button"
+                    onClick={() => makeFeaturedProject(repository.name)}
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={themeStyles.ghostButton}
+                  >
+                    Make Featured
+                  </button>
+                ) : null}
+              </div>
+              <InlineEditableField
+                label={`${repository.name} description`}
+                value={overrides.projectOverrides[repository.name]?.description ?? ""}
+                onChange={(nextValue) => setProjectDescriptionOverride(repository.name, nextValue)}
+                generatedValue={baseRepositories.find((item) => item.name === repository.name)?.description ?? ""}
+                suggestedValue={overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? ""}
+                activeSource={overrides.projectOverrides[repository.name]?.acceptedAi ? "ai" : "user"}
+                placeholder="Shape this repository into a stronger portfolio case study"
+                themeStyles={themeStyles}
+                onApplySuggestion={() =>
+                  setProjectDescriptionOverride(
+                    repository.name,
+                    overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? "",
+                    "ai",
+                  )
+                }
+                onDismissSuggestion={() => dismissProjectDescriptionSuggestion(repository.name)}
+                onReset={() => setProjectDescriptionOverride(repository.name, "")}
+                editing={isEditMode}
+                multiline
+                compact
+              />
+              {isEditMode ? (
+                <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                  {!hasProjectImage ? (
+                    <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                      No image yet. This card can stay text-first, or you can upload an image when you want a more visual layout.
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                      <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(repository.name, event)} />
+                      Upload Image
+                    </label>
+                    <button type="button" onClick={() => toggleProjectImportPanel(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                      {openProjectImports[repository.name] ? "Hide Image Options" : "Image Options"}
+                    </button>
+                    <button type="button" onClick={() => removeProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                      Remove Image
+                    </button>
+                  </div>
+                  {openProjectImports[repository.name] ? (
+                    <div className="grid gap-3">
+                      <input
+                        value={overrides.projectOverrides[repository.name]?.imageUrl ?? ""}
+                        onChange={(event) => setProjectImageOverride(repository.name, event.target.value)}
+                        placeholder="https://example.com/project-image.png"
+                        className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                        style={themeStyles.surface}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => restoreDefaultProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                          Use Default Image
+                        </button>
+                        {repository.readmeImages.map((imageUrl) => (
+                          <button
+                            key={imageUrl}
+                            type="button"
+                            onClick={() => setProjectImageOverride(repository.name, imageUrl)}
+                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            style={themeStyles.ghostButton}
+                          >
+                            Apply README Image
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          );
+        };
+
         return (
           <div {...getTourHighlightProps("tour-projects")}>
             {isCanvasChildVisible("projects:heading") ? (
@@ -5446,310 +6069,178 @@ export function Repo2SiteShell() {
                 </div>
               </PreviewCanvasItemFrame>
             ) : null}
-            {featuredProject && (isCanvasChildVisible("projects:featured-image") || isCanvasChildVisible("projects:featured-header") || isCanvasChildVisible("projects:featured-description") || isCanvasChildVisible("projects:featured-meta")) ? (
+            {overrides.appearance.projectLayout === "mixed" ? (
               <div className="mt-6 grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-                <div
-                  className={`rounded-[2rem] border p-6 sm:p-8 transition ${draggedProjectName === featuredProject.name ? "opacity-60" : ""}`}
-                  style={{
-                    ...themeStyles.projectShowcase,
-                    borderColor:
-                      projectDropTargetName === featuredProject.name && draggedProjectName !== featuredProject.name
-                        ? theme.palette.accent
-                        : themeStyles.projectShowcase.borderColor,
-                    boxShadow:
-                      projectDropTargetName === featuredProject.name && draggedProjectName !== featuredProject.name
-                        ? `0 0 0 1px ${theme.palette.accent}`
-                        : themeStyles.projectShowcase.boxShadow,
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                    handleProjectDragOver(featuredProject.name);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    handleProjectDrop(featuredProject.name);
-                  }}
-                >
-                  {featuredProjectHasImage && isCanvasChildVisible("projects:featured-image") ? <ProjectImagePreview repository={featuredProject} themeStyles={themeStyles} /> : null}
-                  {isCanvasChildVisible("projects:featured-header") ? (
-                  <div className="mt-6 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]" style={themeStyles.chip}>Featured</span>
-                      <SourceBadge source={featuredProject.descriptionSource} themeStyles={themeStyles} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isEditMode ? (
-                        <button
-                          type="button"
-                          onClick={() => setChildComponentVisible("projects:featured", false)}
-                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                          style={themeStyles.ghostButton}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        draggable
-                        onDragStart={(event) => {
-                          event.stopPropagation();
-                          event.dataTransfer.effectAllowed = "move";
-                          handleProjectDragStart(featuredProject.name);
-                        }}
-                        onDragEnd={handleProjectDragEnd}
-                        className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                        style={themeStyles.ghostButton}
-                        aria-label={`Drag ${featuredProject.name}`}
-                        title={`Drag ${featuredProject.name}`}
-                      >
-                        <span aria-hidden="true">⋮⋮</span>
-                      </button>
-                    </div>
-                  </div>
-                  ) : null}
-                  {isCanvasChildVisible("projects:featured-description") ? (
-                  <div className="mt-10 max-w-xl">
-                    <p className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">{featuredProject.name}</p>
-                    <p className="mt-4 break-words whitespace-pre-wrap text-base leading-8 sm:text-lg" style={themeStyles.mutedText}>{featuredProject.description}</p>
-                  </div>
-                  ) : null}
-                  {isCanvasChildVisible("projects:featured-meta") ? (
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <TechBadge label={featuredProject.language} themeStyles={themeStyles} compact />
-                    <a href={featuredProject.href} target="_blank" rel="noreferrer" className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
-                      Open Project
-                    </a>
-                  </div>
-                  ) : null}
-                  <InlineEditableField
-                    label={`${featuredProject.name} description`}
-                    value={overrides.projectOverrides[featuredProject.name]?.description ?? ""}
-                    onChange={(nextValue) => setProjectDescriptionOverride(featuredProject.name, nextValue)}
-                    generatedValue={baseRepositories.find((item) => item.name === featuredProject.name)?.description ?? ""}
-                    suggestedValue={overrides.projectOverrides[featuredProject.name]?.descriptionSuggestion ?? ""}
-                    activeSource={overrides.projectOverrides[featuredProject.name]?.acceptedAi ? "ai" : "user"}
-                    placeholder="Shape this repository into a stronger portfolio case study"
-                    themeStyles={themeStyles}
-                    onApplySuggestion={() =>
-                      setProjectDescriptionOverride(
-                        featuredProject.name,
-                        overrides.projectOverrides[featuredProject.name]?.descriptionSuggestion ?? "",
-                        "ai",
-                      )
-                    }
-                    onDismissSuggestion={() => dismissProjectDescriptionSuggestion(featuredProject.name)}
-                    onReset={() => setProjectDescriptionOverride(featuredProject.name, "")}
-                    editing={isEditMode}
-                    multiline
-                  />
-                  {isEditMode ? (
-                    <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-                      {!featuredProjectHasImage ? (
-                        <p className="text-xs leading-5" style={themeStyles.mutedText}>
-                          No image yet. Upload one, paste an image URL, or use an image found in the project README.
-                        </p>
-                      ) : null}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                          <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(featuredProject.name, event)} />
-                          Upload Image
-                        </label>
-                        <button type="button" onClick={() => toggleProjectImportPanel(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                          {openProjectImports[featuredProject.name] ? "Hide Image Options" : "Image Options"}
-                        </button>
-                        <button type="button" onClick={() => removeProjectImage(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                          Remove Image
-                        </button>
-                        <button type="button" onClick={() => restoreDefaultProjectImage(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                          Use Default Image
-                        </button>
-                      </div>
-                      {openProjectImports[featuredProject.name] ? (
-                        <div className="grid gap-3">
-                          <input
-                            value={overrides.projectOverrides[featuredProject.name]?.imageUrl ?? ""}
-                            onChange={(event) => setProjectImageOverride(featuredProject.name, event.target.value)}
-                            placeholder="https://example.com/project-image.png"
-                            className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                            style={themeStyles.surface}
-                          />
-                          <div className="flex flex-wrap gap-2">
-                            {featuredProject.readmeImages.map((imageUrl) => (
-                              <button
-                                key={imageUrl}
-                                type="button"
-                                onClick={() => setProjectImageOverride(featuredProject.name, imageUrl)}
-                                className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                style={themeStyles.ghostButton}
-                              >
-                                Apply README Image
-                              </button>
-                            ))}
-                          </div>
+                {featuredProject &&
+                (isCanvasChildVisible("projects:featured-image") ||
+                  isCanvasChildVisible("projects:featured-header") ||
+                  isCanvasChildVisible("projects:featured-description") ||
+                  isCanvasChildVisible("projects:featured-meta")) ? (
+                  <div
+                    className={`rounded-[2rem] border p-6 sm:p-8 transition ${draggedProjectName === featuredProject.name ? "opacity-60" : ""}`}
+                    style={{
+                      ...themeStyles.projectShowcase,
+                      borderColor:
+                        projectDropTargetName === featuredProject.name && draggedProjectName !== featuredProject.name
+                          ? theme.palette.accent
+                          : themeStyles.projectShowcase.borderColor,
+                      boxShadow:
+                        projectDropTargetName === featuredProject.name && draggedProjectName !== featuredProject.name
+                          ? `0 0 0 1px ${theme.palette.accent}`
+                          : themeStyles.projectShowcase.boxShadow,
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      handleProjectDragOver(featuredProject.name);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      handleProjectDrop(featuredProject.name);
+                    }}
+                  >
+                    {featuredProjectHasImage && isCanvasChildVisible("projects:featured-image") ? <ProjectImagePreview repository={featuredProject} themeStyles={themeStyles} /> : null}
+                    {isCanvasChildVisible("projects:featured-header") ? (
+                      <div className="mt-6 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <span className="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]" style={themeStyles.chip}>Featured</span>
+                          <SourceBadge source={featuredProject.descriptionSource} themeStyles={themeStyles} />
                         </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-                {isCanvasChildVisible("projects:grid") ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {visibleSecondaryProjectItems.map(({ id, repository }) => {
-                    const hasProjectImage = Boolean(repository.resolvedImage);
-                    return (
-                      <div
-                        key={id}
-                        className={`rounded-[1.5rem] border p-5 transition ${draggedProjectName === repository.name ? "opacity-60" : ""}`}
-                        style={{
-                          ...themeStyles.projectCard,
-                          borderColor:
-                            projectDropTargetName === repository.name && draggedProjectName !== repository.name
-                              ? theme.palette.accent
-                              : themeStyles.projectCard.borderColor,
-                          boxShadow:
-                            projectDropTargetName === repository.name && draggedProjectName !== repository.name
-                              ? `0 0 0 1px ${theme.palette.accent}`
-                              : themeStyles.projectCard.boxShadow,
-                        }}
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = "move";
-                          handleProjectDragOver(repository.name);
-                        }}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          handleProjectDrop(repository.name);
-                        }}
-                      >
-                        {hasProjectImage ? <ProjectImagePreview repository={repository} themeStyles={themeStyles} compact /> : null}
-                        <div className={`mb-4 ${hasProjectImage ? "mt-5" : "mt-0"} h-1 w-14 rounded-full`} style={{ backgroundColor: theme.palette.accent }} />
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-2">
-                            <p className="break-words text-lg font-semibold leading-6">{repository.name}</p>
-                            <SourceBadge source={repository.descriptionSource} themeStyles={themeStyles} />
-                          </div>
-                          <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          {isEditMode ? (
                             <button
                               type="button"
-                              draggable
-                              onDragStart={(event) => {
-                                event.stopPropagation();
-                                handleProjectDragStart(repository.name);
-                              }}
-                              onDragEnd={handleProjectDragEnd}
-                              className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              onClick={() => setChildComponentVisible("projects:featured", false)}
+                              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
                               style={themeStyles.ghostButton}
-                              aria-label={`Drag ${repository.name}`}
-                              title={`Drag ${repository.name}`}
                             >
-                              <span aria-hidden="true">⋮⋮</span>
+                              Remove
                             </button>
-                            {isEditMode ? (
-                              <button
-                                type="button"
-                                onClick={() => setChildComponentVisible(id, false)}
-                                className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                                style={themeStyles.ghostButton}
-                              >
-                                Hide
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                        <p className={`break-words whitespace-pre-wrap text-sm leading-7 ${hasProjectImage ? "mt-4" : "mt-5 text-base"}`} style={themeStyles.mutedText}>{repository.description}</p>
-                        <div className="mt-5 flex flex-wrap items-center gap-3">
-                          <TechBadge label={repository.language} themeStyles={themeStyles} compact />
-                          <a href={repository.href} target="_blank" rel="noreferrer" className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
-                            Open Project
-                          </a>
+                          ) : null}
                           <button
                             type="button"
-                            onClick={() => makeFeaturedProject(repository.name)}
-                            className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                            draggable
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              event.dataTransfer.effectAllowed = "move";
+                              handleProjectDragStart(featuredProject.name);
+                            }}
+                            onDragEnd={handleProjectDragEnd}
+                            className="rounded-full border p-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                             style={themeStyles.ghostButton}
+                            aria-label={`Drag ${featuredProject.name}`}
+                            title={`Drag ${featuredProject.name}`}
                           >
-                            Make Featured
+                            <span aria-hidden="true">⋮⋮</span>
                           </button>
                         </div>
-                        <InlineEditableField
-                          label={`${repository.name} description`}
-                          value={overrides.projectOverrides[repository.name]?.description ?? ""}
-                          onChange={(nextValue) => setProjectDescriptionOverride(repository.name, nextValue)}
-                          generatedValue={baseRepositories.find((item) => item.name === repository.name)?.description ?? ""}
-                          suggestedValue={overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? ""}
-                          activeSource={overrides.projectOverrides[repository.name]?.acceptedAi ? "ai" : "user"}
-                          placeholder="Shape this repository into a stronger portfolio case study"
-                          themeStyles={themeStyles}
-                          onApplySuggestion={() =>
-                            setProjectDescriptionOverride(
-                              repository.name,
-                              overrides.projectOverrides[repository.name]?.descriptionSuggestion ?? "",
-                              "ai",
-                            )
-                          }
-                          onDismissSuggestion={() => dismissProjectDescriptionSuggestion(repository.name)}
-                          onReset={() => setProjectDescriptionOverride(repository.name, "")}
-                          editing={isEditMode}
-                          multiline
-                          compact
-                        />
-                        {isEditMode ? (
-                          <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
-                            {!hasProjectImage ? (
-                              <p className="text-xs leading-5" style={themeStyles.mutedText}>
-                                No image yet. This card can stay text-first, or you can upload an image when you want a more visual layout.
-                              </p>
-                            ) : null}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                                <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(repository.name, event)} />
-                                Upload Image
-                              </label>
-                              <button type="button" onClick={() => toggleProjectImportPanel(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                                {openProjectImports[repository.name] ? "Hide Image Options" : "Image Options"}
-                              </button>
-                              <button type="button" onClick={() => removeProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                                Remove Image
-                              </button>
+                      </div>
+                    ) : null}
+                    {isCanvasChildVisible("projects:featured-description") ? (
+                      <div className="mt-10 max-w-xl">
+                        <p className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">{featuredProject.name}</p>
+                        <p className="mt-4 break-words whitespace-pre-wrap text-base leading-8 sm:text-lg" style={themeStyles.mutedText}>{featuredProject.description}</p>
+                      </div>
+                    ) : null}
+                    {isCanvasChildVisible("projects:featured-meta") ? (
+                      <div className="mt-6 flex flex-wrap items-center gap-3">
+                        <TechBadge label={featuredProject.language} themeStyles={themeStyles} compact />
+                        <a href={featuredProject.href} target="_blank" rel="noreferrer" className="text-sm font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
+                          Open Project
+                        </a>
+                      </div>
+                    ) : null}
+                    <InlineEditableField
+                      label={`${featuredProject.name} description`}
+                      value={overrides.projectOverrides[featuredProject.name]?.description ?? ""}
+                      onChange={(nextValue) => setProjectDescriptionOverride(featuredProject.name, nextValue)}
+                      generatedValue={baseRepositories.find((item) => item.name === featuredProject.name)?.description ?? ""}
+                      suggestedValue={overrides.projectOverrides[featuredProject.name]?.descriptionSuggestion ?? ""}
+                      activeSource={overrides.projectOverrides[featuredProject.name]?.acceptedAi ? "ai" : "user"}
+                      placeholder="Shape this repository into a stronger portfolio case study"
+                      themeStyles={themeStyles}
+                      onApplySuggestion={() =>
+                        setProjectDescriptionOverride(
+                          featuredProject.name,
+                          overrides.projectOverrides[featuredProject.name]?.descriptionSuggestion ?? "",
+                          "ai",
+                        )
+                      }
+                      onDismissSuggestion={() => dismissProjectDescriptionSuggestion(featuredProject.name)}
+                      onReset={() => setProjectDescriptionOverride(featuredProject.name, "")}
+                      editing={isEditMode}
+                      multiline
+                    />
+                    {isEditMode ? (
+                      <div className="mt-4 grid gap-3 rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                        {!featuredProjectHasImage ? (
+                          <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                            No image yet. Upload one, paste an image URL, or use an image found in the project README.
+                          </p>
+                        ) : null}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                            <input type="file" accept="image/*" className="sr-only" onChange={(event) => handleProjectImageUpload(featuredProject.name, event)} />
+                            Upload Image
+                          </label>
+                          <button type="button" onClick={() => toggleProjectImportPanel(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                            {openProjectImports[featuredProject.name] ? "Hide Image Options" : "Image Options"}
+                          </button>
+                          <button type="button" onClick={() => removeProjectImage(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                            Remove Image
+                          </button>
+                          <button type="button" onClick={() => restoreDefaultProjectImage(featuredProject.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                            Use Default Image
+                          </button>
+                        </div>
+                        {openProjectImports[featuredProject.name] ? (
+                          <div className="grid gap-3">
+                            <input
+                              value={overrides.projectOverrides[featuredProject.name]?.imageUrl ?? ""}
+                              onChange={(event) => setProjectImageOverride(featuredProject.name, event.target.value)}
+                              placeholder="https://example.com/project-image.png"
+                              className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                              style={themeStyles.surface}
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              {featuredProject.readmeImages.map((imageUrl) => (
+                                <button
+                                  key={imageUrl}
+                                  type="button"
+                                  onClick={() => setProjectImageOverride(featuredProject.name, imageUrl)}
+                                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                                  style={themeStyles.ghostButton}
+                                >
+                                  Apply README Image
+                                </button>
+                              ))}
                             </div>
-                            {openProjectImports[repository.name] ? (
-                              <div className="grid gap-3">
-                                <input
-                                  value={overrides.projectOverrides[repository.name]?.imageUrl ?? ""}
-                                  onChange={(event) => setProjectImageOverride(repository.name, event.target.value)}
-                                  placeholder="https://example.com/project-image.png"
-                                  className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
-                                  style={themeStyles.surface}
-                                />
-                                <div className="flex flex-wrap gap-2">
-                                  <button type="button" onClick={() => restoreDefaultProjectImage(repository.name)} className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
-                                    Use Default Image
-                                  </button>
-                                  {repository.readmeImages.map((imageUrl) => (
-                                    <button
-                                      key={imageUrl}
-                                      type="button"
-                                      onClick={() => setProjectImageOverride(repository.name, imageUrl)}
-                                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-                                      style={themeStyles.ghostButton}
-                                    >
-                                      Apply README Image
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : null}
                           </div>
                         ) : null}
                       </div>
-                    );
-                  })}
-                </div>
+                    ) : null}
+                  </div>
                 ) : null}
+                {isCanvasChildVisible("projects:grid") ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {projectCards.map(({ id, repository }) => renderProjectCard(id, repository))}
+                  </div>
+                ) : null}
+              </div>
+            ) : isCanvasChildVisible("projects:grid") ? (
+              <div
+                className={`mt-6 ${
+                  overrides.appearance.projectLayout === "stacked"
+                    ? "grid gap-4"
+                    : "grid gap-4 sm:grid-cols-2"
+                }`}
+              >
+                {projectCards.map(({ id, repository }) => renderProjectCard(id, repository))}
               </div>
             ) : null}
           </div>
         );
+      }
       default:
         return null;
     }
@@ -5790,6 +6281,49 @@ export function Repo2SiteShell() {
         </div>
         {activeInspectorTab === "theme" ? (
           <div className="grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2 rounded-[1rem] border p-4" style={themeStyles.surface}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                    Simple SaaS Presets
+                  </p>
+                  <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                    Apply a clean light or dark SaaS look without flashy styling. This resets palette overrides so the preset colors export exactly as shown.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: "saas-light", label: "SaaS Light", colorMode: "light" as const },
+                    { id: "saas-dark", label: "SaaS Dark", colorMode: "dark" as const },
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() =>
+                        updateOverrides((current) => ({
+                          ...current,
+                          appearance: {
+                            ...current.appearance,
+                            themeId: option.id,
+                            colorMode: option.colorMode,
+                            customPalette: {},
+                          },
+                        }))
+                      }
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={
+                        (overrides.appearance.themeId || theme.id) === option.id &&
+                        overrides.appearance.colorMode === option.colorMode
+                          ? themeStyles.accentButton
+                          : themeStyles.ghostButton
+                      }
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
               Theme
               <select
@@ -5959,6 +6493,43 @@ export function Repo2SiteShell() {
                 Keep the editor focused on one canvas. Use drag-and-drop to place sections, then drag the divider handles between sections to resize them directly.
               </p>
             </div>
+            <div className="grid gap-1">
+              <label className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                Project Layout
+              </label>
+              <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                Choose how Selected Work is arranged without changing the rest of the page layout.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { id: "mixed", label: "Mixed" },
+                  { id: "stacked", label: "Stacked" },
+                  { id: "side-by-side", label: "Side By Side" },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() =>
+                      updateOverrides((current) => ({
+                        ...current,
+                        appearance: {
+                          ...current.appearance,
+                          projectLayout: option.id as PortfolioOverrides["appearance"]["projectLayout"],
+                        },
+                      }))
+                    }
+                    className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={
+                      overrides.appearance.projectLayout === option.id
+                        ? themeStyles.accentButton
+                        : themeStyles.ghostButton
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
         {activeInspectorTab === "section" ? (
@@ -6053,6 +6624,208 @@ export function Repo2SiteShell() {
                   className="min-h-[120px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
                   style={themeStyles.strongSurface}
                 />
+                <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                        Section Image
+                      </p>
+                      <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                        Upload an image from your computer for this custom section.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.ghostButton}>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(event) => handleCustomSectionImageUpload(selectedCustomSection.id, event)}
+                        />
+                        Upload Image
+                      </label>
+                      {selectedCustomSection.imageUrl ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateOverrides((current) => ({
+                              ...current,
+                              customSections: current.customSections.map((section) =>
+                                section.id === selectedCustomSection.id
+                                  ? { ...section, imageUrl: "" }
+                                  : section,
+                              ),
+                            }))
+                          }
+                          className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                          style={themeStyles.ghostButton}
+                        >
+                          Remove Image
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-[1rem] border p-4" style={themeStyles.strongSurface}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                        Subsection Boxes
+                      </p>
+                      <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                        Add repeatable boxes to build your own layouts for awards, services, highlights, testimonials, or process steps.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateOverrides((current) => ({
+                          ...current,
+                          customSections: current.customSections.map((section) =>
+                            section.id === selectedCustomSection.id
+                              ? {
+                                  ...section,
+                                  cards: [
+                                    ...section.cards,
+                                    {
+                                      id: createCustomSectionCardId(),
+                                      title: `Subsection ${section.cards.length + 1}`,
+                                      description: "",
+                                    },
+                                  ],
+                                }
+                              : section,
+                          ),
+                        }))
+                      }
+                      className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={themeStyles.ghostButton}
+                    >
+                      Add Box
+                    </button>
+                  </div>
+                  {selectedCustomSection.cards.length > 0 ? (
+                    <div className="mt-4 grid gap-3">
+                      {selectedCustomSection.cards.map((card, index) => (
+                        <div key={card.id} className="grid gap-3 rounded-[0.95rem] border p-3" style={themeStyles.surface}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                              Box {index + 1}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateOverrides((current) => ({
+                                  ...current,
+                                  customSections: current.customSections.map((section) =>
+                                    section.id === selectedCustomSection.id
+                                      ? {
+                                          ...section,
+                                          cards: section.cards.filter((entry) => entry.id !== card.id),
+                                        }
+                                      : section,
+                                  ),
+                                }))
+                              }
+                              className="rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              style={themeStyles.ghostButton}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <input
+                            value={card.title}
+                            onChange={(event) =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                customSections: current.customSections.map((section) =>
+                                  section.id === selectedCustomSection.id
+                                    ? {
+                                        ...section,
+                                        cards: section.cards.map((entry) =>
+                                          entry.id === card.id ? { ...entry, title: event.target.value } : entry,
+                                        ),
+                                      }
+                                    : section,
+                                ),
+                              }))
+                            }
+                            placeholder="Box title"
+                            className="h-11 rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                            style={themeStyles.strongSurface}
+                          />
+                          <textarea
+                            value={card.description}
+                            onChange={(event) =>
+                              updateOverrides((current) => ({
+                                ...current,
+                                customSections: current.customSections.map((section) =>
+                                  section.id === selectedCustomSection.id
+                                    ? {
+                                        ...section,
+                                        cards: section.cards.map((entry) =>
+                                          entry.id === card.id ? { ...entry, description: event.target.value } : entry,
+                                        ),
+                                      }
+                                    : section,
+                                ),
+                              }))
+                            }
+                            rows={3}
+                            placeholder="Box description"
+                            className="min-h-[92px] rounded-[0.95rem] border px-3 py-3 text-sm leading-7 outline-none transition"
+                            style={themeStyles.strongSurface}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : selectedCanvasComponent?.type === "contact" ? (
+              <div className="grid gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                  Contact Details
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[0.95rem] border p-3" style={themeStyles.strongSurface}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Email Subsection
+                    </p>
+                    <input
+                      value={overrides.contact.email}
+                      onChange={(event) =>
+                        updateOverrides((current) => ({
+                          ...current,
+                          contact: { ...current.contact, email: event.target.value },
+                        }))
+                      }
+                      placeholder="name@example.com"
+                      className="mt-3 h-11 w-full rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                      style={themeStyles.surface}
+                    />
+                  </div>
+                  <div className="rounded-[0.95rem] border p-3" style={themeStyles.strongSurface}>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em]" style={themeStyles.mutedText}>
+                      Phone Subsection
+                    </p>
+                    <input
+                      value={overrides.contact.phone}
+                      onChange={(event) =>
+                        updateOverrides((current) => ({
+                          ...current,
+                          contact: { ...current.contact, phone: event.target.value },
+                        }))
+                      }
+                      placeholder="+1 (555) 555-5555"
+                      className="mt-3 h-11 w-full rounded-[0.95rem] border px-3 text-sm outline-none transition"
+                      style={themeStyles.surface}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs leading-5" style={themeStyles.mutedText}>
+                  Add either one or both. They will show up in the contact methods area and carry through to shared and exported pages.
+                </p>
               </div>
             ) : (
               <div>
@@ -6394,7 +7167,7 @@ export function Repo2SiteShell() {
                     </p>
                   ) : null}
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px] leading-5" style={appThemeStyles.mutedText}>
-                    <p>Load GitHub creates the draft from a public profile URL.</p>
+                    <p>Load GitHub starts by letting you choose which public repos to include.</p>
                     <p>Upload a resume if you want stronger personalization.</p>
                   </div>
                 </div>
@@ -7270,6 +8043,192 @@ export function Repo2SiteShell() {
           </div>
         </section>
       </div>
+      {isRepoSelectionOpen && repoSelection ? (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/42 px-4 py-6 backdrop-blur-[3px]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="repo-selection-title"
+            className="flex max-h-[min(90vh,54rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border shadow-[0_40px_120px_-48px_rgba(15,23,42,0.82)]"
+            style={themeStyles.strongSurface}
+          >
+            <div className="border-b px-6 py-5" style={{ borderColor: theme.palette.border }}>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
+                    Choose Projects
+                  </p>
+                  <h2 id="repo-selection-title" className="mt-2 text-2xl font-semibold tracking-tight">
+                    Pick which public repositories should be added to the canvas.
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6" style={themeStyles.mutedText}>
+                    The suggested set matches the current automatic import, so continuing without changes preserves the existing behavior.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRepoSelectionOpen(false);
+                    setRepoSelectionError(null);
+                  }}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRepositoryFullNames(repoSelection.suggestedRepositoryFullNames);
+                    setRepoSelectionError(null);
+                  }}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Use Suggested
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRepositoryFullNames(
+                      repoSelection.repositories.map((repository) => repository.fullName),
+                    );
+                    setRepoSelectionError(null);
+                  }}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Select All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRepositoryFullNames([]);
+                    setRepoSelectionError(null);
+                  }}
+                  className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.ghostButton}
+                >
+                  Clear
+                </button>
+                <span
+                  className="inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+                  style={themeStyles.chip}
+                >
+                  {selectedRepositoryFullNames.length} selected
+                </span>
+              </div>
+            </div>
+            <div className="grid flex-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_18rem]">
+              <div className="overflow-y-auto px-6 py-5">
+                <div className="grid gap-3">
+                  {repoSelection.repositories.map((repository) => {
+                    const isSelected = selectedRepositoryFullNames.includes(repository.fullName);
+                    const isSuggested = repoSelection.suggestedRepositoryFullNames.includes(
+                      repository.fullName,
+                    );
+
+                    return (
+                      <label
+                        key={repository.id}
+                        className={`block cursor-pointer rounded-[1.35rem] border p-4 transition ${isSelected ? "shadow-[0_18px_40px_-30px_rgba(37,99,235,0.7)]" : ""}`}
+                        style={isSelected ? themeStyles.selectedCard : themeStyles.card}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleRepositorySelection(repository.fullName)}
+                            className="mt-1 h-4 w-4 rounded border-slate-300"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="break-all text-base font-semibold">{repository.fullName}</p>
+                              {isSuggested ? (
+                                <span
+                                  className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  style={themeStyles.chip}
+                                >
+                                  Suggested
+                                </span>
+                              ) : null}
+                              {repository.isFork ? (
+                                <span
+                                  className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  style={themeStyles.ghostButton}
+                                >
+                                  Fork
+                                </span>
+                              ) : null}
+                              {repository.isArchived ? (
+                                <span
+                                  className="rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                                  style={themeStyles.ghostButton}
+                                >
+                                  Archived
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-2 text-sm leading-6" style={themeStyles.mutedText}>
+                              {repository.description || "No GitHub description yet. Repo2Site can still use its README and metadata."}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-medium uppercase tracking-[0.14em]" style={themeStyles.mutedText}>
+                              <span>{repository.language}</span>
+                              <span>{repository.stars} stars</span>
+                              <span>Updated {formatRepositoryUpdatedAt(repository.updatedAt)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <aside className="border-t px-6 py-5 lg:border-l lg:border-t-0" style={{ borderColor: theme.palette.border }}>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.mutedText}>
+                  What Happens Next
+                </p>
+                <p className="mt-3 text-sm leading-6" style={themeStyles.mutedText}>
+                  Repo2Site will generate the draft using only the repositories you keep selected here.
+                </p>
+                <p className="mt-3 text-sm leading-6" style={themeStyles.mutedText}>
+                  You can still reorder projects, rewrite descriptions, swap images, or promote a different featured project after import.
+                </p>
+                {repoSelectionError ? (
+                  <p className="mt-4 rounded-2xl border px-4 py-3 text-sm leading-6" style={appThemeStyles.errorBox}>
+                    {repoSelectionError}
+                  </p>
+                ) : null}
+                <div className="mt-5 flex flex-col gap-3">
+                  <button
+                    type="button"
+                    disabled={isLoading || selectedRepositoryFullNames.length === 0}
+                    onClick={handleConfirmRepositorySelection}
+                    className="rounded-full px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                    style={themeStyles.accentButton}
+                  >
+                    {isLoading ? "Generating Draft..." : "Generate Draft"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedRepositoryFullNames(repoSelection.suggestedRepositoryFullNames);
+                      void generatePreviewWithSelections(repoSelection.suggestedRepositoryFullNames);
+                    }}
+                    disabled={isLoading}
+                    className="rounded-full border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                    style={themeStyles.ghostButton}
+                  >
+                    Generate With Suggested Set
+                  </button>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isCustomizeOpen ? (
         <button
           type="button"

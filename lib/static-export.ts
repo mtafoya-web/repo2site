@@ -18,12 +18,17 @@ const CRC_TABLE = new Uint32Array(256).map((_, index) => {
 });
 
 type ThemePreset = {
-  backgroundPattern: string;
-  heroOverlay: string;
-  navOverlay: string;
-  sectionTone: string;
+  lightBackgroundPattern: string;
+  darkBackgroundPattern: string;
+  lightHeroOverlay: string;
+  darkHeroOverlay: string;
+  lightNavOverlay: string;
+  darkNavOverlay: string;
+  lightSectionTone: string;
+  darkSectionTone: string;
   cardGlow: string;
-  projectSurface: string;
+  lightProjectSurface: string;
+  darkProjectSurface: string;
   projectInset: string;
 };
 
@@ -80,155 +85,163 @@ const TECH_ICONS: Record<string, { accent: string; shortLabel: string }> = {
 };
 
 function getThemePreset(themeId: string): ThemePreset {
+  if (themeId === "saas-light") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(180deg, rgba(226, 232, 240, 0.24), transparent 28%), radial-gradient(circle at 84% 12%, rgba(59, 130, 246, 0.08), transparent 28%)",
+      darkBackgroundPattern:
+        "linear-gradient(180deg, rgba(37, 99, 235, 0.08), transparent 26%), radial-gradient(circle at 82% 14%, rgba(96, 165, 250, 0.12), transparent 28%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(37, 99, 235, 0.04))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.72), rgba(96, 165, 250, 0.06))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(148, 163, 184, 0.06))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.76), rgba(51, 65, 85, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.98))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(17, 24, 39, 0.98))",
+      cardGlow: "0 18px 42px -34px rgba(15, 23, 42, 0.22)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(15, 23, 42, 0.98), rgba(17, 24, 39, 0.98))",
+      projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
+    };
+  }
+
+  if (themeId === "saas-dark") {
+    return {
+      lightBackgroundPattern:
+        "linear-gradient(180deg, rgba(15, 23, 42, 0.08), transparent 26%), radial-gradient(circle at 84% 10%, rgba(96, 165, 250, 0.08), transparent 28%)",
+      darkBackgroundPattern:
+        "linear-gradient(180deg, rgba(59, 130, 246, 0.08), transparent 24%), radial-gradient(circle at 82% 12%, rgba(96, 165, 250, 0.14), transparent 30%)",
+      lightHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(96, 165, 250, 0.04))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(96, 165, 250, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.1), rgba(148, 163, 184, 0.04))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(15, 23, 42, 0.84), rgba(51, 65, 85, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.98))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(15, 23, 42, 0.98))",
+      cardGlow: "0 24px 56px -36px rgba(2, 6, 23, 0.72)",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(11, 18, 32, 0.98), rgba(15, 23, 42, 0.98))",
+      projectInset: "inset 0 1px 0 rgba(148,163,184,0.08)",
+    };
+  }
+
   if (themeId === "systems-green") {
     return {
-      backgroundPattern:
+      lightBackgroundPattern:
         "linear-gradient(140deg, rgba(22, 101, 52, 0.14), transparent 45%), repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(22, 101, 52, 0.05) 28px, rgba(22, 101, 52, 0.05) 29px)",
-      heroOverlay:
+      darkBackgroundPattern:
+        "linear-gradient(145deg, rgba(22, 101, 52, 0.24), transparent 50%), radial-gradient(circle at 82% 16%, rgba(74, 222, 128, 0.14), transparent 26%)",
+      lightHeroOverlay:
         "linear-gradient(135deg, rgba(22, 101, 52, 0.22), rgba(34, 197, 94, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(21, 128, 61, 0.18), rgba(74, 222, 128, 0.08))",
-      sectionTone: "linear-gradient(180deg, rgba(240, 253, 244, 0.66), rgba(255, 255, 255, 0.85))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(22, 101, 52, 0.26), rgba(74, 222, 128, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(21, 128, 61, 0.18), rgba(74, 222, 128, 0.08))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(21, 128, 61, 0.24), rgba(74, 222, 128, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(240, 253, 244, 0.66), rgba(255, 255, 255, 0.85))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(10, 23, 17, 0.96), rgba(12, 28, 20, 0.92))",
       cardGlow: "0 20px 48px -34px rgba(21, 128, 61, 0.72)",
-      projectSurface: "linear-gradient(160deg, rgba(240, 253, 244, 0.94), rgba(255, 255, 255, 0.98))",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(240, 253, 244, 0.94), rgba(255, 255, 255, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(8, 24, 17, 0.98), rgba(13, 35, 24, 0.96))",
       projectInset: "inset 0 1px 0 rgba(255,255,255,0.75)",
     };
   }
 
   if (themeId === "editorial-amber") {
     return {
-      backgroundPattern:
+      lightBackgroundPattern:
         "linear-gradient(165deg, rgba(245, 158, 11, 0.2), transparent 45%), radial-gradient(circle at 85% 15%, rgba(194, 65, 12, 0.14), transparent 32%)",
-      heroOverlay:
+      darkBackgroundPattern:
+        "linear-gradient(165deg, rgba(194, 65, 12, 0.24), transparent 50%), radial-gradient(circle at 84% 18%, rgba(251, 191, 36, 0.14), transparent 28%)",
+      lightHeroOverlay:
         "linear-gradient(135deg, rgba(251, 191, 36, 0.22), rgba(194, 65, 12, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(194, 65, 12, 0.2), rgba(251, 191, 36, 0.1))",
-      sectionTone: "linear-gradient(180deg, rgba(255, 247, 237, 0.72), rgba(255, 255, 255, 0.84))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.24), rgba(251, 191, 36, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.2), rgba(251, 191, 36, 0.1))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(194, 65, 12, 0.22), rgba(251, 191, 36, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(255, 247, 237, 0.72), rgba(255, 255, 255, 0.84))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(38, 21, 10, 0.96), rgba(31, 19, 10, 0.92))",
       cardGlow: "0 20px 48px -34px rgba(194, 65, 12, 0.7)",
-      projectSurface: "linear-gradient(160deg, rgba(255, 247, 237, 0.96), rgba(255, 253, 248, 0.98))",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(255, 247, 237, 0.96), rgba(255, 253, 248, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(40, 21, 10, 0.98), rgba(30, 19, 12, 0.95))",
       projectInset: "inset 0 1px 0 rgba(255,255,255,0.8)",
     };
   }
 
   if (themeId === "signal-violet") {
     return {
-      backgroundPattern:
+      lightBackgroundPattern:
         "radial-gradient(circle at 16% 10%, rgba(139, 92, 246, 0.24), transparent 34%), radial-gradient(circle at 84% 24%, rgba(167, 139, 250, 0.18), transparent 34%)",
-      heroOverlay:
+      darkBackgroundPattern:
+        "radial-gradient(circle at 18% 12%, rgba(124, 58, 237, 0.3), transparent 32%), radial-gradient(circle at 82% 20%, rgba(196, 181, 253, 0.14), transparent 28%)",
+      lightHeroOverlay:
         "linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(139, 92, 246, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(196, 181, 253, 0.08))",
-      sectionTone: "linear-gradient(180deg, rgba(245, 243, 255, 0.68), rgba(255, 255, 255, 0.86))",
+      darkHeroOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.24), rgba(139, 92, 246, 0.08))",
+      lightNavOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.18), rgba(196, 181, 253, 0.08))",
+      darkNavOverlay:
+        "linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(196, 181, 253, 0.08))",
+      lightSectionTone:
+        "linear-gradient(180deg, rgba(245, 243, 255, 0.68), rgba(255, 255, 255, 0.86))",
+      darkSectionTone:
+        "linear-gradient(180deg, rgba(20, 15, 39, 0.96), rgba(16, 12, 32, 0.92))",
       cardGlow: "0 20px 48px -34px rgba(91, 33, 182, 0.78)",
-      projectSurface: "linear-gradient(160deg, rgba(245, 243, 255, 0.95), rgba(255, 255, 255, 0.98))",
+      lightProjectSurface:
+        "linear-gradient(160deg, rgba(245, 243, 255, 0.95), rgba(255, 255, 255, 0.98))",
+      darkProjectSurface:
+        "linear-gradient(160deg, rgba(20, 15, 39, 0.98), rgba(24, 17, 44, 0.96))",
       projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
     };
   }
 
-  if (themeId === "terminal-lime") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 12% 12%, rgba(34, 197, 94, 0.22), transparent 34%), repeating-linear-gradient(0deg, transparent, transparent 32px, rgba(34, 197, 94, 0.05) 32px, rgba(34, 197, 94, 0.05) 33px)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(74, 222, 128, 0.06))",
-      navOverlay: "linear-gradient(135deg, rgba(21, 128, 61, 0.2), rgba(74, 222, 128, 0.05))",
-      sectionTone: "linear-gradient(180deg, rgba(9, 17, 13, 0.84), rgba(14, 25, 19, 0.96))",
-      cardGlow: "0 22px 54px -34px rgba(34, 197, 94, 0.52)",
-      projectSurface: "linear-gradient(160deg, rgba(11, 20, 14, 0.96), rgba(16, 25, 19, 0.98))",
-      projectInset: "inset 0 1px 0 rgba(74, 222, 128, 0.08)",
-    };
-  }
-
-  if (themeId === "creator-orange") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 84% 14%, rgba(251, 146, 60, 0.2), transparent 34%), radial-gradient(circle at 12% 8%, rgba(249, 115, 22, 0.14), transparent 30%)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(251, 146, 60, 0.2), rgba(234, 88, 12, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(234, 88, 12, 0.18), rgba(253, 186, 116, 0.1))",
-      sectionTone: "linear-gradient(180deg, rgba(255, 237, 213, 0.64), rgba(255, 255, 255, 0.86))",
-      cardGlow: "0 20px 48px -34px rgba(234, 88, 12, 0.58)",
-      projectSurface: "linear-gradient(160deg, rgba(255, 237, 213, 0.9), rgba(255, 251, 245, 0.98))",
-      projectInset: "inset 0 1px 0 rgba(255,255,255,0.82)",
-    };
-  }
-
-  if (themeId === "soft-rose") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 18% 10%, rgba(244, 114, 182, 0.18), transparent 34%), radial-gradient(circle at 86% 20%, rgba(251, 113, 133, 0.12), transparent 30%)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(244, 114, 182, 0.16), rgba(251, 113, 133, 0.06))",
-      navOverlay: "linear-gradient(135deg, rgba(244, 114, 182, 0.14), rgba(253, 164, 175, 0.08))",
-      sectionTone: "linear-gradient(180deg, rgba(255, 241, 246, 0.62), rgba(255, 255, 255, 0.86))",
-      cardGlow: "0 20px 48px -34px rgba(219, 39, 119, 0.44)",
-      projectSurface: "linear-gradient(160deg, rgba(255, 241, 246, 0.92), rgba(255, 255, 255, 0.98))",
-      projectInset: "inset 0 1px 0 rgba(255,255,255,0.82)",
-    };
-  }
-
-  if (themeId === "midnight-steel") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 86% 14%, rgba(96, 165, 250, 0.16), transparent 32%), linear-gradient(160deg, #070b13, #0b1321)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(96, 165, 250, 0.12), rgba(15, 23, 42, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(96, 165, 250, 0.14), rgba(15, 23, 42, 0.1))",
-      sectionTone: "linear-gradient(180deg, rgba(10, 16, 28, 0.82), rgba(16, 24, 39, 0.94))",
-      cardGlow: "0 24px 60px -36px rgba(8, 15, 30, 0.88)",
-      projectSurface: "linear-gradient(160deg, rgba(10, 16, 28, 0.96), rgba(16, 24, 39, 0.98))",
-      projectInset: "inset 0 1px 0 rgba(148, 163, 184, 0.08)",
-    };
-  }
-
-  if (themeId === "pastel-sky") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 16% 10%, rgba(125, 211, 252, 0.16), transparent 34%), radial-gradient(circle at 86% 18%, rgba(167, 243, 208, 0.14), transparent 34%)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(125, 211, 252, 0.06))",
-      navOverlay: "linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(191, 219, 254, 0.08))",
-      sectionTone: "linear-gradient(180deg, rgba(240, 249, 255, 0.68), rgba(255, 255, 255, 0.88))",
-      cardGlow: "0 20px 48px -34px rgba(14, 165, 233, 0.34)",
-      projectSurface: "linear-gradient(160deg, rgba(240, 249, 255, 0.94), rgba(255, 255, 255, 0.99))",
-      projectInset: "inset 0 1px 0 rgba(255,255,255,0.85)",
-    };
-  }
-
-  if (themeId === "contrast-ink") {
-    return {
-      backgroundPattern:
-        "linear-gradient(180deg, rgba(24, 24, 27, 0.04), transparent 32%), repeating-linear-gradient(90deg, transparent, transparent 48px, rgba(24, 24, 27, 0.03) 48px, rgba(24, 24, 27, 0.03) 49px)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(24, 24, 27, 0.12), rgba(113, 113, 122, 0.04))",
-      navOverlay: "linear-gradient(135deg, rgba(24, 24, 27, 0.1), rgba(161, 161, 170, 0.04))",
-      sectionTone: "linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(245, 245, 244, 0.96))",
-      cardGlow: "0 18px 42px -34px rgba(24, 24, 27, 0.28)",
-      projectSurface: "linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(250, 250, 249, 0.99))",
-      projectInset: "inset 0 1px 0 rgba(255,255,255,0.92)",
-    };
-  }
-
-  if (themeId === "aurora-gradient") {
-    return {
-      backgroundPattern:
-        "radial-gradient(circle at 14% 12%, rgba(56, 189, 248, 0.18), transparent 34%), radial-gradient(circle at 86% 18%, rgba(124, 58, 237, 0.16), transparent 34%)",
-      heroOverlay:
-        "linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(124, 58, 237, 0.08))",
-      navOverlay: "linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(59, 130, 246, 0.08))",
-      sectionTone: "linear-gradient(180deg, rgba(243, 244, 255, 0.74), rgba(255, 255, 255, 0.88))",
-      cardGlow: "0 22px 52px -34px rgba(124, 58, 237, 0.38)",
-      projectSurface: "linear-gradient(160deg, rgba(243, 244, 255, 0.95), rgba(255, 255, 255, 0.99))",
-      projectInset: "inset 0 1px 0 rgba(255,255,255,0.84)",
-    };
-  }
-
   return {
-    backgroundPattern:
+    lightBackgroundPattern:
       "radial-gradient(circle at 88% 16%, rgba(59, 130, 246, 0.22), transparent 34%), radial-gradient(circle at 10% 4%, rgba(96, 165, 250, 0.16), transparent 30%)",
-    heroOverlay:
+    darkBackgroundPattern:
+      "radial-gradient(circle at 86% 14%, rgba(37, 99, 235, 0.26), transparent 32%), radial-gradient(circle at 12% 6%, rgba(96, 165, 250, 0.12), transparent 28%)",
+    lightHeroOverlay:
       "linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(37, 99, 235, 0.08))",
-    navOverlay: "linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(96, 165, 250, 0.08))",
-    sectionTone: "linear-gradient(180deg, rgba(239, 246, 255, 0.72), rgba(255, 255, 255, 0.86))",
+    darkHeroOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.24), rgba(96, 165, 250, 0.08))",
+    lightNavOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(96, 165, 250, 0.08))",
+    darkNavOverlay:
+      "linear-gradient(135deg, rgba(37, 99, 235, 0.22), rgba(96, 165, 250, 0.08))",
+    lightSectionTone:
+      "linear-gradient(180deg, rgba(239, 246, 255, 0.72), rgba(255, 255, 255, 0.86))",
+    darkSectionTone:
+      "linear-gradient(180deg, rgba(10, 18, 34, 0.96), rgba(11, 21, 40, 0.92))",
     cardGlow: "0 20px 48px -34px rgba(37, 99, 235, 0.78)",
-    projectSurface: "linear-gradient(160deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.98))",
+    lightProjectSurface:
+      "linear-gradient(160deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.98))",
+    darkProjectSurface:
+      "linear-gradient(160deg, rgba(10, 18, 34, 0.98), rgba(12, 23, 44, 0.96))",
     projectInset: "inset 0 1px 0 rgba(255,255,255,0.78)",
   };
 }
@@ -293,6 +306,14 @@ function buildCss(theme: PreviewTheme, portfolio: FinalPortfolio) {
     portfolio.appearance.sectionLayout === "stacked" ? "1fr" : "1.15fr 0.85fr";
   const aboutColumns =
     portfolio.appearance.sectionLayout === "stacked" ? "1fr" : "0.9fr 1.1fr";
+  const projectLayoutColumns =
+    portfolio.appearance.projectLayout === "stacked" ? "1fr" : "1.05fr 0.95fr";
+  const projectGridColumns =
+    portfolio.appearance.projectLayout === "stacked"
+      ? "1fr"
+      : portfolio.appearance.projectLayout === "side-by-side"
+        ? "repeat(2, minmax(0, 1fr))"
+        : "repeat(2, minmax(0, 1fr))";
 
   return `:root {
   --page: ${page};
@@ -304,12 +325,12 @@ function buildCss(theme: PreviewTheme, portfolio: FinalPortfolio) {
   --accent: ${theme.palette.accent};
   --accent-soft: ${theme.palette.accentSoft};
   --chip: ${chip};
-  --hero-overlay: ${preset.heroOverlay};
-  --nav-overlay: ${preset.navOverlay};
-  --section-tone: ${preset.sectionTone};
-  --project-surface: ${preset.projectSurface};
+  --hero-overlay: ${isDarkMode ? preset.darkHeroOverlay : preset.lightHeroOverlay};
+  --nav-overlay: ${isDarkMode ? preset.darkNavOverlay : preset.lightNavOverlay};
+  --section-tone: ${isDarkMode ? preset.darkSectionTone : preset.lightSectionTone};
+  --project-surface: ${isDarkMode ? preset.darkProjectSurface : preset.lightProjectSurface};
   --project-shadow: ${preset.projectInset}, ${cardShadow};
-  --page-pattern: ${preset.backgroundPattern};
+  --page-pattern: ${isDarkMode ? preset.darkBackgroundPattern : preset.lightBackgroundPattern};
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
@@ -538,7 +559,7 @@ img { display: block; max-width: 100%; }
 .project-layout {
   display: grid;
   gap: 1.25rem;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: ${projectLayoutColumns};
   margin-top: 1.5rem;
 }
 .project-featured {
@@ -546,11 +567,14 @@ img { display: block; max-width: 100%; }
   box-shadow: var(--project-shadow);
 }
 .project-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: ${projectGridColumns};
 }
 .project-card {
   background: var(--surface-strong);
   box-shadow: 0 20px 48px -34px rgba(15,23,42,0.3);
+}
+.project-grid.stacked {
+  grid-template-columns: 1fr;
 }
 .project-image {
   overflow: hidden;
@@ -587,6 +611,36 @@ img { display: block; max-width: 100%; }
   border-radius: 1.2rem;
   padding: 1rem;
   background: var(--surface);
+}
+.contact-link-box {
+  display: block;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  padding: 1rem;
+  background: var(--surface);
+}
+.contact-link-box .label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.contact-link-box .value {
+  margin-top: 0.7rem;
+  font-size: 0.98rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.contact-link-box .meta {
+  margin-top: 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
 }
 .cta-grid {
   display: flex;
@@ -625,7 +679,7 @@ function buildHtml(portfolio: FinalPortfolio) {
   const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>(
     (rows, component) => {
       const rowId =
-        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects" || component.type === "hero"
+        portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
           ? component.id
           : component.rowId || component.id;
       const existingRow = rows.find((row) => row.id === rowId);
@@ -646,7 +700,7 @@ function buildHtml(portfolio: FinalPortfolio) {
       .map((component) => component.type),
   );
   const featuredProject = portfolio.repositories[0];
-  const secondaryProjects = portfolio.repositories.slice(1, 5);
+  const secondaryProjects = portfolio.repositories.slice(1);
   const displayName = portfolio.hero.name || portfolio.profile?.username || "Portfolio";
   const pageTitle = `${displayName} | Portfolio`;
   const description = portfolio.hero.subheadline.value || portfolio.about.description.value;
@@ -712,6 +766,10 @@ function buildHtml(portfolio: FinalPortfolio) {
       secondaryProjects.find((repository) => `project-card:${slugify(repository.name)}` === id),
     )
     .filter(Boolean) as typeof secondaryProjects;
+  const visibleProjectCards = [
+    featuredProject ? featuredProject : null,
+    ...orderedSecondaryProjects,
+  ].filter(Boolean) as Array<(typeof portfolio.repositories)[number]>;
   const orderedHeroStack = orderCanvasChildIds(
     portfolio.techStack.slice(0, 8).map((tech) => `hero-stack:${slugify(tech)}`),
     portfolio.layout.componentOrder["hero:stack:items"],
@@ -918,53 +976,82 @@ function buildHtml(portfolio: FinalPortfolio) {
         ? `<section id="projects">
             <div class="project-section-header">
               <div>
-                <div class="eyebrow">Projects</div>
+                <div class="eyebrow">Featured Projects</div>
                 <h2>Selected Work</h2>
+                <p class="summary">Drag project cards to change the order, or use Make Featured to move a project into the spotlight.</p>
               </div>
+              ${hasText(featuredProject?.language || "") ? renderTechBadge(featuredProject?.language || "") : ""}
             </div>
 
             ${
-              featuredProject
-                ? `<div class="project-layout">
-                    <a class="project-featured" href="${escapeHtml(featuredProject.href)}" target="_blank" rel="noreferrer">
-                      ${
-                        featuredProject.resolvedImage
-                          ? renderImage(featuredProject.resolvedImage.url, featuredProject.resolvedImage.alt)
-                          : ""
-                      }
-                      <h3>${escapeHtml(featuredProject.name)}</h3>
-                      <p class="summary">${escapeHtml(featuredProject.description)}</p>
-                      ${
-                        hasText(featuredProject.language)
-                          ? `<div class="chips">${renderTechBadge(featuredProject.language)}</div>`
-                          : ""
-                      }
-                    </a>
+              portfolio.appearance.projectLayout === "mixed"
+                ? featuredProject
+                  ? `<div class="project-layout">
+                      <a class="project-featured" href="${escapeHtml(featuredProject.href)}" target="_blank" rel="noreferrer">
+                        ${
+                          featuredProject.resolvedImage
+                            ? renderImage(featuredProject.resolvedImage.url, featuredProject.resolvedImage.alt)
+                            : ""
+                        }
+                        <h3>${escapeHtml(featuredProject.name)}</h3>
+                        <p class="summary">${escapeHtml(featuredProject.description)}</p>
+                        ${
+                          hasText(featuredProject.language)
+                            ? `<div class="chips">${renderTechBadge(featuredProject.language)}</div>`
+                            : ""
+                        }
+                      </a>
 
-                    <div class="project-grid">
-                      ${orderedSecondaryProjects
-                        .map(
-                          (repository) => `<a class="project-card" href="${escapeHtml(repository.href)}" target="_blank" rel="noreferrer">
-                              ${
-                                repository.resolvedImage
-                                  ? renderImage(repository.resolvedImage.url, repository.resolvedImage.alt, true)
-                                  : ""
-                              }
-                              <h3>${escapeHtml(repository.name)}</h3>
-                              <p class="summary">${escapeHtml(repository.description)}</p>
-                              ${
-                                hasText(repository.language)
-                                  ? `<div class="project-meta">
-                                      ${renderTechBadge(repository.language)}
-                                    </div>`
-                                  : ""
-                              }
-                            </a>`,
-                        )
-                        .join("")}
-                    </div>
+                      <div class="project-grid">
+                        ${orderedSecondaryProjects
+                          .map(
+                            (repository) => `<a class="project-card" href="${escapeHtml(repository.href)}" target="_blank" rel="noreferrer">
+                                ${
+                                  repository.resolvedImage
+                                    ? renderImage(repository.resolvedImage.url, repository.resolvedImage.alt, true)
+                                    : ""
+                                }
+                                <h3>${escapeHtml(repository.name)}</h3>
+                                <p class="summary">${escapeHtml(repository.description)}</p>
+                                ${
+                                  hasText(repository.language)
+                                    ? `<div class="project-meta">
+                                        ${renderTechBadge(repository.language)}
+                                      </div>`
+                                    : ""
+                                }
+                              </a>`,
+                          )
+                          .join("")}
+                      </div>
+                    </div>`
+                  : ""
+                : `<div class="project-grid ${portfolio.appearance.projectLayout === "stacked" ? "stacked" : ""}">
+                    ${visibleProjectCards
+                      .map(
+                        (repository) => `<a class="project-card" href="${escapeHtml(repository.href)}" target="_blank" rel="noreferrer">
+                            ${
+                              repository.resolvedImage
+                                ? renderImage(
+                                    repository.resolvedImage.url,
+                                    repository.resolvedImage.alt,
+                                    portfolio.appearance.projectLayout !== "stacked",
+                                  )
+                                : ""
+                            }
+                            <h3>${escapeHtml(repository.name)}</h3>
+                            <p class="summary">${escapeHtml(repository.description)}</p>
+                            ${
+                              hasText(repository.language)
+                                ? `<div class="project-meta">
+                                    ${renderTechBadge(repository.language)}
+                                  </div>`
+                                : ""
+                            }
+                          </a>`,
+                      )
+                      .join("")}
                   </div>`
-                : ""
             }
           </section>`
         : "",
@@ -1004,7 +1091,11 @@ function buildHtml(portfolio: FinalPortfolio) {
             }
             ${orderedContactMethods
               .map(
-                (item) => `<a class="link-item" href="${escapeHtml(item.href)}"><strong>${escapeHtml(item.label)}</strong><div class="muted">${escapeHtml(item.value)}</div></a>`,
+                (item) => `<a class="contact-link-box" href="${escapeHtml(item.href)}">
+                    <div class="label">${escapeHtml(item.label)}</div>
+                    <div class="value">${escapeHtml(item.value)}</div>
+                    <div class="meta">Open contact link</div>
+                  </a>`,
               )
               .join("")}
             ${
@@ -1027,6 +1118,25 @@ function buildHtml(portfolio: FinalPortfolio) {
       section.id,
       `<section class="card"><div class="eyebrow">Custom Section</div><h2>${escapeHtml(section.title.value || "Custom Section")}</h2>${
         hasText(section.description.value) ? `<p class="summary">${escapeHtml(section.description.value)}</p>` : ""
+      }${
+        hasText(section.imageUrl)
+          ? renderImage(section.imageUrl, section.title.value || "Custom section image")
+          : ""
+      }${
+        section.cards.length > 0
+          ? `<div class="mini-grid">${section.cards
+              .map(
+                (card) => `<div class="panel">
+                    <h2>${escapeHtml(card.title.value || "Subsection")}</h2>
+                    ${
+                      hasText(card.description.value)
+                        ? `<p class="summary">${escapeHtml(card.description.value)}</p>`
+                        : ""
+                    }
+                  </div>`,
+              )
+              .join("")}</div>`
+          : ""
       }</section>`,
     ]),
   );
@@ -1034,7 +1144,7 @@ function buildHtml(portfolio: FinalPortfolio) {
     .map((row) => {
       const isFlexibleRow =
         portfolio.appearance.sectionLayout !== "stacked" &&
-        row.items.some((component) => component.type !== "projects" && component.type !== "hero") &&
+        row.items.some((component) => component.type !== "projects") &&
         row.items.length > 1;
 
       const rowMarkup = row.items

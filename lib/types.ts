@@ -67,6 +67,23 @@ export type PreviewLink = {
   href: string;
 };
 
+export type PreviewRepositorySelectionOption = {
+  id: number;
+  name: string;
+  fullName: string;
+  description: string;
+  language: string;
+  stars: number;
+  updatedAt: string;
+  isFork: boolean;
+  isArchived: boolean;
+};
+
+export type GenerateRepoSelectionResponse = {
+  repositories: PreviewRepositorySelectionOption[];
+  suggestedRepositoryFullNames: string[];
+};
+
 export type ProfessionalCtaLabels = {
   resume: string;
   coverLetter: string;
@@ -81,6 +98,20 @@ export type PortfolioOverrideLink = {
   id: string;
   label: string;
   href: string;
+};
+
+export type PortfolioCustomSectionCard = {
+  id: string;
+  title: string;
+  description: string;
+};
+
+export type PortfolioCustomSection = {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  cards: PortfolioCustomSectionCard[];
 };
 
 export type PortfolioSectionId =
@@ -110,12 +141,14 @@ export type PortfolioDensity = "compact" | "spacious";
 export type PortfolioSectionLayout = "split" | "stacked";
 export type PortfolioCardStyle = "soft" | "outlined" | "elevated";
 export type PortfolioColorMode = "light" | "dark";
+export type PortfolioProjectLayout = "mixed" | "stacked" | "side-by-side";
 
 export type PortfolioAppearance = {
   themeId: string;
   colorMode: PortfolioColorMode;
   density: PortfolioDensity;
   sectionLayout: PortfolioSectionLayout;
+  projectLayout: PortfolioProjectLayout;
   cardStyle: PortfolioCardStyle;
   customPalette?: Partial<PreviewTheme["palette"]>;
 };
@@ -159,11 +192,7 @@ export type PortfolioOverrides = {
     portfolioUrl: string;
       customLinks: PortfolioOverrideLink[];
   };
-  customSections: Array<{
-    id: string;
-    title: string;
-    description: string;
-  }>;
+  customSections: PortfolioCustomSection[];
   documents: {
     resumeAssetUrl: string;
     resumeFileName: string;

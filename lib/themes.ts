@@ -2,6 +2,40 @@ import type { PreviewTheme } from "@/lib/types";
 
 export const PORTFOLIO_THEMES: PreviewTheme[] = [
   {
+    id: "saas-light",
+    name: "SaaS Light",
+    reason: "Simple and polished for product teams that want a clean, low-flash SaaS look.",
+    palette: {
+      page: "#f5f7fb",
+      pageAccent: "rgba(59, 130, 246, 0.08)",
+      surface: "rgba(255,255,255,0.92)",
+      surfaceStrong: "#ffffff",
+      border: "rgba(148, 163, 184, 0.2)",
+      text: "#0f172a",
+      muted: "#64748b",
+      accent: "#2563eb",
+      accentSoft: "rgba(37, 99, 235, 0.1)",
+      chip: "#e8f0ff",
+    },
+  },
+  {
+    id: "saas-dark",
+    name: "SaaS Dark",
+    reason: "Minimal dark product styling for teams that want a calm SaaS feel without flashy gradients.",
+    palette: {
+      page: "#0b1020",
+      pageAccent: "rgba(96, 165, 250, 0.12)",
+      surface: "rgba(13, 20, 36, 0.9)",
+      surfaceStrong: "#121a2f",
+      border: "rgba(100, 116, 139, 0.26)",
+      text: "#e8eefc",
+      muted: "#94a3b8",
+      accent: "#60a5fa",
+      accentSoft: "rgba(96, 165, 250, 0.14)",
+      chip: "rgba(30, 41, 59, 0.96)",
+    },
+  },
+  {
     id: "builder-blue",
     name: "Builder Blue",
     reason: "Balanced and crisp for product and JavaScript-heavy portfolios.",

@@ -1,5 +1,5 @@
 import { buildPreviewPromptSeed } from "@/lib/prompt";
-import { PORTFOLIO_THEMES } from "@/lib/themes";
+import { getPortfolioThemeById } from "@/lib/themes";
 import {
   deriveTopLanguages,
   fetchGitHubProfile,
@@ -8,7 +8,13 @@ import {
   fetchRepositoryReadmeImages,
   parseGitHubProfileUrl,
 } from "@/lib/github";
-import type { GeneratePreviewResponse, GitHubProfileInfo, GitHubRepo, PreviewLink } from "@/lib/types";
+import type {
+  GeneratePreviewResponse,
+  GenerateRepoSelectionResponse,
+  GitHubProfileInfo,
+  GitHubRepo,
+  PreviewLink,
+} from "@/lib/types";
 
 function scoreRepository(repo: GitHubRepo) {
   let score = repo.stargazersCount * 12 + repo.forksCount * 4;
@@ -25,7 +31,23 @@ function scoreRepository(repo: GitHubRepo) {
   return score;
 }
 
-function selectFeaturedRepositories(repos: GitHubRepo[]) {
+function selectFeaturedRepositories(
+  repos: GitHubRepo[],
+  selectedRepositoryFullNames?: string[],
+) {
+  if (selectedRepositoryFullNames && selectedRepositoryFullNames.length > 0) {
+    const selectedFullNames = new Set(
+      selectedRepositoryFullNames.map((repositoryName) => repositoryName.trim().toLowerCase()),
+    );
+    const repositoriesByFullName = new Map(
+      repos.map((repo) => [repo.fullName.trim().toLowerCase(), repo] as const),
+    );
+
+    return selectedRepositoryFullNames
+      .map((repositoryName) => repositoriesByFullName.get(repositoryName.trim().toLowerCase()))
+      .filter((repo): repo is GitHubRepo => Boolean(repo) && selectedFullNames.has(repo.fullName.trim().toLowerCase()));
+  }
+
   const ranked = repos
     .filter((repo) => !repo.isArchived)
     .sort((left, right) => scoreRepository(right) - scoreRepository(left));
@@ -38,6 +60,26 @@ function selectFeaturedRepositories(repos: GitHubRepo[]) {
   const targetCount = pool.length >= 3 ? Math.min(6, pool.length) : pool.length;
 
   return pool.slice(0, targetCount);
+}
+
+export function buildRepositorySelectionResponse(repos: GitHubRepo[]): GenerateRepoSelectionResponse {
+  const suggestedRepositoryFullNames = selectFeaturedRepositories(repos).map((repo) => repo.fullName);
+  const ranked = [...repos].sort((left, right) => scoreRepository(right) - scoreRepository(left));
+
+  return {
+    repositories: ranked.map((repo) => ({
+      id: repo.id,
+      name: repo.name,
+      fullName: repo.fullName,
+      description: repo.description,
+      language: repo.language || "Not specified",
+      stars: repo.stargazersCount,
+      updatedAt: repo.updatedAt,
+      isFork: repo.isFork,
+      isArchived: repo.isArchived,
+    })),
+    suggestedRepositoryFullNames,
+  };
 }
 
 function joinNaturalList(values: string[]) {
@@ -149,21 +191,27 @@ function selectTheme(profile: GitHubProfileInfo, repos: GitHubRepo[], topLanguag
   const hasSystemsSignals = ["Rust", "Go", "C", "C++", "Zig"].includes(primaryLanguage);
   const hasHighActivitySignals = profile.followers >= 200 || activeRepoCount >= 40;
 
-  if (hasCreativeSignals) return PORTFOLIO_THEMES[2];
-  if (hasSystemsSignals) return PORTFOLIO_THEMES[1];
-  if (hasHighActivitySignals) return PORTFOLIO_THEMES[3];
+  if (hasCreativeSignals) return getPortfolioThemeById("editorial-amber");
+  if (hasSystemsSignals) return getPortfolioThemeById("systems-green");
+  if (hasHighActivitySignals) return getPortfolioThemeById("signal-violet");
 
-  return PORTFOLIO_THEMES[0];
+  return getPortfolioThemeById("builder-blue");
 }
 
-export async function generatePortfolioPreview(profileUrl: string): Promise<GeneratePreviewResponse> {
+export async function generatePortfolioPreview(
+  profileUrl: string,
+  options?: { selectedRepositoryFullNames?: string[] },
+): Promise<GeneratePreviewResponse> {
   const parsedProfile = parseGitHubProfileUrl(profileUrl);
   const [profile, repos] = await Promise.all([
     fetchGitHubProfile(parsedProfile.username),
     fetchGitHubRepos(parsedProfile.username),
   ]);
 
-  const featuredRepositoryCandidates = selectFeaturedRepositories(repos);
+  const featuredRepositoryCandidates = selectFeaturedRepositories(
+    repos,
+    options?.selectedRepositoryFullNames,
+  );
   const featuredRepositories = await Promise.all(
     featuredRepositoryCandidates.map(async (repo) => {
       const [readmeImages, readmeExcerpt] = await Promise.all([

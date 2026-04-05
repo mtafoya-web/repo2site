@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
-import { parseGitHubProfileUrl, isGitHubApiError } from "@/lib/github";
+import { fetchGitHubRepos, isGitHubApiError, parseGitHubProfileUrl } from "@/lib/github";
 import { captureServerException } from "@/lib/monitoring";
-import { generatePortfolioPreview } from "@/lib/preview-generator";
+import { buildRepositorySelectionResponse } from "@/lib/preview-generator";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as {
-    profileUrl?: string;
-    selectedRepositoryFullNames?: string[];
-  };
+  const body = (await request.json()) as { profileUrl?: string };
   const profileUrl = body.profileUrl?.trim() ?? "";
-  const selectedRepositoryFullNames = Array.isArray(body.selectedRepositoryFullNames)
-    ? body.selectedRepositoryFullNames
-        .map((repositoryName) => repositoryName.trim())
-        .filter(Boolean)
-    : undefined;
 
   if (!profileUrl) {
     return NextResponse.json(
@@ -34,8 +26,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const preview = await generatePortfolioPreview(profileUrl, { selectedRepositoryFullNames });
-    return NextResponse.json(preview);
+    const repos = await fetchGitHubRepos(parsedProfile.username);
+    return NextResponse.json(buildRepositorySelectionResponse(repos));
   } catch (error) {
     if (isGitHubApiError(error)) {
       const status = error.status === 404 ? 404 : error.status >= 500 ? 502 : error.status;
@@ -43,7 +35,7 @@ export async function POST(request: Request) {
       if (status >= 500) {
         await captureServerException(error, {
           area: "github-generate",
-          action: "fetch-github-data",
+          action: "fetch-github-repositories",
           metadata: {
             profileUrl,
             username: parsedProfile?.username ?? "",
@@ -56,7 +48,7 @@ export async function POST(request: Request) {
 
     await captureServerException(error, {
       area: "github-generate",
-      action: "unexpected-error",
+      action: "unexpected-repository-selection-error",
       metadata: {
         profileUrl,
         username: parsedProfile?.username ?? "",
@@ -64,7 +56,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(
-      { error: "Something went wrong while fetching GitHub data. Please try again." },
+      { error: "Something went wrong while fetching GitHub repositories. Please try again." },
       { status: 502 },
     );
   }

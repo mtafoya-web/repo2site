@@ -124,18 +124,16 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
     .filter((id) => !hiddenChildIds.has(id))
     .map((id) => linkItems.find((item) => item.id === id))
     .filter(Boolean) as typeof linkItems;
-  const orderedRepositories = [
-    portfolio.repositories[0],
-    ...orderCanvasChildIds(
-      portfolio.repositories.slice(1).map((repository) => `project-card:${toCanvasKey(repository.name)}`),
-      portfolio.layout.componentOrder["projects:grid"],
+  const orderedSecondaryRepositories = orderCanvasChildIds(
+    portfolio.repositories.slice(1).map((repository) => `project-card:${toCanvasKey(repository.name)}`),
+    portfolio.layout.componentOrder["projects:grid"],
+  )
+    .filter((id) => !hiddenChildIds.has(id))
+    .map((id) =>
+      portfolio.repositories.slice(1).find((repository) => `project-card:${toCanvasKey(repository.name)}` === id),
     )
-      .filter((id) => !hiddenChildIds.has(id))
-      .map((id) =>
-        portfolio.repositories.slice(1).find((repository) => `project-card:${toCanvasKey(repository.name)}` === id),
-      )
-      .filter(Boolean),
-  ].filter(Boolean) as typeof portfolio.repositories;
+    .filter(Boolean) as typeof portfolio.repositories;
+  const visibleProjectCards = [featuredProject, ...orderedSecondaryRepositories].filter(Boolean) as typeof portfolio.repositories;
 
   const sectionMap = {
     hero: (
@@ -327,51 +325,151 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
       ) : null,
     projects: portfolio.repositories.length > 0 ? (
       <section key="projects" className="space-y-5">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={themeStyles.muted}>
-            Projects
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">Selected work</h2>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {orderedRepositories.map((repository, index) => (
-            <article
-              key={repository.name}
-              className={`overflow-hidden rounded-[1.8rem] border ${index === 0 ? "lg:col-span-2" : ""}`}
-              style={themeStyles.surface}
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b pb-5" style={{ borderColor: themeStyles.surface.borderColor }}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em]" style={themeStyles.muted}>
+              Featured Projects
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Selected Work</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6" style={themeStyles.muted}>
+              Drag project cards to change the order, or use Make Featured to move a project into the spotlight.
+            </p>
+          </div>
+          {featuredProject?.language ? (
+            <span
+              className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+              style={themeStyles.chip}
             >
-              {repository.resolvedImage ? (
-                <img
-                  src={repository.resolvedImage.url}
-                  alt={repository.resolvedImage.alt}
-                  className={`w-full object-cover ${index === 0 ? "aspect-[16/7]" : "aspect-[16/9]"}`}
-                />
-              ) : null}
-              <div className="space-y-4 p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-semibold tracking-tight">{repository.name}</h3>
+              {featuredProject.language}
+            </span>
+          ) : null}
+        </div>
+        {portfolio.appearance.projectLayout === "mixed" ? (
+          <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+            {featuredProject ? (
+              <article className="overflow-hidden rounded-[2rem] border p-6 sm:p-8" style={themeStyles.surface}>
+                {featuredProject.resolvedImage ? (
+                  <img
+                    src={featuredProject.resolvedImage.url}
+                    alt={featuredProject.resolvedImage.alt}
+                    className="aspect-[16/9] w-full rounded-[1.4rem] border object-cover"
+                    style={{ borderColor: themeStyles.surface.borderColor }}
+                  />
+                ) : null}
+                <div className="mt-6">
+                  <span
+                    className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+                    style={themeStyles.chip}
+                  >
+                    Featured
+                  </span>
+                </div>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">{featuredProject.name}</h3>
+                <p className="mt-4 text-base leading-8">{featuredProject.description}</p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  {featuredProject.language ? (
+                    <span
+                      className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+                      style={themeStyles.chip}
+                    >
+                      {featuredProject.language}
+                    </span>
+                  ) : null}
+                  <a
+                    href={featuredProject.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={{ color: portfolio.theme.palette.accent }}
+                  >
+                    Open Project
+                  </a>
+                </div>
+              </article>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              {orderedSecondaryRepositories.map((repository) => (
+                <article key={repository.name} className="overflow-hidden rounded-[1.6rem] border p-5" style={themeStyles.surface}>
+                  {repository.resolvedImage ? (
+                    <img
+                      src={repository.resolvedImage.url}
+                      alt={repository.resolvedImage.alt}
+                      className="aspect-[16/10] w-full rounded-[1.2rem] border object-cover"
+                      style={{ borderColor: themeStyles.surface.borderColor }}
+                    />
+                  ) : null}
+                  <h3 className="mt-4 text-lg font-semibold tracking-tight">{repository.name}</h3>
+                  <p className="mt-4 text-sm leading-7">{repository.description}</p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3">
                     {repository.language ? (
-                      <p className="mt-1 text-sm" style={themeStyles.muted}>
+                      <span
+                        className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+                        style={themeStyles.chip}
+                      >
                         {repository.language}
-                      </p>
+                      </span>
                     ) : null}
+                    <a
+                      href={repository.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold uppercase tracking-[0.16em]"
+                      style={{ color: portfolio.theme.palette.accent }}
+                    >
+                      Open Project
+                    </a>
                   </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className={`grid gap-4 ${portfolio.appearance.projectLayout === "stacked" ? "grid-cols-1" : "lg:grid-cols-2"}`}>
+            {visibleProjectCards.map((repository, index) => (
+              <article
+                key={repository.name}
+                className="overflow-hidden rounded-[1.8rem] border p-5 sm:p-6"
+                style={themeStyles.surface}
+              >
+                {repository.resolvedImage ? (
+                  <img
+                    src={repository.resolvedImage.url}
+                    alt={repository.resolvedImage.alt}
+                    className={`w-full rounded-[1.3rem] border object-cover ${
+                      portfolio.appearance.projectLayout === "stacked" && index === 0 ? "aspect-[16/9]" : "aspect-[16/10]"
+                    }`}
+                    style={{ borderColor: themeStyles.surface.borderColor }}
+                  />
+                ) : null}
+                <h3 className={`mt-4 font-semibold tracking-tight ${portfolio.appearance.projectLayout === "stacked" && index === 0 ? "text-2xl sm:text-3xl" : "text-lg"}`}>
+                  {repository.name}
+                </h3>
+                <p className={`mt-4 ${portfolio.appearance.projectLayout === "stacked" && index === 0 ? "text-base leading-8 sm:text-lg" : "text-sm leading-7"}`}>
+                  {repository.description}
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  {repository.language ? (
+                    <span
+                      className="rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+                      style={themeStyles.chip}
+                    >
+                      {repository.language}
+                    </span>
+                  ) : null}
                   <a
                     href={repository.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full px-3.5 py-2 text-sm font-medium transition hover:-translate-y-0.5"
-                    style={themeStyles.accent}
+                    className="text-xs font-semibold uppercase tracking-[0.16em]"
+                    style={{ color: portfolio.theme.palette.accent }}
                   >
-                    View project
+                    Open Project
                   </a>
                 </div>
-                <p className="text-sm leading-7 sm:text-base">{repository.description}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     ) : null,
     links: portfolio.linksSection.links.length > 0 ? (
@@ -428,8 +526,21 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
           </div>
           <div className="grid gap-3">
             {visibleContactMethods.map((method) => (
-              <a key={method.id} href={method.href} className="rounded-[1.2rem] border px-4 py-3 text-sm font-medium" style={themeStyles.surface}>
-                {method.value}
+              <a
+                key={method.id}
+                href={method.href}
+                className="min-w-0 rounded-[1.25rem] border px-4 py-4 transition hover:-translate-y-0.5"
+                style={themeStyles.surface}
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em]" style={themeStyles.muted}>
+                  {method.id === "contact-method:email" ? "Email" : "Phone"}
+                </p>
+                <p className="mt-2 break-all text-sm font-medium sm:text-base">
+                  {method.value}
+                </p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: theme.palette.accent }}>
+                  Open contact link
+                </p>
               </a>
             ))}
             {visibleActionButtons.length > 0 ? (
@@ -466,12 +577,35 @@ export function Repo2SitePublicPage({ record }: { record: SharedPortfolioRecord 
             <p className="text-sm leading-7 sm:text-base">{section.description.value}</p>
           ) : null}
         </div>
+        {section.imageUrl.trim() ? (
+          <div className="overflow-hidden rounded-[1.4rem] border" style={themeStyles.surface}>
+            <img
+              src={section.imageUrl}
+              alt={section.title.value || "Custom section image"}
+              className="h-auto w-full object-cover"
+            />
+          </div>
+        ) : null}
+        {section.cards.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {section.cards.map((card) => (
+              <div key={card.id} className="rounded-[1.2rem] border p-4" style={themeStyles.surface}>
+                <h3 className="text-lg font-semibold tracking-tight">{card.title.value || "Subsection"}</h3>
+                {card.description.value.trim() ? (
+                  <p className="mt-2 text-sm leading-6" style={themeStyles.muted}>
+                    {card.description.value}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>,
     ]),
   );
   const sectionRows = visibleSections.reduce<Array<{ id: string; items: typeof visibleSections }>>((rows, component) => {
     const rowId =
-      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects" || component.type === "hero"
+      portfolio.appearance.sectionLayout === "stacked" || component.type === "projects"
         ? component.id
         : component.rowId || component.id;
     const row = rows.find((item) => item.id === rowId);

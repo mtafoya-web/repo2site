@@ -92,6 +92,12 @@ export type FinalPortfolio = {
     id: string;
     title: ResolvedField;
     description: ResolvedField;
+    imageUrl: string;
+    cards: Array<{
+      id: string;
+      title: ResolvedField;
+      description: ResolvedField;
+    }>;
   }>;
   repositories: ResolvedPreviewRepository[];
   techStack: string[];
@@ -132,6 +138,7 @@ export const DEFAULT_APPEARANCE: PortfolioAppearance = {
   colorMode: "dark",
   density: "compact",
   sectionLayout: "split",
+  projectLayout: "mixed",
   cardStyle: "soft",
 };
 
@@ -153,7 +160,6 @@ type SectionLayoutRole = "full" | "heavy" | "light";
 
 function getSectionLayoutRole(sectionType: PortfolioSectionType): SectionLayoutRole {
   switch (sectionType) {
-    case "hero":
     case "projects":
       return "full";
     case "links":
@@ -187,10 +193,7 @@ export function canSectionsShareRow(
     return false;
   }
 
-  const leftRole = getSectionLayoutRole(leftComponent.type);
-  const rightRole = getSectionLayoutRole(rightComponent.type);
-
-  return !(leftRole === "heavy" && rightRole === "heavy");
+  return true;
 }
 
 export function getAllowedRowWidthRatios(
@@ -965,6 +968,12 @@ export function buildFinalPortfolio(
     id: section.id,
     title: resolveTextField(section.title || "Custom section", section.title),
     description: resolveTextField(section.description, section.description),
+    imageUrl: section.imageUrl.trim(),
+    cards: section.cards.map((card) => ({
+      id: card.id,
+      title: resolveTextField(card.title || "Card", card.title),
+      description: resolveTextField(card.description, card.description),
+    })),
   }));
 
   return {
