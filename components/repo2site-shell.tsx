@@ -6254,6 +6254,16 @@ export function Repo2SiteShell() {
       { id: "theme", label: "Theme" },
       { id: "section", label: "Section" },
     ];
+    const inactiveInspectorTabStyle =
+      renderTheme === "dark"
+        ? appThemeStyles.ghostButton
+        : {
+            ...appThemeStyles.ghostButton,
+            backgroundColor: "#ffffff",
+            borderColor: "rgba(71, 85, 105, 0.22)",
+            color: "#334155",
+            boxShadow: "0 8px 22px -18px rgba(15, 23, 42, 0.16)",
+          };
 
     return (
       <div className="grid gap-4">
@@ -6272,8 +6282,8 @@ export function Repo2SiteShell() {
               key={tab.id}
               type="button"
               onClick={() => setActiveInspectorTab(tab.id)}
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
-              style={activeInspectorTab === tab.id ? appThemeStyles.accentButton : appThemeStyles.ghostButton}
+              className="min-w-[8.5rem] rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em]"
+              style={activeInspectorTab === tab.id ? appThemeStyles.accentButton : inactiveInspectorTabStyle}
             >
               {tab.label}
             </button>
